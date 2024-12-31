@@ -7,8 +7,9 @@ import transformers
 import numpy as np
 from llamea import ExperimentLogger, Individual
 
-if torch.cuda.is_available():                        
-    print(f"CUDA is available. PyTorch is using GPU: {torch.cuda.get_device_name(0)}")
+if torch.cuda.is_available():
+    print(
+        f"CUDA is available. PyTorch is using GPU: {torch.cuda.get_device_name(0)}")
     print(f"GPU device count: {torch.cuda.device_count()}")
     print(f"Current device index: {torch.cuda.current_device()}")
 else:
@@ -163,7 +164,7 @@ def llm_chat(client, model_name, session_messages, logger, generation,
 
 
 def mutation_on_same_code(model_name="gpt-4o", experiment_name=None,
-                          mutation_prompt=None, budget=20):
+                          mutation_prompt=None, budget=100):
     logger = ExperimentLogger(f"LLaMEA-{model_name}-{experiment_name}")
     session_messages = [
         {"role": "system", "content": role_prompt},
@@ -209,6 +210,53 @@ def mutation_on_same_code(model_name="gpt-4o", experiment_name=None,
     return code_diffs
 
 
+def mutation_on_different_code(model_name="gpt-4o", experiment_name=None,
+                               mutation_prompt=None, budget=100):
+    code_diffs = []
+    for i in range(budget):
+        logger = ExperimentLogger(f"LLaMEA-{model_name}-{experiment_name}-{i}")
+        session_messages = [
+            {"role": "system", "content": role_prompt},
+            {
+                "role": "user",
+                "content": task_prompt + output_format_prompt,
+            },
+        ]
+        if "gpt" in model_name:
+            api_key = os.getenv("OPENAI_API_KEY")
+            client = openai.OpenAI(api_key=api_key)
+        elif "Llama" in model_name:
+            model_id = f"meta-llama/{model_name}"
+            client = transformers.pipeline(
+                "text-generation",
+                model=model_id,
+                model_kwargs={"torch_dtype": torch.bfloat16},
+                device_map="auto",
+            )
+        init_individual = llm_chat(client, model_name, session_messages, logger, 0)
+        generation = 1
+        print(f"{logger.dirname}: generation {generation}")
+        new_prompt = construct_prompt(init_individual, mutation_prompt)
+        evolved_individual = init_individual.copy()
+        try:
+            evolved_individual = llm_chat(client, model_name, new_prompt,
+                                          logger, generation,
+                                          init_individual.id)
+        except NoCodeException:
+            print(
+                "No code was extracted. The code should be encapsulated with ``` in your response.",
+                "The code should be encapsulated with ``` in your response.",
+            )
+        except Exception as e:
+            error = repr(e)
+            print(f"An exception occurred: {error}.", error)
+        if evolved_individual is not None:
+            code_diffs += [code_compare(init_individual.solution,
+                                        evolved_individual.solution)]
+        generation += 1
+    return code_diffs
+
+
 def evalutate_mutation_prompt(model_name="gpt-4o", experiment_name=None,
                               mutation_prompt=None, budget=20):
     return mutation_on_same_code(model_name, experiment_name,
@@ -219,4 +267,5 @@ def ape_lite():
     pass
 
 
-mutation_on_same_code("Llama-3.3-70B-Instruct", "20", None, 100)
+# mutation_on_same_code("Llama-3.3-70B-Instruct", "20", None, 100)
+mutation_on_different_code("gpt-3.5-turbo", "mutation_on_different_code_20", None, 100)
