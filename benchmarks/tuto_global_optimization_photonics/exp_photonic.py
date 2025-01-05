@@ -165,43 +165,43 @@ def evaluatePhotonic(solution, details=False):
     return solution
 
 
-# api_key = os.getenv("OPENAI_API_KEY")
-# ai_model = "gpt-4o"  # gpt-4-turbo or gpt-3.5-turbo gpt-4o llama3:70b
-# experiment_name = "Photonic03"
+api_key = os.getenv("OPENAI_API_KEY")
+ai_model = "gpt-4o"  # gpt-4-turbo or gpt-3.5-turbo gpt-4o llama3:70b
+experiment_name = "Photonic03"
 
-# task_prompt = """
-# The optimization algorithm should handle a wide range of tasks, which is evaluated on real-world applications, Global optimization of photonic structures. Your task is to write the optimization algorithm in Python code. The code should contain an `__init__(self, budget, dim)` function and the function `def __call__(self, func)`, which should optimize the black box function `func` using `self.budget` function evaluations.
-# The func() can only be called as many times as the budget allows, not more. Each of the optimization functions has a search space between func.bounds.lb (lower bound) and func.bounds.ub (upper bound). The dimensionality can be varied.
-# Give an excellent and novel heuristic algorithm to solve this task and also give it a one-line description with the main idea.
-# """
+task_prompt = """
+The optimization algorithm should handle a wide range of tasks, which is evaluated on real-world applications, Global optimization of photonic structures. Your task is to write the optimization algorithm in Python code. The code should contain an `__init__(self, budget, dim)` function and the function `def __call__(self, func)`, which should optimize the black box function `func` using `self.budget` function evaluations.
+The func() can only be called as many times as the budget allows, not more. Each of the optimization functions has a search space between func.bounds.lb (lower bound) and func.bounds.ub (upper bound). The dimensionality can be varied.
+Give an excellent and novel heuristic algorithm to solve this task and also give it a one-line description with the main idea.
+"""
 
-# for experiment_i in range(1):
-#     # A 1+1 strategy
-#     es = LLaMEA(evaluatePhotonic, n_parents=1, n_offspring=1, api_key=api_key,
-#                 task_prompt=task_prompt, experiment_name=experiment_name,
-#                 model=ai_model, elitism=True, HPO=False, budget=100)
-#     print(es.run())
+for experiment_i in range(1):
+    # A 1+1 strategy
+    es = LLaMEA(evaluatePhotonic, n_parents=1, n_offspring=1, api_key=api_key,
+                task_prompt=task_prompt, experiment_name=experiment_name,
+                model=ai_model, elitism=True, HPO=False, budget=100)
+    print(es.run())
 
 
-import time
+# import time
 
-problems = get_photonic_instances()
-for prob in problems:
-    print(prob.meta_data.n_variables)
-    start_time = time.time()
-    dim = prob.meta_data.n_variables
-    xs = np.random.uniform(prob.bounds.lb, prob.bounds.ub, (100*dim, dim))
-    y_min = np.inf
-    y_max = -np.inf
-    for x in xs:
-        y = prob(x)
-        y_min = min(y_min, y)
-        y_max = max(y_max, y)
-    print(f"Min: {y_min}, Max: {y_max}")
-    end_time = time.time()
-    print(f"Time: {end_time - start_time}")
-#     for i in range(100*prob.meta_data.n_variables):
-#         x = np.random.uniform(prob.bounds.lb, prob.bounds.ub)
+# problems = get_photonic_instances()
+# for prob in problems:
+#     print(prob.meta_data.n_variables)
+#     start_time = time.time()
+#     dim = prob.meta_data.n_variables
+#     xs = np.random.uniform(prob.bounds.lb, prob.bounds.ub, (100*dim, dim))
+#     y_min = np.inf
+#     y_max = -np.inf
+#     for x in xs:
 #         y = prob(x)
-#         if i % 100 == 0:
-#             print(f"{i}: {prob(x)}")
+#         y_min = min(y_min, y)
+#         y_max = max(y_max, y)
+#     print(f"Min: {y_min}, Max: {y_max}")
+#     end_time = time.time()
+#     print(f"Time: {end_time - start_time}")
+# #     for i in range(100*prob.meta_data.n_variables):
+# #         x = np.random.uniform(prob.bounds.lb, prob.bounds.ub)
+# #         y = prob(x)
+# #         if i % 100 == 0:
+# #             print(f"{i}: {prob(x)}")
