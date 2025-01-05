@@ -130,11 +130,11 @@ Provide the Python code, a one-line description with the main idea (without ente
 ```
 Space: <configuration_space>"""
         self.mutation_prompts = mutation_prompts
-        # if mutation_prompts == None:
-        #     self.mutation_prompts = [
-        #         "Refine the strategy of the selected solution to improve it.",  # small mutation
-        #         "Generate a new algorithm that is different from the solutions you have tried before.", #new random solution
-        #     ]
+        if mutation_prompts == None:
+            self.mutation_prompts = [
+                "Refine the strategy of the selected solution to improve it.",  # small mutation
+                "Generate a new algorithm that is different from the solutions you have tried before.", #new random solution
+            ]
         self.budget = budget
         self.n_parents = n_parents
         self.n_offspring = n_offspring
@@ -284,15 +284,16 @@ Space: <configuration_space>"""
         # TODO make a random selection between multiple feedback prompts (mutations)
         num_lines = len(solution.split("\n"))
         print(f"number of lines: {num_lines}")
-        prob = discrete_power_law_distribution(num_lines, 1.5)
-        # prob = 0.05
+        # prob = discrete_power_law_distribution(num_lines, 1.5)
+        prob = 0.4
         mutation_operator = f"""
-Modify the optimization algorithm code to improve its performance in terms of 
-convergence speed. The modification should result in a code difference of 
-exactly {(prob*100):.1f}%. Ensure that the changes are meaningful to enhance 
-optimization speed without focusing on code efficiency or readability 
-improvements. Explore any strategy within the algorithm to achieve this, 
-but keep the difference precisely at the specified percentage.
+Now, refine the strategy of the selected solution to improve it. Make sure you 
+only change {(prob*100):.1f}% of the code, which means if the code has 100 lines, you 
+can only change {prob*100} lines, and the rest lines should remain the same. For 
+this code, it has {num_lines} lines, so you can only change {max(1, int(prob*num_lines))}
+lines, the rest {num_lines-max(1, int(prob*num_lines))} lines should remain the same. 
+This changing rate {(prob*100):.1f}% is the mandatory requirement, you cannot change 
+more or less than this rate.
 """
         # mutation_operator = random.choice(self.mutation_prompts)
         individual.set_mutation_prompt(mutation_operator)

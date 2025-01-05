@@ -40,7 +40,7 @@ class ExperimentLogger:
             str: The name of the created directory.
         """
         today = datetime.today().strftime("%m-%d_%H%M%S")
-        dirname = f"exp_data/CAI/rerun/exp-{today}-{name}"
+        dirname = f"exp_data/CAI/exp-{today}-{name}"
         os.mkdir(dirname)
         os.mkdir(f"{dirname}/configspace")
         os.mkdir(f"{dirname}/code")

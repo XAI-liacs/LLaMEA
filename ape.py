@@ -95,7 +95,7 @@ def construct_prompt(individual, mutation_prompt):
     description = individual.description
     feedback = individual.feedback
     num_lines = len(solution.split("\n"))
-    prob = 0.2
+    prob = 0.4
     mutation_operator = f"""
 Now, refine the strategy of the selected solution to improve it. Make sure you 
 only change {(prob*100):.1f}% of the code, which means if the code has 100 lines, you 
@@ -267,5 +267,5 @@ def ape_lite():
     pass
 
 
-# mutation_on_same_code("Llama-3.3-70B-Instruct", "20", None, 100)
-mutation_on_different_code("gpt-3.5-turbo", "mutation_on_different_code_20", None, 100)
+# mutation_on_same_code("gpt-3.5-turbo", "40", None, 100)
+mutation_on_different_code("gpt-3.5-turbo", "mutation_on_different_code_40", None, 100)

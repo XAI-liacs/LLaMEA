@@ -29,39 +29,39 @@ def get_photonic_instances():
     # problem.bounds.lb = prob.lb
     # problem.bounds.ub = prob.ub
     # problems.append(problem)
-    # # ------- define "ellipsometry" optimization problem
-    # mat_env = 1.0
-    # mat_substrate = 'Gold'
-    # nb_layers = 1
-    # min_thick = 50     # nm
-    # max_thick = 150
-    # min_eps = 1.1      # permittivity
-    # max_eps = 3
-    # wavelengths = np.linspace(400, 800, 31)  # nm
-    # angle = 40*np.pi/180  # rad
-    # prob = ellipsometry(mat_env, mat_substrate, nb_layers, min_thick, max_thick,
-    #                     min_eps, max_eps, wavelengths, angle)
-    # ioh.problem.wrap_real_problem(prob, name="ellipsometry",
-    #                               optimization_type=ioh.OptimizationType.MIN,)
-    # problem = ioh.get_problem("ellipsometry", dimension=prob.n)
-    # problem.bounds.lb = prob.lb
-    # problem.bounds.ub = prob.ub
-    # problems.append(problem)
-    # ------- define "sophisticated antireflection" optimization problem
-    nb_layers = 10
-    min_thick = 30
-    max_thick = 250
-    wl_min = 375
-    wl_max = 750
-    prob = sophisticated_antireflection_design(nb_layers, min_thick, max_thick,
-                                               wl_min, wl_max)
-    ioh.problem.wrap_real_problem(prob, name="sophisticated_antireflection_design",
-                                  optimization_type=ioh.OptimizationType.MIN)
-    problem = ioh.get_problem("sophisticated_antireflection_design",
-                              dimension=prob.n)
+    # ------- define "ellipsometry" optimization problem
+    mat_env = 1.0
+    mat_substrate = 'Gold'
+    nb_layers = 1
+    min_thick = 50     # nm
+    max_thick = 150
+    min_eps = 1.1      # permittivity
+    max_eps = 3
+    wavelengths = np.linspace(400, 800, 31)  # nm
+    angle = 40*np.pi/180  # rad
+    prob = ellipsometry(mat_env, mat_substrate, nb_layers, min_thick, max_thick,
+                        min_eps, max_eps, wavelengths, angle)
+    ioh.problem.wrap_real_problem(prob, name="ellipsometry",
+                                  optimization_type=ioh.OptimizationType.MIN,)
+    problem = ioh.get_problem("ellipsometry", dimension=prob.n)
     problem.bounds.lb = prob.lb
     problem.bounds.ub = prob.ub
     problems.append(problem)
+    # # ------- define "sophisticated antireflection" optimization problem
+    # nb_layers = 10
+    # min_thick = 30
+    # max_thick = 250
+    # wl_min = 375
+    # wl_max = 750
+    # prob = sophisticated_antireflection_design(nb_layers, min_thick, max_thick,
+    #                                            wl_min, wl_max)
+    # ioh.problem.wrap_real_problem(prob, name="sophisticated_antireflection_design",
+    #                               optimization_type=ioh.OptimizationType.MIN)
+    # problem = ioh.get_problem("sophisticated_antireflection_design",
+    #                           dimension=prob.n)
+    # problem.bounds.lb = prob.lb
+    # problem.bounds.ub = prob.ub
+    # problems.append(problem)
     # # ------- define "2D grating" optimization problem
     # nb_layers = 5
     # min_w = 0
@@ -124,22 +124,22 @@ def evaluatePhotonic(solution, details=False):
     for i in range(len(problems)):
         problem = problems[i]
         dim = problem.meta_data.n_variables
-        budget = 500 * dim
+        budget = 1000 * dim
         l2 = aoc_logger(budget, upper=1e2, triggers=[
                         ioh.logger.trigger.ALWAYS])
         problem.attach_logger(l2)
-        # for rep in range(3):
-        np.random.seed(0)
-        try:
-            algorithm = globals()[algorithm_name](budget=budget, dim=dim)
-            algorithm(problem)
-        except OverBudgetException:
-            pass
-        auc = correct_aoc(problem, l2, budget)
-        aucs.append(auc)
-        detail_aucs.append(auc)
-        l2.reset(problem)
-        problem.reset()
+        for rep in range(2):
+            np.random.seed(rep)
+            try:
+                algorithm = globals()[algorithm_name](budget=budget, dim=dim)
+                algorithm(problem)
+            except OverBudgetException:
+                pass
+            auc = correct_aoc(problem, l2, budget)
+            aucs.append(auc)
+            detail_aucs.append(auc)
+            l2.reset(problem)
+            problem.reset()
         detailed_aucs[i] = np.mean(detail_aucs)
         detail_aucs = []
     auc_mean = np.mean(aucs)
@@ -166,28 +166,33 @@ def evaluatePhotonic(solution, details=False):
     return solution
 
 
-# api_key = os.getenv("OPENAI_API_KEY")
-# ai_model = "gpt-4o"  # gpt-4-turbo or gpt-3.5-turbo gpt-4o llama3:70b
-# experiment_name = "Photonic03"
+api_key = os.getenv("OPENAI_API_KEY")
+ai_model = "gpt-4o"  # gpt-4-turbo or gpt-3.5-turbo gpt-4o llama3:70b
+experiment_name = "default-Photonic02"
 
-# task_prompt = """
-# The optimization algorithm should handle a wide range of tasks, which is evaluated on real-world applications, Global optimization of photonic structures. Your task is to write the optimization algorithm in Python code. The code should contain an `__init__(self, budget, dim)` function and the function `def __call__(self, func)`, which should optimize the black box function `func` using `self.budget` function evaluations.
-# The func() can only be called as many times as the budget allows, not more. Each of the optimization functions has a search space between func.bounds.lb (lower bound) and func.bounds.ub (upper bound). The dimensionality can be varied.
-# Give an excellent and novel heuristic algorithm to solve this task and also give it a one-line description with the main idea.
-# """
+task_prompt = """
+The optimization algorithm should handle a wide range of tasks, which is evaluated on real-world applications, Global optimization of photonic structures. Your task is to write the optimization algorithm in Python code. The code should contain an `__init__(self, budget, dim)` function and the function `def __call__(self, func)`, which should optimize the black box function `func` using `self.budget` function evaluations.
+The func() can only be called as many times as the budget allows, not more. Each of the optimization functions has a search space between func.bounds.lb (lower bound) and func.bounds.ub (upper bound). The dimensionality can be varied.
+Give an excellent and novel heuristic algorithm to solve this task and also give it a one-line description with the main idea.
+"""
 
-# for experiment_i in range(5):
-#     # A 1+1 strategy
-#     es = LLaMEA(evaluatePhotonic, n_parents=1, n_offspring=1, api_key=api_key,
-#                 task_prompt=task_prompt, experiment_name=experiment_name,
-#                 model=ai_model, elitism=True, HPO=False, budget=100)
-#     print(es.run())
+for experiment_i in range(2):
+    # A 1+1 strategy
+    es = LLaMEA(evaluatePhotonic, n_parents=1, n_offspring=1, api_key=api_key,
+                task_prompt=task_prompt, experiment_name=experiment_name,
+                model=ai_model, elitism=True, HPO=False, budget=100)
+    print(es.run())
 
 
-problems = get_photonic_instances()
-for prob in problems:
-    for i in range(500*prob.meta_data.n_variables):
-        x = np.random.uniform(prob.bounds.lb, prob.bounds.ub)
-        y = prob(x)
-        if i % 100 == 0:
-            print(f"{i}: {prob(x)}")
+# import time
+
+# problems = get_photonic_instances()
+# start_time = time.time()
+# for prob in problems:
+#     for i in range(100*prob.meta_data.n_variables):
+#         x = np.random.uniform(prob.bounds.lb, prob.bounds.ub)
+#         y = prob(x)
+#         if i % 100 == 0:
+#             print(f"{i}: {prob(x)}")
+# end_time = time.time()
+# print(f"Time: {end_time - start_time}")
