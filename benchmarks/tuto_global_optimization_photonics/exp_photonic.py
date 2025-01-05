@@ -16,7 +16,7 @@ from pyGDM2 import structures
 def get_photonic_instances():
     problems = []
     # ------- define "mini-bragg" optimization problem
-    nb_layers = 10     # number of layers of full stack
+    nb_layers = 6     # number of layers of full stack
     target_wl = 600.0  # nm
     mat_env = 1.0      # materials: ref. index
     mat1 = 1.4
@@ -31,7 +31,7 @@ def get_photonic_instances():
     # ------- define "ellipsometry" optimization problem
     mat_env = 1.0
     mat_substrate = 'Gold'
-    nb_layers = 1
+    nb_layers = 3
     min_thick = 50     # nm
     max_thick = 150
     min_eps = 1.1      # permittivity
@@ -47,7 +47,7 @@ def get_photonic_instances():
     problem.bounds.ub = prob.ub
     problems.append(problem)
     # ------- define "sophisticated antireflection" optimization problem
-    nb_layers = 10
+    nb_layers = 6
     min_thick = 30
     max_thick = 250
     wl_min = 375
@@ -62,7 +62,7 @@ def get_photonic_instances():
     problem.bounds.ub = prob.ub
     problems.append(problem)
     # # ------- define "2D grating" optimization problem
-    # nb_layers = 5
+    # nb_layers = 2
     # min_w = 0
     # max_w = 600
     # min_thick = 0
@@ -187,6 +187,7 @@ import time
 
 problems = get_photonic_instances()
 for prob in problems:
+    print(prob.meta_data.n_variables)
     start_time = time.time()
     dim = prob.meta_data.n_variables
     xs = np.random.uniform(prob.bounds.lb, prob.bounds.ub, (100*dim, dim))
