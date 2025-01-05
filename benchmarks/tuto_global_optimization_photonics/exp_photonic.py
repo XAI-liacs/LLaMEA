@@ -124,10 +124,10 @@ def evaluatePhotonic(solution, details=False):
         problem = problems[i]
         dim = problem.meta_data.n_variables
         budget = 100 * dim
-        l2 = aoc_logger(budget, upper=1e2, triggers=[
+        l2 = aoc_logger(budget, upper=1.5, triggers=[
                         ioh.logger.trigger.ALWAYS])
         problem.attach_logger(l2)
-        for rep in range(1):
+        for rep in range(3):
             np.random.seed(rep)
             try:
                 algorithm = globals()[algorithm_name](budget=budget, dim=dim)
