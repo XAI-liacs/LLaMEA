@@ -284,8 +284,8 @@ Space: <configuration_space>"""
         # TODO make a random selection between multiple feedback prompts (mutations)
         num_lines = len(solution.split("\n"))
         print(f"number of lines: {num_lines}")
-        # prob = discrete_power_law_distribution(num_lines, 1.5)
-        prob = 0.4
+        prob = discrete_power_law_distribution(num_lines, 1.5)
+        # prob = 0.4
         mutation_operator = f"""
 Now, refine the strategy of the selected solution to improve it. Make sure you 
 only change {(prob*100):.1f}% of the code, which means if the code has 100 lines, you 
