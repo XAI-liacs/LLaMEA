@@ -67,12 +67,11 @@ class ellipsometry(photonic_problem):
         """
         structure = self.setup_structure(x)
         # the actual PyMoosh reflectivity simulation
-        ellips = np.zeros(len(self.wavelengths), dtype=np.complex128)
+        ellips = np.zeros(len(self.wavelengths), dtype=complex)
         for i, wav in enumerate(self.wavelengths):
             r_s, _, _, _ = pm.coefficient(structure, wav, self.angle, 0)
             r_p, _, _, _ = pm.coefficient(structure, wav, self.angle, 1)
             ellips[i] = r_p/r_s
         # diff = ellips - ref_ellipso
-        cost = np.mean(np.abs(ellips.imag - self.ref_ellipso.imag)**2 +
-                       np.abs(ellips.real - self.ref_ellipso.real)**2)
+        cost = np.sum(np.abs(ellips - self.ref_ellipso))
         return cost

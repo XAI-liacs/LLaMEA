@@ -11,23 +11,25 @@ from pyGDM2 import fields
 from pyGDM2 import core
 from pyGDM2 import propagators
 from pyGDM2 import structures
+import nevergrad as ng
+ng.optimizers
 
 
 def get_photonic_instances():
     problems = []
-    # ------- define "mini-bragg" optimization problem
-    nb_layers = 6     # number of layers of full stack
-    target_wl = 600.0  # nm
-    mat_env = 1.0      # materials: ref. index
-    mat1 = 1.4
-    mat2 = 1.8
-    prob = brag_mirror(nb_layers, target_wl, mat_env, mat1, mat2)
-    ioh.problem.wrap_real_problem(prob, name="brag_mirror",
-                                  optimization_type=ioh.OptimizationType.MIN)
-    problem = ioh.get_problem("brag_mirror", dimension=prob.n)
-    problem.bounds.lb = prob.lb
-    problem.bounds.ub = prob.ub
-    problems.append(problem)
+    # # ------- define "mini-bragg" optimization problem
+    # nb_layers = 6     # number of layers of full stack
+    # target_wl = 600.0  # nm
+    # mat_env = 1.0      # materials: ref. index
+    # mat1 = 1.4
+    # mat2 = 1.8
+    # prob = brag_mirror(nb_layers, target_wl, mat_env, mat1, mat2)
+    # ioh.problem.wrap_real_problem(prob, name="brag_mirror",
+    #                               optimization_type=ioh.OptimizationType.MIN)
+    # problem = ioh.get_problem("brag_mirror", dimension=prob.n)
+    # problem.bounds.lb = prob.lb
+    # problem.bounds.ub = prob.ub
+    # problems.append(problem)
     # ------- define "ellipsometry" optimization problem
     mat_env = 1.0
     mat_substrate = 'Gold'
@@ -36,7 +38,7 @@ def get_photonic_instances():
     max_thick = 150
     min_eps = 1.1      # permittivity
     max_eps = 3
-    wavelengths = np.linspace(400, 800, 31)  # nm
+    wavelengths = np.linspace(400, 800, 100)  # nm
     angle = 40*np.pi/180  # rad
     prob = ellipsometry(mat_env, mat_substrate, nb_layers, min_thick, max_thick,
                         min_eps, max_eps, wavelengths, angle)
@@ -46,21 +48,21 @@ def get_photonic_instances():
     problem.bounds.lb = prob.lb
     problem.bounds.ub = prob.ub
     problems.append(problem)
-    # ------- define "sophisticated antireflection" optimization problem
-    nb_layers = 6
-    min_thick = 30
-    max_thick = 250
-    wl_min = 375
-    wl_max = 750
-    prob = sophisticated_antireflection_design(nb_layers, min_thick, max_thick,
-                                               wl_min, wl_max)
-    ioh.problem.wrap_real_problem(prob, name="sophisticated_antireflection_design",
-                                  optimization_type=ioh.OptimizationType.MIN)
-    problem = ioh.get_problem("sophisticated_antireflection_design",
-                              dimension=prob.n)
-    problem.bounds.lb = prob.lb
-    problem.bounds.ub = prob.ub
-    problems.append(problem)
+    # # ------- define "sophisticated antireflection" optimization problem
+    # nb_layers = 10
+    # min_thick = 30
+    # max_thick = 250
+    # wl_min = 375
+    # wl_max = 750
+    # prob = sophisticated_antireflection_design(nb_layers, min_thick, max_thick,
+    #                                            wl_min, wl_max)
+    # ioh.problem.wrap_real_problem(prob, name="sophisticated_antireflection_design",
+    #                               optimization_type=ioh.OptimizationType.MIN)
+    # problem = ioh.get_problem("sophisticated_antireflection_design",
+    #                           dimension=prob.n)
+    # problem.bounds.lb = prob.lb
+    # problem.bounds.ub = prob.ub
+    # problems.append(problem)
     # # ------- define "2D grating" optimization problem
     # nb_layers = 2
     # min_w = 0
@@ -123,8 +125,8 @@ def evaluatePhotonic(solution, details=False):
     for i in range(len(problems)):
         problem = problems[i]
         dim = problem.meta_data.n_variables
-        budget = 100 * dim
-        l2 = aoc_logger(budget, upper=1.5, triggers=[
+        budget = 500 * dim
+        l2 = aoc_logger(budget, upper=40, triggers=[
                         ioh.logger.trigger.ALWAYS])
         problem.attach_logger(l2)
         for rep in range(3):
@@ -167,7 +169,7 @@ def evaluatePhotonic(solution, details=False):
 
 api_key = os.getenv("OPENAI_API_KEY")
 ai_model = "gpt-4o"  # gpt-4-turbo or gpt-3.5-turbo gpt-4o llama3:70b
-experiment_name = "Photonic03"
+experiment_name = "Photonic02"
 
 task_prompt = """
 The optimization algorithm should handle a wide range of tasks, which is evaluated on real-world applications, Global optimization of photonic structures. Your task is to write the optimization algorithm in Python code. The code should contain an `__init__(self, budget, dim)` function and the function `def __call__(self, func)`, which should optimize the black box function `func` using `self.budget` function evaluations.
