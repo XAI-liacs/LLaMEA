@@ -5,7 +5,7 @@ from .photonic_problem import photonic_problem
 
 class sophisticated_antireflection_design(photonic_problem):
     def __init__(self, nb_layers, min_thick, max_thick, wl_min, wl_max,
-                 thick_aSi=30000, number_pts=50, pola=0, incidence=0):
+                 thick_aSi=30000, number_pts=300, pola=0, incidence=0):
         super().__init__()
         self.n = nb_layers
         self.nb_layers = nb_layers

@@ -2,6 +2,7 @@
 # !pip install nevergrad==1.0.0
 
 # Let us get rid of some deprecation warning in SkLearn.
+import sys
 import warnings
 warnings.filterwarnings("ignore", category=DeprecationWarning)
 warnings.filterwarnings("ignore", category=FutureWarning)
@@ -22,8 +23,12 @@ def get_color(o):  # Converting a string into a color.
 
 # Please modify the parameters below at your best convenience.
 maximum_time_per_run_in_seconds = 6000  # Maximum number of seconds per run (then: interruption).
-num_experiments = 15  # Number of times we reproduce each experiments.
+num_experiments = 1  # Number of times we reproduce each experiments.
 maximum_optimization_overhead = 50  # Maximum ratio between the computational cost and the computational cost of the objective function only.
+optims_id = int(sys.argv[1])  # The optimization id is used to generate the output file.
+run_id = int(sys.argv[2])  # The run id is used to generate the output file.
+list_optims_choice = ["CMA", "QODE", "BFGS", "QNDE", "DE"]
+list_optims = [list_optims_choice[optims_id]]  # The list of optimization methods we want to compare.
 
 Init = -7.0
 Grad = True
@@ -35,7 +40,7 @@ Factor = 0
 
 # List of optimization methods in the extended setup.
 # list_optims = ["ChainMetaModelSQP", "MetaModel", "SQP", "CMA", "DE", "RotatedTwoPointsDE", "OnePlusOne", "QODE", "QNDE", "TwoPointsDE", "PSO", "GeneticDE", "NelderMead", "Cobyla" ,"Powell"]
-list_optims = ["CMA", "QODE", "BFGS", "QNDE", "DE"]
+# list_optims = ["CMA", "QODE", "BFGS", "QNDE", "DE"] # , "QODE", "BFGS", "QNDE", "DE"
 #list_optims = ["NGOpt", "NGOptRW", "DE", "QODE", "QNDE", "BFGS", "GradBFGS", "CMA"]
 # if you want more, you might add:  list_optims += ["BayesOptimBO", "PCABO", "RCobyla", "Shiwa", "CMandAS2", "NGOpt", "NGOptRW"]
 
@@ -94,7 +99,7 @@ else:
 
 dim = 2 * nb_layers if "ellipsometry" in obj_name else nb_layers
 
-budget = dim * 200
+budget = dim * 500
 if obj_name == "ellipsometry":
   budget = 1000
 
@@ -204,6 +209,7 @@ if run_performance:
         computational_cost[optim_name] = []
         yval[optim_name] = []
         for xp in range(num_experiments):
+            print(f"Experiment {xp+1} out of {num_experiments}.")
             start_time = time.time()
             # We slightly randomize the upper bound, for checking the robustness.
             r = 0. if xp == 0 else (
@@ -236,6 +242,8 @@ if run_performance:
             xval = []
             obj_time = float("inf")
             for k in range(budget):
+                if k % 200 == 0:
+                    print(f"Step {k+1} out of {budget}.")
                 if time.time() - t0 < min(maximum_time_per_run_in_seconds, maximum_optimization_overhead * (k+1) * obj_time):
                     x = optim.ask()
                     t1 = time.time()
@@ -271,6 +279,6 @@ for run in range(num_experiments):
             values += [[k, xval[i], yval[k][i][run], run]]
 import pandas as pd
 df = pd.DataFrame(values, columns=keys)
-df.to_csv(f"exp_data/CAI/{obj_name}.csv", index=False)
+df.to_csv(f"exp_data/CAI/benchmark/{obj_name}_{list_optims[0]}_{run_id}.csv", index=False)
 print(df)
 # print(np.array(values))
