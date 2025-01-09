@@ -54,6 +54,7 @@ class sophisticated_antireflection_design(photonic_problem):
         Returns:
             float: 1 - Reflectivity at target wavelength
         """
+        x = np.clip(x, self.lb, self.ub)
         structure = self.setup_structure(x)
         # the actual PyMoosh reflectivity simulation
         active_lay = len(x)+1

@@ -286,7 +286,7 @@ Space: <configuration_space>"""
         print(f"number of lines: {num_lines}")
         prob = discrete_power_law_distribution(num_lines, 1.5)
         # prob = 0.4
-        mutation_operator = f"""
+        new_mutation_prompt = f"""
 Now, refine the strategy of the selected solution to improve it. Make sure you 
 only change {(prob*100):.1f}% of the code, which means if the code has 100 lines, you 
 can only change {prob*100} lines, and the rest lines should remain the same. For 
@@ -295,7 +295,8 @@ lines, the rest {num_lines-max(1, int(prob*num_lines))} lines should remain the 
 This changing rate {(prob*100):.1f}% is the mandatory requirement, you cannot change 
 more or less than this rate.
 """
-        # mutation_operator = random.choice(self.mutation_prompts)
+        self.mutation_prompts += [new_mutation_prompt]
+        mutation_operator = random.choice(self.mutation_prompts)
         individual.set_mutation_prompt(mutation_operator)
 
         final_prompt = f"""{self.task_prompt}

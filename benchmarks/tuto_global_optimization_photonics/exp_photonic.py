@@ -6,19 +6,12 @@ sys.path.append(".")
 from photonics_benchmark import *
 from llamea import LLaMEA
 from misc import aoc_logger, correct_aoc, OverBudgetException
-from pyGDM2 import materials
-from pyGDM2 import fields
-from pyGDM2 import core
-from pyGDM2 import propagators
-from pyGDM2 import structures
-import nevergrad as ng
-ng.optimizers
 
 
 def get_photonic_instances():
     problems = []
     # # ------- define "mini-bragg" optimization problem
-    # nb_layers = 6     # number of layers of full stack
+    # nb_layers = 10     # number of layers of full stack
     # target_wl = 600.0  # nm
     # mat_env = 1.0      # materials: ref. index
     # mat1 = 1.4
@@ -33,7 +26,7 @@ def get_photonic_instances():
     # ------- define "ellipsometry" optimization problem
     mat_env = 1.0
     mat_substrate = 'Gold'
-    nb_layers = 3
+    nb_layers = 1
     min_thick = 50     # nm
     max_thick = 150
     min_eps = 1.1      # permittivity
@@ -114,7 +107,6 @@ def get_photonic_instances():
 def evaluatePhotonic(solution, details=False):
     auc_mean = 0
     auc_std = 0
-    detailed_aucs = [0, 0, 0, 0, 0]
     code = solution.solution
     algorithm_name = solution.name
     exec(code, globals())
@@ -122,27 +114,28 @@ def evaluatePhotonic(solution, details=False):
     detail_aucs = []
     algorithm = None
     problems = get_photonic_instances()
-    for i in range(len(problems)):
-        problem = problems[i]
-        dim = problem.meta_data.n_variables
-        budget = 500 * dim
-        l2 = aoc_logger(budget, upper=40, triggers=[
-                        ioh.logger.trigger.ALWAYS])
-        problem.attach_logger(l2)
-        for rep in range(3):
-            np.random.seed(rep)
-            try:
-                algorithm = globals()[algorithm_name](budget=budget, dim=dim)
-                algorithm(problem)
-            except OverBudgetException:
-                pass
-            auc = correct_aoc(problem, l2, budget)
-            aucs.append(auc)
-            detail_aucs.append(auc)
-            l2.reset(problem)
-            problem.reset()
-        detailed_aucs[i] = np.mean(detail_aucs)
-        detail_aucs = []
+
+    problem = problems[0]
+    dim = problem.meta_data.n_variables
+    budget = 500 * dim
+    l2 = aoc_logger(budget, upper=40, triggers=[ioh.logger.trigger.ALWAYS])
+    problem.attach_logger(l2)
+    final_y = []
+    for rep in range(3):
+        np.random.seed(rep)
+        try:
+            algorithm = globals()[algorithm_name](budget=budget, dim=dim)
+            algorithm(problem)
+        except OverBudgetException:
+            pass
+        auc = correct_aoc(problem, l2, budget)
+        aucs.append(auc)
+        detail_aucs.append(auc)
+        final_y += [problem.state.current_best.y]
+        l2.reset(problem)
+        problem.reset()
+    detail_aucs = []
+
     auc_mean = np.mean(aucs)
     auc_std = np.std(aucs)
     i = 0
@@ -150,18 +143,11 @@ def evaluatePhotonic(solution, details=False):
         i += 1
     np.save(f"currentexp/aucs-{algorithm_name}-{i}.npy", aucs)
 
-    feedback = f"The algorithm {algorithm_name} got an average Area over the convergence curve (AOCC, 1.0 is the best) score of {auc_mean:0.2f} with standard deviation {auc_std:0.2f}."
-    # if details:
-    #     feedback = (
-    #         f"{feedback}\nThe mean AOCC score of the algorithm {algorithm_name} on Optimization of a Bragg mirror was {detailed_aucs[0]:.02f}, "
-    #         f"on Solving of an ellipsometry inverse problem {detailed_aucs[1]:.02f}, "
-    #         f"on Design of a sophisticated antireflection coating to optimize solar absorption in a photovoltaic solar cell {detailed_aucs[2]:.02f}, "
-    #         f"on Optimization of a 2D grating for minimum specular reflectance at a given wavelength {detailed_aucs[3]:.02f}, "
-    #         f"and on Design of a plasmonic nanostructure for directional emission from a local emitter {detailed_aucs[4]:.02f}"
-    #     )
+    feedback = f"The algorithm {algorithm_name} got an average Area over the convergence curve (AOCC, 1.0 is the best) score of {auc_mean:0.3f} with standard deviation {auc_std:0.3f}. And the mean value of best solutions found was {np.mean(final_y):0.3f} (0. is the best)."
 
     print(algorithm_name, algorithm, auc_mean, auc_std)
     solution.add_metadata("aucs", aucs)
+    solution.add_metadata("final_y", final_y)
     solution.set_scores(auc_mean, feedback)
 
     return solution
@@ -172,7 +158,7 @@ ai_model = "gpt-4o"  # gpt-4-turbo or gpt-3.5-turbo gpt-4o llama3:70b
 experiment_name = "Photonic02"
 
 task_prompt = """
-The optimization algorithm should handle a wide range of tasks, which is evaluated on real-world applications, Global optimization of photonic structures. Your task is to write the optimization algorithm in Python code. The code should contain an `__init__(self, budget, dim)` function and the function `def __call__(self, func)`, which should optimize the black box function `func` using `self.budget` function evaluations.
+The optimization algorithm should handle a wide range of tasks, which is evaluated on real-world applications, optimization of multilayered photonic structures. Your task is to write the optimization algorithm in Python code. The code should contain an `__init__(self, budget, dim)` function and the function `def __call__(self, func)`, which should optimize the black box function `func` using `self.budget` function evaluations.
 The func() can only be called as many times as the budget allows, not more. Each of the optimization functions has a search space between func.bounds.lb (lower bound) and func.bounds.ub (upper bound). The dimensionality can be varied.
 Give an excellent and novel heuristic algorithm to solve this task and also give it a one-line description with the main idea.
 """

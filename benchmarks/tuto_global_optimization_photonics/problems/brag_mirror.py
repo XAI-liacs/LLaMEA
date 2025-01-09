@@ -52,6 +52,7 @@ class brag_mirror(photonic_problem):
         Returns:
             float: 1 - Reflectivity at target wavelength
         """
+        x = np.clip(x, self.lb, self.ub)
         structure = self.setup_structure(x)
         # the actual PyMoosh reflectivity simulation
         _, R = pm.coefficient_I(structure, self.target_wl, 0., 0)

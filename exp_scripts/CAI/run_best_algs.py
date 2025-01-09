@@ -12,7 +12,7 @@ from photonics_benchmark import *
 def get_photonic_instances():
     problems = []
     # ------- define "mini-bragg" optimization problem
-    nb_layers = 10     # number of layers of full stack
+    nb_layers = 20     # number of layers of full stack
     target_wl = 600.0  # nm
     mat_env = 1.0      # materials: ref. index
     mat1 = 1.4
@@ -61,7 +61,7 @@ def get_photonic_instances():
 
 def run_experiment(problem, n_runs=5):
     for run in range(n_runs):
-        algorithm = best3.EnhancedAQIPSO(budget, dim)
+        algorithm = best3.QEDE(budget, dim)
         # Run the algorithm on the problem
         algorithm(problem)
         # print the best found for this run
@@ -72,7 +72,7 @@ def run_experiment(problem, n_runs=5):
 problems = get_photonic_instances()
 f = problems[2]
 dim = f.meta_data.n_variables
-budget = 2000
+budget = 500 * dim
 print(f.state)
 print(f.meta_data)
 print(f.bounds)
@@ -80,8 +80,8 @@ logger_params = dict(
     triggers=[ioh.logger.trigger.ALWAYS, ioh.logger.trigger.ON_VIOLATION],
     additional_properties=[],
     root="exp_data/CAI/",
-    folder_name="photovoltaics_best_alg3",
-    algorithm_name='best_alg3',
+    folder_name="ellipsometry",
+    algorithm_name='best_alg2',
     store_positions=True,
 )
 logger = ioh.logger.Analyzer(**logger_params)

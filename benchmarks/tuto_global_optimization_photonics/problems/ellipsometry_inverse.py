@@ -65,6 +65,7 @@ class ellipsometry(photonic_problem):
         Returns:
             float: Reflectivity at target wavelength
         """
+        x = np.clip(x, self.lb, self.ub)
         structure = self.setup_structure(x)
         # the actual PyMoosh reflectivity simulation
         ellips = np.zeros(len(self.wavelengths), dtype=complex)
