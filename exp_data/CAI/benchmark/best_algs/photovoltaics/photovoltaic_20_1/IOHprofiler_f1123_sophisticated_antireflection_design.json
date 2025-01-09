@@ -1,0 +1,16 @@
+{
+	"version": "0.3.18", 
+	"suite": "unknown_suite", 
+	"function_id": 1123, 
+	"function_name": "sophisticated_antireflection_design", 
+	"maximization": false, 
+	"algorithm": {"name": "best_alg3", "info": "algorithm_info"},
+	"attributes": ["evaluations", "raw_y"],
+	"scenarios": [
+		{"dimension": 20,
+		"path": "data_f1123_sophisticated_antireflection_design/IOHprofiler_f1123_DIM20.dat",
+		"runs": [
+			{"instance": 1, "evals": 10000, "best": {"evals": 9438, "y": 0.11294286708759127, "x": [80.26179569510795, 119.29419528319184, 212.420468182903, 33.49478515355571, 39.78686449828808, 179.8302828787148, 214.95589233382142, 38.46812725534037, 34.05380304833706, 181.1860463292666, 177.90305812701678, 165.18918160867608, 30.30049709886623, 184.7880555233751, 30, 157.0710520385916, 147.27132218323234, 130.96034718180238, 94.3650976848599, 72.11583461170929]}}
+		]}
+	]
+}
