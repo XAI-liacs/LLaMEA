@@ -61,7 +61,7 @@ def get_photonic_instances():
 
 def run_experiment(problem, n_runs=5):
     for run in range(n_runs):
-        algorithm = best3.QEDE(budget, dim)
+        algorithm = best1.EnhancedHybridPSO_DE(budget, dim)
         # Run the algorithm on the problem
         algorithm(problem)
         # print the best found for this run
@@ -70,9 +70,9 @@ def run_experiment(problem, n_runs=5):
         problem.reset()
 
 problems = get_photonic_instances()
-f = problems[2]
+f = problems[0]
 dim = f.meta_data.n_variables
-budget = 500 * dim
+budget = 1000 * dim
 print(f.state)
 print(f.meta_data)
 print(f.bounds)
@@ -80,8 +80,8 @@ logger_params = dict(
     triggers=[ioh.logger.trigger.ALWAYS, ioh.logger.trigger.ON_VIOLATION],
     additional_properties=[],
     root="exp_data/CAI/",
-    folder_name="ellipsometry",
-    algorithm_name='best_alg2',
+    folder_name="bragg",
+    algorithm_name='best_alg1',
     store_positions=True,
 )
 logger = ioh.logger.Analyzer(**logger_params)

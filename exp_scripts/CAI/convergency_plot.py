@@ -89,28 +89,96 @@ def plot_final_fitness_distribution(df_best_alg, df_baselines, title):
     plt.cla()
 
 
-df_mini_bragg_baseline = pd.read_csv("exp_data/CAI/minibragg.csv")
+def build_photovoltaic_baselines():
+    folder_path = "exp_data/CAI/benchmark/baselines/photovoltaics/"
+    files = os.listdir(folder_path)
+    df_photovoltaic = []
+    df_bigphotovoltaic = []
+    df_hugephotovoltaic = []
+    for f_name in files:
+        if "big" in f_name:
+            df_bigphotovoltaic.append(pd.read_csv(folder_path + f_name))
+        elif "huge" in f_name:
+            df_hugephotovoltaic.append(pd.read_csv(folder_path + f_name))
+        else:
+            df_photovoltaic.append(pd.read_csv(folder_path + f_name))
+    df_photovoltaic = pd.concat(df_photovoltaic)
+    df_bigphotovoltaic = pd.concat(df_bigphotovoltaic)
+    df_hugephotovoltaic = pd.concat(df_hugephotovoltaic)
+    df_photovoltaic.to_csv(
+        "exp_data/CAI/benchmark/baselines/photovoltaic.csv", index=False)
+    df_bigphotovoltaic.to_csv(
+        "exp_data/CAI/benchmark/baselines/bigphotovoltaic.csv", index=False)
+    df_hugephotovoltaic.to_csv(
+        "exp_data/CAI/benchmark/baselines/hugephotovoltaic.csv", index=False)
+
+
+def build_photovoltaic_best_alg():
+    folder_path = "exp_data/CAI/benchmark/best_algs/photovoltaics/"
+    files = os.listdir(folder_path)
+    df_photovoltaic = []
+    df_bigphotovoltaic = []
+    df_hugephotovoltaic = []
+    for f_name in files:
+        elements = f_name.split("_")
+        dim = int(elements[1])
+        run_id = int(elements[2])
+        df_temp = split_dat(
+            f"{folder_path}{f_name}/data_f1123_sophisticated_antireflection_design/IOHprofiler_f1123_DIM{dim}.dat")
+        if dim == 10:
+            df_photovoltaic.append(df_temp)
+        elif dim == 20:
+            df_bigphotovoltaic.append(df_temp)
+        else:
+            df_hugephotovoltaic.append(df_temp)
+    df_photovoltaic = pd.concat(df_photovoltaic)
+    df_bigphotovoltaic = pd.concat(df_bigphotovoltaic)
+    df_hugephotovoltaic = pd.concat(df_hugephotovoltaic)
+    df_photovoltaic.to_csv(
+        "exp_data/CAI/benchmark/best_algs/photovoltaic.csv", index=False)
+    df_bigphotovoltaic.to_csv(
+        "exp_data/CAI/benchmark/best_algs/bigphotovoltaic.csv", index=False)
+    df_hugephotovoltaic.to_csv(
+        "exp_data/CAI/benchmark/best_algs/hugephotovoltaic.csv", index=False)
+
+
+os.chdir("exp_data/CAI/benchmark")
+df_mini_bragg_baseline = pd.read_csv("baselines/minibragg.csv")
 df_mini_bragg_best_alg = split_dat(
-    "exp_data/CAI/mini_brag_best_alg/data_f1121_brag_mirror/IOHprofiler_f1121_DIM10.dat")
-df_bragg_baseline = pd.read_csv("exp_data/CAI/bragg.csv")
+    "best_algs/minibragg/data_f1121_brag_mirror/IOHprofiler_f1121_DIM10.dat")
+df_bragg_baseline = pd.read_csv("baselines/bragg.csv")
 df_bragg_best_alg = split_dat(
-    "exp_data/CAI/bragg_best_alg/data_f1121_brag_mirror/IOHprofiler_f1121_DIM20.dat")
-df_ellipsometry_baseline = pd.read_csv("exp_data/CAI/ellipsometry.csv")
+    "best_algs/bragg/data_f1121_brag_mirror/IOHprofiler_f1121_DIM20.dat")
+df_ellipsometry_baseline = pd.read_csv("baselines/ellipsometry.csv")
 df_ellipsometry_best_alg = split_dat(
-    "exp_data/CAI/ellipsometry_best_alg/data_f1122_ellipsometry/IOHprofiler_f1122_DIM2.dat")
-df_photovoltaics_baseline = pd.read_csv("exp_data/CAI/photovoltaics.csv")
-df_photovoltaics_best_alg = split_dat(
-    "exp_data/CAI/photovoltaics_best_alg3-3/data_f1123_sophisticated_antireflection_design/IOHprofiler_f1123_DIM10.dat")
-# plot_convergence(df_mini_bragg_best_alg, df_mini_bragg_baseline, "Mini Bragg")
-# plot_convergence(df_bragg_best_alg, df_bragg_baseline, "Bragg")
-# plot_convergence(df_ellipsometry_best_alg,
-#                  df_ellipsometry_baseline, "Ellipsometry")
-# plot_convergence(df_photovoltaics_best_alg,
-#                  df_photovoltaics_baseline, "Photovoltaics")
+    "best_algs/ellipsometry/data_f1122_ellipsometry/IOHprofiler_f1122_DIM2.dat")
+df_photovoltaic_baseline = pd.read_csv("baselines/photovoltaic.csv")
+df_photovoltaic_best_alg = pd.read_csv("best_algs/photovoltaic.csv")
+df_bigphotovoltaic_baseline = pd.read_csv("baselines/bigphotovoltaic.csv")
+df_bigphotovoltaic_best_alg = pd.read_csv("best_algs/bigphotovoltaic.csv")
+df_hugephotovoltaic_baseline = pd.read_csv("baselines/hugephotovoltaic.csv")
+df_hugephotovoltaic_best_alg = pd.read_csv("best_algs/hugephotovoltaic.csv")
+
+
+os.chdir("../../..")
+plot_convergence(df_mini_bragg_best_alg, df_mini_bragg_baseline, "Mini Bragg")
+plot_convergence(df_bragg_best_alg, df_bragg_baseline, "Bragg")
+plot_convergence(df_ellipsometry_best_alg,
+                 df_ellipsometry_baseline, "Ellipsometry")
+plot_convergence(df_photovoltaic_best_alg,
+                 df_photovoltaic_baseline, "Photovoltaics")
+plot_convergence(df_bigphotovoltaic_best_alg,
+                 df_bigphotovoltaic_baseline, "Big Photovoltaics")
+plot_convergence(df_hugephotovoltaic_best_alg,
+                 df_hugephotovoltaic_baseline, "Huge Photovoltaics")
 plot_final_fitness_distribution(df_mini_bragg_best_alg,
                                 df_mini_bragg_baseline, "Mini Bragg")
 plot_final_fitness_distribution(df_bragg_best_alg, df_bragg_baseline, "Bragg")
 plot_final_fitness_distribution(df_ellipsometry_best_alg,
                                 df_ellipsometry_baseline, "Ellipsometry")
-plot_final_fitness_distribution(df_photovoltaics_best_alg,
-                                df_photovoltaics_baseline, "Photovoltaics")
+plot_final_fitness_distribution(df_photovoltaic_best_alg,
+                                df_photovoltaic_baseline, "Photovoltaics")
+plot_final_fitness_distribution(df_bigphotovoltaic_best_alg,
+                                df_bigphotovoltaic_baseline, "Big Photovoltaics")
+plot_final_fitness_distribution(df_hugephotovoltaic_best_alg,
+                                df_hugephotovoltaic_baseline, "Huge Photovoltaics")
