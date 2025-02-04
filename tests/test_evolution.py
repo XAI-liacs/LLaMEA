@@ -26,7 +26,8 @@ def f(ind, logger=None):
 
 def test_evolutionary_process():
     """Test the evolutionary process loop to ensure it updates generations."""
-
+    global f_try
+    f_try = 0
     response = "# Description: Long Example Algorithm\n# Code:\n```python\nclass ExampleAlgorithm:\n    pass\n```"
     optimizer = LLaMEA(
         f,
@@ -43,13 +44,18 @@ def test_evolutionary_process():
     assert (
         best_so_far.solution == "class ExampleAlgorithm:\n    pass"
     ), "best should be class ExampleAlgorithm(object):\n    pass"
-    assert best_so_far.fitness == 1.0, "Fitness should be 1.0"
-    assert optimizer.generation == 10, "Generation should increment correctly"
+    assert (
+        best_so_far.fitness == 1.0
+    ), f"Fitness should be 1.0, is {best_so_far.fitness}"
+    assert (
+        optimizer.generation == 10
+    ), f"Generation should increment correctly, is {optimizer.generation}"
 
 
 def test_evolutionary_process_with_errors():
     """Test the evolutionary process loop to ensure it updates generations even when errors occur."""
-
+    global f_try
+    f_try = 0
     response = "hi!"
     optimizer = LLaMEA(
         f,

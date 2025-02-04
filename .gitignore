@@ -177,3 +177,11 @@ sbatch_jobs/
 # exp-*
 currentexp/
 *.job
+
+#AST img and alg folders
+ast/fixed_mutation_experiments
+ast/dynamic_mutation_experiments
+ast/EoH_runs
+ast/*output*
+ast/img*
+ast/graphstats*

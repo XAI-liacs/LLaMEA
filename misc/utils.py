@@ -1,6 +1,10 @@
 import numpy as np
 from ioh import LogInfo, logger
 
+class ThresholdReachedException(Exception):
+    """The algorithm reached the lower threshold."""
+
+    pass
 
 class OverBudgetException(Exception):
     """The algorithm tried to do more evaluations than allowed."""
@@ -43,6 +47,7 @@ class aoc_logger(logger.AbstractLogger):
         lower=1e-8,
         upper=1e8,
         scale_log=True,
+        stop_on_threshold = False,
         *args,
         **kwargs,
     ):
@@ -56,6 +61,7 @@ class aoc_logger(logger.AbstractLogger):
         self.lower = lower
         self.upper = upper
         self.budget = budget
+        self.stop_on_threshold = stop_on_threshold
         self.transform = lambda x: np.log10(x) if scale_log else (lambda x: x)
 
     def __call__(self, log_info: LogInfo):
@@ -68,6 +74,8 @@ class aoc_logger(logger.AbstractLogger):
             raise OverBudgetException
         if log_info.evaluations == self.budget:
             return
+        if self.stop_on_threshold and abs(log_info.raw_y_best) < self.lower:
+            raise ThresholdReachedException
         y_value = np.clip(log_info.raw_y_best, self.lower, self.upper)
         self.aoc += (self.transform(y_value) - self.transform(self.lower)) / (
             self.transform(self.upper) - self.transform(self.lower)

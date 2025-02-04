@@ -15,6 +15,8 @@ def convert_to_serializable(data):
         return int(data)
     elif isinstance(data, np.floating):
         return float(data)
+    if isinstance(data, np.ndarray):
+        return data.tolist()
     else:
         return data
 

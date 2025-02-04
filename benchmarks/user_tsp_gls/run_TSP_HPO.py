@@ -23,10 +23,7 @@ from benchmarks.user_tsp_gls.prob import TSPGLS
 tsp_prob = TSPGLS()
 
 
-def evaluateWithHPO(
-    solution, explogger=None
-):
-    
+def evaluateWithHPO(solution, explogger=None):
     code = solution.solution
     algorithm_name = solution.name
     configuration_space = solution.configspace
@@ -37,18 +34,15 @@ def evaluateWithHPO(
             # Suppress warnings
             with warnings.catch_warnings():
                 warnings.simplefilter("ignore")
-                
+
                 # Execute the code string in the new module's namespace
                 exec(code, globals())
-                alg = globals()[algorithm_name](
-                    **dict(config)
-                )
+                alg = globals()[algorithm_name](**dict(config))
 
                 return tsp_prob.evaluateGLS(alg)
         except Exception as e:
             return 10000
-    
-    
+
     # inst_feats = {str(arg): [idx] for idx, arg in enumerate(args)}
     error = ""
     if configuration_space is None:
@@ -62,22 +56,24 @@ def evaluateWithHPO(
             name=str(int(time.time())) + "-" + algorithm_name,
             deterministic=True,
             n_trials=200,
-            output_directory="smac3_output" if explogger is None else explogger.dirname + "/smac",
-            #n_workers=5,
+            output_directory="smac3_output"
+            if explogger is None
+            else explogger.dirname + "/smac",
+            # n_workers=5,
         )
         smac = HyperparameterOptimizationFacade(scenario, evaluate, overwrite=True)
         incumbent = smac.optimize()
-        
+
         fitness = evaluate(dict(incumbent))
 
-    fitness = -1 * fitness #we optimize (not minimize)
+    fitness = -1 * fitness  # we optimize (not minimize)
 
     dict_hyperparams = dict(incumbent)
     feedback = f"The heuristic {algorithm_name} got an average fitness of {fitness:0.2f} (closer to zero is better)  with optimal hyperparameters {dict_hyperparams}."
 
     solution.add_metadata("incumbent", dict_hyperparams)
     solution.set_scores(fitness, feedback)
-    
+
     return solution
 
 
