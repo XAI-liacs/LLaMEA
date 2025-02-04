@@ -25,6 +25,10 @@ class LLMmanager:
         self.model = model
         if "gpt" in self.model:
             self.client = openai.OpenAI(api_key=api_key)
+        if "deepseek" in self.model:
+            self.client = openai.OpenAI(
+                api_key=api_key,
+                base_url = "https://integrate.api.nvidia.com/v1")
         if "gemini" in self.model:
             genai.configure(api_key=api_key)
             generation_config = {
@@ -58,7 +62,7 @@ class LLMmanager:
             ]
 
     def chat(self, session_messages):
-        if "gpt" in self.model:
+        if "gpt" or "deepseek" in self.model:
             response = self.client.chat.completions.create(
                 model=self.model, messages=session_messages, temperature=0.8
             )

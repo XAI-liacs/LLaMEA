@@ -133,7 +133,7 @@ Space: <configuration_space>"""
         if mutation_prompts == None:
             self.mutation_prompts = [
                 "Refine the strategy of the selected solution to improve it.",  # small mutation
-                "Generate a new algorithm that is different from the solutions you have tried before.", #new random solution
+                "Generate a new algorithm that is different from the algorithms you have tried before.", #new random solution
             ]
         self.budget = budget
         self.n_parents = n_parents
@@ -287,13 +287,7 @@ Space: <configuration_space>"""
         prob = discrete_power_law_distribution(num_lines, 1.5)
         # prob = 0.4
         new_mutation_prompt = f"""
-Now, refine the strategy of the selected solution to improve it. Make sure you 
-only change {(prob*100):.1f}% of the code, which means if the code has 100 lines, you 
-can only change {prob*100} lines, and the rest lines should remain the same. For 
-this code, it has {num_lines} lines, so you can only change {max(1, int(prob*num_lines))}
-lines, the rest {num_lines-max(1, int(prob*num_lines))} lines should remain the same. 
-This changing rate {(prob*100):.1f}% is the mandatory requirement, you cannot change 
-more or less than this rate.
+Refine the strategy of the selected solution to improve it. Make sure you only change {(prob*100):.1f}% of the code, which means if the code has 100 lines, you can only change {prob*100} lines, and the rest of the lines should remain unchanged. This input code has {num_lines} lines, so you can only change {max(1, int(prob*num_lines))} lines, the rest {num_lines-max(1, int(prob*num_lines))} lines should remain unchanged. This changing rate {(prob*100):.1f}% is the mandatory requirement, you cannot change more or less than this rate.
 """
         self.mutation_prompts += [new_mutation_prompt]
         mutation_operator = random.choice(self.mutation_prompts)
