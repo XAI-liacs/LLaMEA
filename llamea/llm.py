@@ -28,7 +28,7 @@ class LLMmanager:
         if "deepseek" in self.model:
             self.client = openai.OpenAI(
                 api_key=api_key,
-                base_url = "https://integrate.api.nvidia.com/v1")
+                base_url = "https://api.deepseek.com")
         if "gemini" in self.model:
             genai.configure(api_key=api_key)
             generation_config = {

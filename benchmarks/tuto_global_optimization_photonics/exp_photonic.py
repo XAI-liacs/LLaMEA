@@ -143,7 +143,7 @@ def evaluatePhotonic(solution, details=False):
         i += 1
     np.save(f"currentexp/aucs-{algorithm_name}-{i}.npy", aucs)
 
-    feedback = f"The algorithm {algorithm_name} got an average Area over the convergence curve (AOCC, 1.0 is the best) score of {auc_mean:0.3f} with standard deviation {auc_std:0.3f}. And the mean value of best solutions found was {np.mean(final_y):0.3f} (0. is the best)."
+    feedback = f"The algorithm {algorithm_name} got an average Area over the convergence curve (AOCC, 1.0 is the best) score of {auc_mean:0.3f} with standard deviation {auc_std:0.3f}. And the mean value of best solutions found was {np.mean(final_y):0.3f} (0. is the best) with standard deviation {np.std(final_y):0.3f}."
 
     print(algorithm_name, algorithm, auc_mean, auc_std)
     solution.add_metadata("aucs", aucs)
@@ -153,10 +153,13 @@ def evaluatePhotonic(solution, details=False):
     return solution
 
 
-api_key = os.getenv("NVIDIA_API_KEY")
-ai_model = "deepseek-ai/deepseek-r1"  # gpt-4-turbo or gpt-3.5-turbo gpt-4o llama3:70b
+ai_model = "deepseek-reasoner"  # gpt-4-turbo or gpt-3.5-turbo gpt-4o llama3:70b
+if "deepseek" in ai_model:
+    api_key = os.getenv("DEEPSEEK_API_KEY")
+else:
+    api_key = os.getenv("OPENAI_API_KEY")
 problem_types = ["bragg", "ellipsometry", "photovoltaic"]
-experiment_name = "ellipsomety_deepseek"
+experiment_name = "ellipsometry"
 
 descriptions = {
     "bragg": "The Bragg mirror optimization aims to maximize reflectivity at a wavelength of 600 nm using a multilayer structure with alternating refractive indices (1.4 and 1.8). The structure's thicknesses are varied to find the configuration with the highest reflectivity. The problem involves two cases: one with 10 layers (minibragg) and another with 20 layers (bragg), with the latter representing a more complex inverse design problem. The known optimal solution is a periodic Bragg mirror, which achieves the best reflectivity by leveraging constructive interference. This case exemplifies challenges such as multiple local minima in the optimization landscape.",
@@ -182,7 +185,7 @@ The func() can only be called as many times as the budget allows, not more. Each
 Give an excellent and novel heuristic algorithm to solve this task and include it's one-line description with the main idea of the algorithm.
 """
 
-for experiment_i in range(5):
+for experiment_i in range(1):
     # A 1+1 strategy
     es = LLaMEA(evaluatePhotonic, n_parents=1, n_offspring=1, api_key=api_key,
                 task_prompt=task_prompt, experiment_name=experiment_name,
