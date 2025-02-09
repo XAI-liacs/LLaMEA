@@ -16,9 +16,11 @@ from pflacco.classical_ela_features import calculate_nbc
 from pflacco.classical_ela_features import calculate_pca
 
 
-problems = {"bragg": [10, 20],
-            "ellipsometry": [2],
-            "photovoltaic": [10, 20, 32]}
+problems = {
+    # "bragg": [10, 20],
+    # "ellipsometry": [2],
+    "photovoltaic": [32]
+}
 
 
 def get_photonic_instances(name, dim):
@@ -160,5 +162,5 @@ def create_ELA_table():
 
 if __name__ == "__main__":
     # create_samplingX()
-    # create_samplingY()
-    create_ELA_table()
+    create_samplingY()
+    # create_ELA_table()
