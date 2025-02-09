@@ -28,7 +28,8 @@ class LLMmanager:
         if "deepseek" in self.model:
             self.client = openai.OpenAI(
                 api_key=api_key,
-                base_url = "https://api.deepseek.com")
+                # base_url = "https://api.deepseek.com")
+                base_url="https://api.lkeap.cloud.tencent.com/v1")
         if "gemini" in self.model:
             genai.configure(api_key=api_key)
             generation_config = {
@@ -62,7 +63,12 @@ class LLMmanager:
             ]
 
     def chat(self, session_messages):
-        if "gpt" or "deepseek" in self.model:
+        if "gpt" in self.model:
+            response = self.client.chat.completions.create(
+                model=self.model, messages=session_messages, temperature=0.8
+            )
+            return response.choices[0].message.content
+        elif "deepseek" in self.model:
             response = self.client.chat.completions.create(
                 model=self.model, messages=session_messages, temperature=0.8
             )

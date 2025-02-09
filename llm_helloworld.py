@@ -1,7 +1,7 @@
 import os
 from openai import OpenAI
 
-client = OpenAI(api_key=os.getenv("DEEPSEEK_API_KEY"),
+client = OpenAI(api_key=os.getenv("TENCENT_API_KEY"),
                 base_url="https://api.deepseek.com")
 
 # Round 1
@@ -22,7 +22,7 @@ try:
     print(f"Response: {content}")
 except Exception as e:
     if hasattr(e, 'response'):
-        print(f"HTTP 状态码: {e.response.status_code}")
-        print(f"原始响应内容: {e.response.text}")
+        print(f"HTTP state code: {e.response.status_code}")
+        print(f"Raw response: {e.response.text}")
     else:
-        print(f"错误: {e}")
+        print(f"Error: {e}")
