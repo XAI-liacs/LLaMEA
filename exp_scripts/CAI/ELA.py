@@ -3,6 +3,8 @@ import sys
 import ioh
 import numpy as np
 import pandas as pd
+import seaborn as sns
+import matplotlib.pyplot as plt
 sys.path.append(".")
 sys.path.append("./benchmarks/tuto_global_optimization_photonics/")
 from photonics_benchmark import *
@@ -17,9 +19,9 @@ from pflacco.classical_ela_features import calculate_pca
 
 
 problems = {
-    # "bragg": [10, 20],
-    # "ellipsometry": [2],
-    "photovoltaic": [32]
+    "bragg": [10, 20],
+    "ellipsometry": [2],
+    "photovoltaic": [10, 20, 32]
 }
 
 
@@ -142,6 +144,8 @@ def create_ELA_table():
     prefix_name = ["problem_name", "dim"]
     for problem_name in problems.keys():
         for dim in problems[problem_name]:
+            if os.path.exists(f"exp_data/CAI/ELA/ELA_{problem_name}_{dim}.csv"):
+                continue
             records = []
             prefix = [problem_name, dim]
             samplingX = np.load(
@@ -160,7 +164,33 @@ def create_ELA_table():
                               index=False)
 
 
+def draw_distribution():
+    rows, cols = 8, 7
+    fig, axes = plt.subplots(rows, cols, figsize=(30, 20))
+    prefix_name = ["problem_name", "dim"]
+    dfs = []
+    for problem_name in problems.keys():
+        for dim in problems[problem_name]:
+            if not os.path.exists(f"exp_data/CAI/ELA/ELA_{problem_name}_{dim}.csv"):
+                continue
+            dataset_df = pd.read_csv(
+                f"exp_data/CAI/ELA/ELA_{problem_name}_{dim}.csv")
+            dfs += [dataset_df]
+    dataset_df = pd.concat(dfs, axis=0)
+    dataset_df["label"] = dataset_df["problem_name"] + " " + dataset_df["dim"].astype(str) + "D"
+    for i, ax in enumerate(axes.flat):
+        if i >= len(dataset_df.columns) - 2:
+            break
+        sns.violinplot(x="label", y=dataset_df.columns[i+2], data=dataset_df, hue="label", ax=ax)
+        ax.set_title(dataset_df.columns[i+2])
+        ax.set_xticklabels([])
+    plt.tight_layout()
+    plt.savefig("exp_data/CAI/ELA/ELA_distribution.png")
+
+
+
 if __name__ == "__main__":
     # create_samplingX()
-    create_samplingY()
+    # create_samplingY()
     # create_ELA_table()
+    draw_distribution()
