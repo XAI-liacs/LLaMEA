@@ -1,0 +1,65 @@
+import numpy as np
+
+class QuantumInspiredDifferentialEvolution:
+    def __init__(self, budget, dim):
+        self.budget = budget
+        self.dim = dim
+        self.population_size = 10 + int(2 * np.sqrt(dim))
+        self.F_base = 0.5  # Base differential weight
+        self.CR = 0.9  # Crossover probability
+        self.q_prob = 0.1  # Probability to use quantum-inspired move
+
+    def adaptive_scaling_factor(self, score, best_score):
+        return self.F_base + 0.3 * (1 - score / (best_score + 1e-8))
+
+    def quantum_move(self, individual, best, lb, ub):
+        factor = np.random.uniform(0.5, 1.5)
+        new_position = best + factor * (individual - best)
+        return np.clip(new_position, lb, ub)
+
+    def __call__(self, func):
+        lb, ub = func.bounds.lb, func.bounds.ub
+        population = np.random.uniform(lb, ub, (self.population_size, self.dim))
+        scores = np.full(self.population_size, np.inf)
+
+        global_best_position = None
+        global_best_score = np.inf
+
+        evaluations = 0
+
+        while evaluations < self.budget:
+            for i in range(self.population_size):
+                if evaluations >= self.budget:
+                    break
+
+                # Mutation
+                candidates = list(range(self.population_size))
+                candidates.remove(i)
+                a, b, c = np.random.choice(candidates, 3, replace=False)
+                F = self.adaptive_scaling_factor(scores[i], global_best_score)
+                mutant = population[a] + F * (population[b] - population[c])
+                mutant = np.clip(mutant, lb, ub)
+
+                # Enhanced Crossover
+                cross_points = np.random.rand(self.dim) < self.CR
+                if not np.any(cross_points):
+                    cross_points[np.random.choice(range(self.dim))] = True
+                trial = np.where(cross_points, mutant, population[i])
+
+                # Selection
+                trial_score = func(trial)
+                evaluations += 1
+                if trial_score < scores[i]:
+                    population[i] = trial
+                    scores[i] = trial_score
+
+                # Quantum-inspired move with a small probability
+                if np.random.rand() < self.q_prob:
+                    population[i] = self.quantum_move(population[i], global_best_position, lb, ub)
+
+                # Update global best
+                if scores[i] < global_best_score:
+                    global_best_score = scores[i]
+                    global_best_position = population[i].copy()
+
+        return global_best_position, global_best_score
