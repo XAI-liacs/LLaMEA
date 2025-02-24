@@ -213,6 +213,7 @@ Space: <configuration_space>"""
             timeout = self.eval_timeout
             population_gen = Parallel(
                 n_jobs=self.max_workers,
+                backend="threading",
                 timeout=timeout + 15,
                 return_as="generator_unordered",
             )(delayed(self.initialize_single)() for _ in range(self.n_parents))
@@ -498,6 +499,7 @@ With code:
                 new_population_gen = Parallel(
                     n_jobs=self.max_workers,
                     timeout=timeout + 15,
+                    backend="threading",
                     return_as="generator_unordered",
                 )(
                     delayed(self.evolve_solution)(individual)

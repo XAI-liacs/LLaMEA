@@ -1,0 +1,71 @@
+import numpy as np
+
+class AQPSO:
+    def __init__(self, budget, dim):
+        self.budget = budget
+        self.dim = dim
+        self.population_size = min(50, budget // 10)
+        self.c1 = 2.0  # cognitive coefficient
+        self.c2 = 2.0  # social coefficient
+        self.alpha = 0.5  # adaptive factor
+        self.memory_factor = 0.3  # for adaptive memory
+
+    def quantum_position_update(self, particle, personal_best, global_best):
+        beta = np.random.rand(self.dim)
+        position = (1 - beta) * personal_best + beta * global_best
+        return position + self.alpha * np.random.uniform(-1, 1, size=self.dim)
+
+    def dynamic_topology(self, r, idx, population):
+        neighbors_idx = (idx + np.random.randint(-r, r+1)) % self.population_size
+        neighbors_idx = max(0, min(neighbors_idx, self.population_size - 1))
+        return population[neighbors_idx]
+
+    def __call__(self, func):
+        lb, ub = func.bounds.lb, func.bounds.ub
+        population = np.random.uniform(lb, ub, (self.population_size, self.dim))
+        velocities = np.random.uniform(-1, 1, (self.population_size, self.dim))
+        personal_best_positions = population.copy()
+        scores = np.array([func(ind) for ind in population])
+        personal_best_scores = scores.copy()
+
+        evaluations = self.population_size
+        best_idx = scores.argmin()
+        global_best_position = population[best_idx].copy()
+        global_best_score = scores[best_idx]
+
+        while evaluations < self.budget:
+            for i in range(self.population_size):
+                r1, r2 = np.random.rand(self.dim), np.random.rand(self.dim)
+                neighbor = self.dynamic_topology(3, i, population)
+                cognitive_component = self.c1 * r1 * (personal_best_positions[i] - population[i])
+                social_component = self.c2 * r2 * (global_best_position - neighbor) * np.random.rand()
+
+                inertia_weight = 0.8 + 0.2 * np.sin(np.pi * evaluations / (2 * self.budget)) * np.exp(-0.01 * evaluations)
+                velocities[i] = inertia_weight * velocities[i] + cognitive_component + social_component
+                velocities[i] = np.clip(velocities[i], -0.5, 0.5)
+
+                if np.random.rand() < 0.5:
+                    particle_position = population[i] + velocities[i]
+                else:
+                    particle_position = self.quantum_position_update(population[i], personal_best_positions[i], global_best_position)
+
+                particle_position = np.clip(particle_position, lb, ub)
+                particle_score = func(particle_position)
+                evaluations += 1
+
+                self.alpha = max(0.2, 0.5 + 0.4 * np.cos(np.pi * evaluations / self.budget))
+
+                if particle_score < personal_best_scores[i]:
+                    personal_best_positions[i] = particle_position
+                    personal_best_scores[i] = particle_score
+                    if particle_score < global_best_score:
+                        global_best_position = particle_position.copy()
+                        global_best_score = particle_score
+
+                if evaluations >= self.budget:
+                    break
+
+            self.c1 = 1.5 + 0.5 * np.sin(np.pi * evaluations / (2 * self.budget))
+            self.c2 = 0.5 + 1.5 * (1 - np.cos(np.pi * evaluations / self.budget)) * (1 - global_best_score / (1 + global_best_score))
+        
+        return global_best_position, global_best_score

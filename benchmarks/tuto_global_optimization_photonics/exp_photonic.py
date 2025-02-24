@@ -10,52 +10,55 @@ from misc import aoc_logger, correct_aoc, OverBudgetException
 
 def get_photonic_instances():
     problems = []
-    # # ------- define "mini-bragg" optimization problem
-    # nb_layers = 10     # number of layers of full stack
-    # target_wl = 600.0  # nm
-    # mat_env = 1.0      # materials: ref. index
-    # mat1 = 1.4
-    # mat2 = 1.8
-    # prob = brag_mirror(nb_layers, target_wl, mat_env, mat1, mat2)
-    # ioh.problem.wrap_real_problem(prob, name="brag_mirror",
-    #                               optimization_type=ioh.OptimizationType.MIN)
-    # problem = ioh.get_problem("brag_mirror", dimension=prob.n)
-    # problem.bounds.lb = prob.lb
-    # problem.bounds.ub = prob.ub
-    # problems.append(problem)
-    # # ------- define "ellipsometry" optimization problem
-    # mat_env = 1.0
-    # mat_substrate = 'Gold'
-    # nb_layers = 1
-    # min_thick = 50     # nm
-    # max_thick = 150
-    # min_eps = 1.1      # permittivity
-    # max_eps = 3
-    # wavelengths = np.linspace(400, 800, 100)  # nm
-    # angle = 40*np.pi/180  # rad
-    # prob = ellipsometry(mat_env, mat_substrate, nb_layers, min_thick, max_thick,
-    #                     min_eps, max_eps, wavelengths, angle)
-    # ioh.problem.wrap_real_problem(prob, name="ellipsometry",
-    #                               optimization_type=ioh.OptimizationType.MIN,)
-    # problem = ioh.get_problem("ellipsometry", dimension=prob.n)
-    # problem.bounds.lb = prob.lb
-    # problem.bounds.ub = prob.ub
-    # problems.append(problem)
-    # ------- define "sophisticated antireflection" optimization problem
-    nb_layers = 10
-    min_thick = 30
-    max_thick = 250
-    wl_min = 375
-    wl_max = 750
-    prob = sophisticated_antireflection_design(nb_layers, min_thick, max_thick,
-                                               wl_min, wl_max)
-    ioh.problem.wrap_real_problem(prob, name="sophisticated_antireflection_design",
-                                  optimization_type=ioh.OptimizationType.MIN)
-    problem = ioh.get_problem("sophisticated_antireflection_design",
-                              dimension=prob.n)
-    problem.bounds.lb = prob.lb
-    problem.bounds.ub = prob.ub
-    problems.append(problem)
+    if problem_name == "bragg":
+        # ------- define "mini-bragg" optimization problem
+        nb_layers = 10     # number of layers of full stack
+        target_wl = 600.0  # nm
+        mat_env = 1.0      # materials: ref. index
+        mat1 = 1.4
+        mat2 = 1.8
+        prob = brag_mirror(nb_layers, target_wl, mat_env, mat1, mat2)
+        ioh.problem.wrap_real_problem(prob, name="brag_mirror",
+                                    optimization_type=ioh.OptimizationType.MIN)
+        problem = ioh.get_problem("brag_mirror", dimension=prob.n)
+        problem.bounds.lb = prob.lb
+        problem.bounds.ub = prob.ub
+        problems.append(problem)
+    elif problem_name == "ellipsometry":
+        # ------- define "ellipsometry" optimization problem
+        mat_env = 1.0
+        mat_substrate = 'Gold'
+        nb_layers = 1
+        min_thick = 50     # nm
+        max_thick = 150
+        min_eps = 1.1      # permittivity
+        max_eps = 3
+        wavelengths = np.linspace(400, 800, 100)  # nm
+        angle = 40*np.pi/180  # rad
+        prob = ellipsometry(mat_env, mat_substrate, nb_layers, min_thick, max_thick,
+                            min_eps, max_eps, wavelengths, angle)
+        ioh.problem.wrap_real_problem(prob, name="ellipsometry",
+                                    optimization_type=ioh.OptimizationType.MIN,)
+        problem = ioh.get_problem("ellipsometry", dimension=prob.n)
+        problem.bounds.lb = prob.lb
+        problem.bounds.ub = prob.ub
+        problems.append(problem)
+    elif problem_name == "photovoltaic":
+        # ------- define "sophisticated antireflection" optimization problem
+        nb_layers = 10
+        min_thick = 30
+        max_thick = 250
+        wl_min = 375
+        wl_max = 750
+        prob = sophisticated_antireflection_design(nb_layers, min_thick, max_thick,
+                                                wl_min, wl_max)
+        ioh.problem.wrap_real_problem(prob, name="sophisticated_antireflection_design",
+                                    optimization_type=ioh.OptimizationType.MIN)
+        problem = ioh.get_problem("sophisticated_antireflection_design",
+                                dimension=prob.n)
+        problem.bounds.lb = prob.lb
+        problem.bounds.ub = prob.ub
+        problems.append(problem)
     # # ------- define "2D grating" optimization problem
     # nb_layers = 2
     # min_w = 0
@@ -105,6 +108,15 @@ def get_photonic_instances():
 
 
 def evaluatePhotonic(solution, details=False):
+    if problem_name == "bragg":
+        auc_lower = 0.1648
+        auc_upper = 1.
+    elif problem_name == "ellipsometry":
+        auc_lower = 1e-8
+        auc_upper = 40.
+    elif problem_name == "photovoltaic":
+        auc_lower = 0.1
+        auc_upper = 1.
     auc_mean = 0
     auc_std = 0
     code = solution.solution
@@ -118,7 +130,10 @@ def evaluatePhotonic(solution, details=False):
     problem = problems[0]
     dim = problem.meta_data.n_variables
     budget = 500 * dim
-    l2 = aoc_logger(budget, upper=40, triggers=[ioh.logger.trigger.ALWAYS])
+    if problem_name == "photovoltaic":
+        budget = 100 * dim
+    l2 = aoc_logger(budget, lower=auc_lower, upper=auc_upper,
+                    triggers=[ioh.logger.trigger.ALWAYS])
     problem.attach_logger(l2)
     final_y = []
     for rep in range(3):
@@ -154,15 +169,23 @@ def evaluatePhotonic(solution, details=False):
 
 
 ai_model = sys.argv[1]  # gpt-4-turbo or gpt-3.5-turbo gpt-4o llama3:70b
-with_description = True if sys.argv[2] == "1" else False
-with_insight = True if sys.argv[3] == "1" else False
-experiment_name = sys.argv[4]
+problem_id = int(sys.argv[2])
+with_description = True if sys.argv[3] == "1" else False
+with_insight = True if sys.argv[4] == "1" else False
+parent_size = int(sys.argv[5])
+offspring_size = int(sys.argv[6])
+es_flag = False if sys.argv[7] == "0" else True
 if "deepseek" in ai_model:
     # api_key = os.getenv("DEEPSEEK_API_KEY")
     api_key = os.getenv("TENCENT_API_KEY")
 else:
     api_key = os.getenv("OPENAI_API_KEY")
 problem_types = ["bragg", "ellipsometry", "photovoltaic"]
+problem_name = problem_types[problem_id]
+n1 = "_with_description" if with_description else ""
+n2 = "_insight" if with_insight else ""
+n3 = " + " if es_flag else ", "
+experiment_name = f"{problem_name}{n1}{n2}_({parent_size}{n3}{offspring_size})"
 
 
 descriptions = {
@@ -175,23 +198,16 @@ algorithmic_insights = {
     "ellipsometry": "This problem has small parameter space with fewer variables (thickness and refractive index), and the cost function is smooth and relatively free of noise, making it amenable to local optimization methods. Here are suggestions for designing algorithms: 1. Use local optimization algorithms like BFGS or Nelder-Mead, as they perform well in low-dimensional, smooth landscapes. 2. Uniform sampling across the parameter space ensures sufficient coverage for initial guesses. 3. Utilize fast convergence algorithms that can quickly exploit the smooth cost function landscape. 4. Iteratively adjust bounds and constraints to improve parameter estimates once initial solutions are obtained. ",
     "photovoltaic": "This problem is a challenging high-dimensional optimization problem with noisy cost functions due to the realistic solar spectrum, and it requires maximizing absorption while addressing trade-offs between reflectance and interference effects. Here are the suggestions for designing algorithms: 1. Combine global methods (e.g., DE, CMA-ES) for exploration with local optimization for refinement. 2. Use consistent benchmarking and convergence analysis to allocate computational resources effectively. 3. Encourage algorithms to detect and preserve modular structures (e.g., layers with specific roles like anti-reflective or coupling layers). 4. Gradually increase the number of layers during optimization to balance problem complexity and computational cost. 5. Integrate robustness metrics into the cost function to ensure the optimized design tolerates small perturbations in layer parameters. "
 }
-description = ""
-algorithmic_insight = ""
-for problem_type in problem_types:
-    if problem_type in experiment_name:
-        description = descriptions[problem_type]
-        algorithmic_insight = algorithmic_insights[problem_type]
-if with_description == False:
-    description = ""
-if with_insight == False:
-    algorithmic_insight = ""
+description = descriptions[problem_name] if with_description == True else ""
+algorithmic_insight = algorithmic_insights[problem_name] if with_insight == True else ""
 task_prompt = f"""
 The optimization algorithm should be able to find high-performing solutions to a wide range of tasks, which include evaluation on real-world applications such as, e.g., optimization of multilayered photonic structures. {description}{algorithmic_insight}Your task is to write the optimization algorithm in Python code. The code should contain an `__init__(self, budget, dim)` function and the function `def __call__(self, func)`, which should optimize the black box function `func` using `self.budget` function evaluations.
 The func() can only be called as many times as the budget allows, not more. Each of the optimization functions has a search space between func.bounds.lb (lower bound) and func.bounds.ub (upper bound). The dimensionality can be varied.
 Give an excellent and novel heuristic algorithm to solve this task and include it's one-line description with the main idea of the algorithm.
 """
 
-es = LLaMEA(evaluatePhotonic, n_parents=1, n_offspring=1, api_key=api_key,
-            task_prompt=task_prompt, experiment_name=experiment_name,
-            model=ai_model, elitism=True, HPO=False, budget=100)
+es = LLaMEA(evaluatePhotonic, n_parents=parent_size, n_offspring=offspring_size,
+            api_key=api_key, task_prompt=task_prompt,
+            experiment_name=experiment_name, model=ai_model, elitism=es_flag,
+            HPO=False, budget=100)
 print(es.run())

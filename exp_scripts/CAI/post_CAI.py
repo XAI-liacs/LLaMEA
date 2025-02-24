@@ -45,7 +45,7 @@ cud = ["#e69f00", "#56b4e9", "#009e73", "#f0e442",
        "#0072b2", "#d55e00", "#cc79a7", "#000000"]
 auc_data = []
 y_data = []
-exp_folders = os.listdir(f"exp_data/CAI/clip/")
+exp_folders = os.listdir(f"exp_data/CAI/descriptions_insights/")
 for exp in exps:
     aucs = []
     ys = []
@@ -53,7 +53,7 @@ for exp in exps:
         contents = exp_folder.split("-")
         if contents[-1] != exp:
             continue
-        auc, y = extract_auc(f"exp_data/CAI/clip/{exp_folder}")
+        auc, y = extract_auc(f"exp_data/CAI/descriptions_insights/{exp_folder}")
         if auc == None or len(auc) < 100:
             print(f"Skipping {exp_folder}")
             continue
@@ -73,8 +73,8 @@ for k in range(len(current_best_aucs)):
         for j in range(100):
             values += [[j, array[i, j], y[i, j], i, labels[k]]]
 df = pd.DataFrame(values, columns=keys)
-df.to_csv("exp_data/CAI/real/conv_plot_description_insight.csv")
-df = pd.read_csv("exp_data/CAI/real/conv_plot_description_insight.csv")
+df.to_csv("exp_data/CAI/real/conv_plot_description_insight_1.csv")
+df = pd.read_csv("exp_data/CAI/real/conv_plot_description_insight_1.csv")
 for i, label in enumerate(labels):
     df_label = df[df["problem"] == label]
     sns.lineplot(x="generation", y="auc", data=df_label,
@@ -89,7 +89,7 @@ for i, label in enumerate(labels):
     df_label = df[df["problem"] == label]
     sns.lineplot(x="generation", y="final_y", data=df_label,
                  label=label, palette=[cud[i]])
-# plt.yscale("log")
+plt.yscale("log")
 plt.ylabel(r"$y^*$")
 plt.legend()
 plt.savefig("results/CAI/y_description_insight.png")
