@@ -43,6 +43,7 @@ labels = ["mini-bragg",
           "ellipsometry with description\nand algorithmic insights"]
 cud = ["#e69f00", "#56b4e9", "#009e73", "#f0e442",
        "#0072b2", "#d55e00", "#cc79a7", "#000000"]
+linestyles = ["-", "--", "-.", ":", "-", "--", "-.", ":"]
 auc_data = []
 y_data = []
 exp_folders = os.listdir(f"exp_data/CAI/descriptions_insights/")
@@ -78,7 +79,7 @@ df = pd.read_csv("exp_data/CAI/real/conv_plot_description_insight_1.csv")
 for i, label in enumerate(labels):
     df_label = df[df["problem"] == label]
     sns.lineplot(x="generation", y="auc", data=df_label,
-                 label=label, palette=[cud[i]])
+                 label=label, linestyle=linestyles[int(i/3)], color=cud[i%3])
 # plt.yscale("log")
 plt.ylabel("AOCC")
 plt.legend()
@@ -88,7 +89,7 @@ plt.cla()
 for i, label in enumerate(labels):
     df_label = df[df["problem"] == label]
     sns.lineplot(x="generation", y="final_y", data=df_label,
-                 label=label, palette=[cud[i]])
+                 label=label, linestyle=linestyles[int(i/3)], color=cud[i%3])
 plt.yscale("log")
 plt.ylabel(r"$y^*$")
 plt.legend()
