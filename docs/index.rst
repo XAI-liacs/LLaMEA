@@ -6,11 +6,15 @@
 Welcome to LLaMEA's documentation!
 ==================================
 
+.. include:: ../README.md
+   :parser: myst
+
 .. toctree::
    :maxdepth: 2
    :caption: Contents:
 
    llamea.rst
+   ../notebooks/simple_example
 
 Indices and tables
 ==================

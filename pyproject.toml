@@ -43,10 +43,13 @@ jupyter = "^1.0.0"
 pytest-cov = "^4.1.0"
 codecov = "^2.1.13"
 pytest-mock = "^3.14.0"
+ipykernel = "^6.29.5"
 
 [tool.poetry.group.docs.dependencies]
 sphinx = "7.4.7"
 sphinx-rtd-theme = "^3.0.2"
+myst-parser = "^4.0.1"
+nbsphinx = "^0.9.6"
 
 [tool.poetry.group.benchmarks.dependencies]
 pymoosh = "3.2"
