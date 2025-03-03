@@ -1,68 +1,37 @@
-llamea package
-==============
-
-Subpackages
------------
+LLaMEA API
+==========
 
 .. toctree::
-   :maxdepth: 4
+   :maxdepth: 2
+   :caption: LLaMEA Modules
 
-
-Submodules
-----------
-
-llamea.ast module
------------------
-
-.. automodule:: llamea.ast
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
-llamea.individual module
-------------------------
+   llamea.individual
+   llamea.llamea
+   llamea.llm
+   llamea.loggers
+   llamea.utils
 
 .. automodule:: llamea.individual
    :members:
    :undoc-members:
    :show-inheritance:
 
-llamea.llamea module
---------------------
-
 .. automodule:: llamea.llamea
    :members:
    :undoc-members:
    :show-inheritance:
-
-llamea.llm module
------------------
 
 .. automodule:: llamea.llm
    :members:
    :undoc-members:
    :show-inheritance:
 
-llamea.loggers module
----------------------
-
 .. automodule:: llamea.loggers
    :members:
    :undoc-members:
    :show-inheritance:
 
-llamea.utils module
--------------------
-
 .. automodule:: llamea.utils
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
-Module contents
----------------
-
-.. automodule:: llamea
    :members:
    :undoc-members:
    :show-inheritance:
