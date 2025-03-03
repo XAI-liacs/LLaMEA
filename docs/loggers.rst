@@ -1,9 +1,8 @@
-LLaMEA
+Loggers
 ==========
 
-.. automodule:: llamea.llamea
+.. automodule:: llamea.loggers
    :members:
    :undoc-members:
    :show-inheritance:
-
 

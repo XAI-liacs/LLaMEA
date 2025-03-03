@@ -1,9 +1,8 @@
-LLaMEA
+LLM
 ==========
 
-.. automodule:: llamea.llamea
+.. automodule:: llamea.llm
    :members:
    :undoc-members:
    :show-inheritance:
-
 

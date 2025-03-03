@@ -1,9 +1,8 @@
-LLaMEA
+Individual
 ==========
 
-.. automodule:: llamea.llamea
+.. automodule:: llamea.individual
    :members:
    :undoc-members:
    :show-inheritance:
-
 

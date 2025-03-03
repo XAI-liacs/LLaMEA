@@ -1,9 +1,7 @@
-LLaMEA
+Utils
 ==========
 
-.. automodule:: llamea.llamea
+.. automodule:: llamea.utils
    :members:
    :undoc-members:
    :show-inheritance:
-
-
