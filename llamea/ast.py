@@ -19,6 +19,19 @@ from sklearn.preprocessing import StandardScaler, minmax_scale
 
 
 def code_compare(code1, code2, printdiff=False):
+    """
+    Compares two Python code strings by computing a line-by-line diff and returns a similarity-based distance.
+
+    Args:
+        code1 (str): The first Python code snippet.
+        code2 (str): The second Python code snippet.
+        printdiff (bool): If True, prints the text diff (unused in current code).
+
+    Returns:
+        float: A value between 0 and 1 representing how dissimilar the two codes are.
+        (0 means identical, 1 means completely different.)
+    """
+
     # Parse the Python code into ASTs
     # Use difflib to find differences
     diff = difflib.ndiff(code1.splitlines(), code2.splitlines())
@@ -31,7 +44,16 @@ def code_compare(code1, code2, printdiff=False):
 
 
 def analyse_complexity(code):
-    # Analyse the code complexity of the code
+    """
+    Analyzes the code complexity of a Python code snippet using the lizard library.
+
+    Args:
+        code (str): The Python code to analyze.
+
+    Returns:
+        dict: A dictionary containing statistics such as mean and total cyclomatic complexity,
+        token counts, and parameter counts.
+    """
     i = lizard.analyze_file.analyze_source_code("algorithm.py", code)
     complexities = []
     token_counts = []
@@ -50,14 +72,22 @@ def analyse_complexity(code):
     }
 
 
-# Parse Python AST and build a graph
 class BuildAST(ast.NodeVisitor):
     def __init__(self):
+        """
+        Class to build a directed graph representation (networkx.DiGraph) of a Python Abstract
+        Syntax Tree (AST). Each AST node is represented as a graph node, and edges indicate
+        parent-child relationships in the AST.
+        """
         self.graph = nx.DiGraph()
         self.current_node = 0
         self.node_stack = []
 
     def generic_visit(self, node):
+        """
+        Visits each node in the AST. Adds the node to the graph, and connects it with an edge to
+        its parent node. Uses a stack to keep track of the parent-child relationship.
+        """
         node_id = self.current_node
         self.graph.add_node(node_id, label=type(node).__name__)
 
@@ -73,11 +103,33 @@ class BuildAST(ast.NodeVisitor):
         self.node_stack.pop()
 
     def build_graph(self, root):
+        """
+        Builds and returns the directed graph (networkx.DiGraph) from the AST root node by
+        visiting each node in the tree.
+
+        Args:
+            root (ast.AST): The root of the AST from which to build the graph.
+
+        Returns:
+            networkx.DiGraph: A directed graph representing the AST.
+        """
         self.visit(root)
         return self.graph
 
 
 def eigenvector_centrality_numpy(G, max_iter=500):
+    """
+    Calculates the eigenvector centrality of a directed graph using networkx, returning
+    NaN if it fails to compute (e.g., due to convergence issues).
+
+    Args:
+        G (networkx.DiGraph): The graph on which to compute centrality.
+        max_iter (int): Maximum number of iterations for the eigenvector computation.
+
+    Returns:
+        tuple or float: A tuple containing a dictionary of centrality values or NaN if
+        an exception occurs.
+    """
     try:
         return (nx.eigenvector_centrality_numpy(G, max_iter=500),)
     except Exception:
@@ -86,6 +138,17 @@ def eigenvector_centrality_numpy(G, max_iter=500):
 
 # Function to extract graph characteristics
 def analyze_graph(G):
+    """
+    Analyzes a directed graph G and computes various graph characteristics, including
+    the number of nodes/edges, degree statistics, transitivity, depth measures, clustering,
+    and additional metrics like diameter, radius, and average shortest path.
+
+    Args:
+        G (networkx.DiGraph): The directed graph to analyze.
+
+    Returns:
+        dict: A dictionary of graph characteristics and statistics.
+    """
     depths = dict(nx.single_source_shortest_path_length(G, min(G.nodes())))
     degrees = sorted((d for n, d in G.degree()), reverse=True)
     leaf_depths = [
@@ -154,6 +217,13 @@ def analyze_graph(G):
 
 
 def visualize_graph(G):
+    """
+    Visualizes a directed graph using pydot/Graphviz. Draws node labels, edges, and saves
+    the figure as 'graph1.pdf'.
+
+    Args:
+        G (networkx.DiGraph): The graph to visualize.
+    """
     pos = graphviz_layout(G, prog="dot")
     labels = nx.get_node_attributes(G, "label")
     nx.draw(
@@ -172,6 +242,22 @@ def visualize_graph(G):
 
 # Function to create graph out of AST
 def process_file(path, visualize):
+    """
+    Processes a Python file from a given path by:
+    1. Reading the code
+    2. Parsing it into an AST
+    3. Building a graph of the AST
+    4. Analyzing the graph
+    5. Optionally visualizing the graph
+    6. Computing code complexity statistics
+
+    Args:
+        path (str): Path to the Python file.
+        visualize (bool): If True, visualizes the graph and saves a PDF.
+
+    Returns:
+        dict: Combined statistics from graph analysis and code complexity.
+    """
     with open(path, "r") as file:
         python_code = file.read()
     root = ast.parse(python_code)
@@ -187,6 +273,21 @@ def process_file(path, visualize):
 
 # Function to create graph out of AST
 def process_code(python_code, visualize):
+    """
+    Processes a Python code string by:
+    1. Parsing it into an AST
+    2. Building a graph of the AST
+    3. Analyzing the graph
+    4. Optionally visualizing the graph
+    5. Computing code complexity statistics
+
+    Args:
+        python_code (str): A string containing valid Python code.
+        visualize (bool): If True, visualizes the resulting AST graph.
+
+    Returns:
+        dict: Combined statistics from graph analysis and code complexity.
+    """
     root = ast.parse(python_code)
     build = BuildAST()
     G = build.build_graph(root)
@@ -199,6 +300,14 @@ def process_code(python_code, visualize):
 
 
 def aggregate_stats(results):
+    """
+    Prints aggregate statistics across multiple graph analyses, such as total nodes,
+    edges, transitivity, and clustering. Also prints max depth and average degree/edge
+    density across all results.
+
+    Args:
+        results (list of dict): A list of dictionaries containing individual graph statistics.
+    """
     print("Aggregate Statistics:")
     print("Total Nodes:", sum(result["Nodes"] for result in results))
     print("Total Edges:", sum(result["Edges"] for result in results))
@@ -224,6 +333,14 @@ def aggregate_stats(results):
 
 
 def print_results(stats, file):
+    """
+    Prints detailed graph statistics for a single file or code snippet, including node
+    and edge counts, degree information, clustering, entropy, centralities, and more.
+
+    Args:
+        stats (dict): A dictionary containing the graph and complexity stats.
+        file (str): The name or identifier of the file (or code snippet) being analyzed.
+    """
     print("Statistics for file:", file)
     print("Number of nodes:", stats["Nodes"])
     print("Number of Edges:", stats["Edges"])
@@ -257,6 +374,14 @@ def print_results(stats, file):
 
 
 def process_file_paths(file_paths, visualize):
+    """
+    Processes multiple Python file paths by running 'process_file' on each. Optionally
+    prints the results for each file and aggregates them.
+
+    Args:
+        file_paths (list): A list of file paths to Python scripts.
+        visualize (bool): Whether to visualize each AST graph.
+    """
     results = []
     for file_path in file_paths:
         stats = process_file(file_path, visualize)
@@ -269,8 +394,16 @@ def analyze_run(
     expfolder, budget=100, label="LLaMEA", filename="ast.csv", visualize=True
 ):
     """
-    Analyse one LLaMEA optimization run and store the ast analysis results in the expfolder.
-    Optionally visualize the optimization graphs.
+    Analyzes a single LLaMEA optimization run (e.g., a log of code solutions), computing
+    AST-based metrics and code complexity for each generated solution. Logs the results
+    to a CSV file and optionally generates visualizations of the run.
+
+    Args:
+        expfolder (str): The experiment folder containing a 'log.jsonl' file.
+        budget (int): The maximum number of iterations or prompt count (unused in code).
+        label (str): A label for identification in the resulting DataFrame.
+        filename (str): Output CSV filename to store AST analysis results.
+        visualize (bool): If True, calls 'plot_optimization_graphs' to visualize the run.
     """
     results = []
     alg_id = 0
@@ -327,11 +460,15 @@ def analyze_run(
 
 
 def plot_optimization_graphs(data, expfolder):
-    """Plot the optimization graphs based on the AST metrics
+    """
+    Plots optimization progress and relationships between successive solutions in an
+    evolutionary run based on AST metrics. Generates multiple plots showing how solutions
+    change over time according to different projected axes (e.g. t-SNE, PCA).
 
     Args:
-        data (DataFrame): Pandas dataframe with all the AST metrics for an optimization run.
-        expfolder (string): Folder to store the graphs.
+        data (pandas.DataFrame): DataFrame containing AST metrics, metadata, and fitness
+            values for all solutions in the run.
+        expfolder (str): Folder path where the generated plots are saved.
     """
     data.replace([np.inf, -np.inf], np.nan, inplace=True)
     data["fitness"] = minmax_scale(data["fitness"])
