@@ -28,7 +28,7 @@ be used to hash that all out.
 -------------------
 
 Be sure to add the relevant tests before making the pull request. Docs will be
-updated automatically when we merge to `master`, but you should also build
+updated automatically when we merge to `main`, but you should also build
 the docs yourself and make sure they're readable.
 Include the dev and docs dependencies: `poetry install --with dev, docs`
 
