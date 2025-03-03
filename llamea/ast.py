@@ -73,8 +73,6 @@ def analyse_complexity(code):
 
 
 class BuildAST(ast.NodeVisitor):
-
-
     def __init__(self):
         """
         Class to build a directed graph representation (networkx.DiGraph) of a Python Abstract

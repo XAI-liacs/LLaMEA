@@ -11,7 +11,6 @@ class LLMmanager:
     OpenAI's GPT, Google Gemini, and Ollama-based models.
     """
 
-
     def __init__(self, api_key, model="gpt-4-turbo"):
         """
         Initializes the LLM manager with an API key and model name.
