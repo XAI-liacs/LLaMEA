@@ -21,16 +21,15 @@
 
 ## Table of Contents
 - [Introduction](#introduction)
-- [News](#news)
-- [Installation](#installation)
-- [Quick Start](#quick-start)
-- [Examples](#examples)
+- [News](#-news)
+- [Installation](#-installation)
+- [Quick Start](#-quick-start)
+- [Examples](#-examples)
   - [Running `example.py`](#running-examplepy)
   - [Running `example_HPO.py` (LLaMEA-HPO)](#running-example_hpopy-llamea-hpo)
-- [Contributing](#contributing)
-- [Citation](#citation)
-- [License](#license)
-
+- [Contributing](#-contributing)
+- [License](#-license)
+- [Citation](#-citation)
 
 
 ## Introduction
