@@ -1,5 +1,5 @@
 Individual
-≠==========
+==========
 
 .. automodule:: llamea.individual
    :members:
