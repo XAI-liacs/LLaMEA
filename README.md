@@ -13,7 +13,7 @@
     <img src="https://badge.fury.io/py/llamea.svg" alt="PyPI version" height="18">
   </a>
   <img src="https://img.shields.io/badge/Maintained%3F-yes-brightgreen.svg" alt="Maintenance" height="18">
-  <img src="https://img.shields.io/badge/Python-3.9+-blue" alt="Python 3.9+" height="18">
+  <img src="https://img.shields.io/badge/Python-3.10+-blue" alt="Python 3.10+" height="18">
   <a href="https://codecov.io/gh/nikivanstein/LLaMEA" > 
     <img src="https://codecov.io/gh/nikivanstein/LLaMEA/graph/badge.svg?token=VKCNPWVBNM"/> 
   </a>
@@ -62,10 +62,10 @@ It is the easiest to use LLaMEA from the pypi package.
   pip install llamea
 ```
 > [!Important]
-> The Python version **must** be larger or equal to Python 3.9.
+> The Python version **must** be larger or equal to Python 3.10.
 > You need an OpenAI/Gemini/Ollama API key for using LLM models.
 
-You can also install the package from source using Poetry.
+You can also install the package from source using Poetry (1.8.5).
 
 1. Clone the repository:
    ```bash
