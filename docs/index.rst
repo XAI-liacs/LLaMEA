@@ -91,7 +91,7 @@ If you only want to cite the LLaMEA-HPO variant, use the following:
    Installation
    Quickstart
    notebooks/simple_example
-   llamea
+   modules
 
 
 Indices and tables
