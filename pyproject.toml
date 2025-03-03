@@ -52,6 +52,9 @@ myst-parser = "^4.0.1"
 nbsphinx = "^0.9.6"
 pandoc = "^2.4"
 furo = "^2024.8.6"
+sphinxext-opengraph = "^0.9.1"
+sphinx-copybutton = "^0.5.2"
+sphinx-autobuild = "^2024.10.3"
 
 [tool.poetry.group.benchmarks.dependencies]
 pymoosh = "3.2"

@@ -1,7 +1,3 @@
-.. image:: logo.png
-   :align: center
-   :alt: Shows the LLaMEA logo
-   :width: 200px
 
 Introduction
 ------------

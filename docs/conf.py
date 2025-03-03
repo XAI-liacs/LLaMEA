@@ -28,10 +28,11 @@ author = 'Niki van Stein'
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
 # ones.
 extensions = [
-    "sphinx_rtd_theme",
+    "sphinxext.opengraph",
     "sphinx.ext.autodoc",
     "myst_parser",
-    "nbsphinx"
+    "nbsphinx",
+    "sphinx_copybutton",
 ]
 
 # Add any paths that contain templates here, relative to this directory.

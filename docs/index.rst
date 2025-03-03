@@ -31,7 +31,7 @@ requiring extensive prior algorithmic knowledge. This makes LLaMEA an ideal tool
 for both research and practical applications in fields where optimization is
 crucial.
 
-News
+🔥 News
 ----
 
 - 2025.03 :sparkles: :sparkles: **LLaMEA v1.0.0 released**!
@@ -39,7 +39,8 @@ News
   `Llamea: A large language model evolutionary algorithm for automatically generating metaheuristics <https://ieeexplore.ieee.org/abstract/document/10752628/>`_!
 
 
-Contributing
+
+🤖 Contributing
 ------------
 
 Contributions to LLaMEA are welcome! Here are a few ways you can help:
@@ -50,13 +51,13 @@ Contributions to LLaMEA are welcome! Here are a few ways you can help:
 
 Please refer to ``CONTRIBUTING.md`` for more details on contributing guidelines.
 
-License
+🪪 License
 -------
 
 Distributed under the `MIT <https://choosealicense.com/licenses/mit/>`_ License.
 See ``LICENSE`` for more information.
 
-Citation
+✨ Citation
 --------
 
 If you use LLaMEA in your research, please consider citing the associated paper:
@@ -83,13 +84,13 @@ If you only want to cite the LLaMEA-HPO variant, use the following:
    }
 
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 4
    :caption: Contents:
 
    Introduction
    Installation
    Quickstart
-   llamea
+   modules
    notebooks/simple_example
 
 Indices and tables
