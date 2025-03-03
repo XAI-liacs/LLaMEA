@@ -1,8 +1,15 @@
-llamea
+LLaMEA API
 ======
 
 .. toctree::
-   :maxdepth: 4
+   :maxdepth: 2
+   :caption: LLaMEA Modules
+
+   llamea.individual
+   llamea.llamea
+   llamea.llm
+   llamea.loggers
+   llamea.utils
 
 .. automodule:: llamea.individual
    :members:
