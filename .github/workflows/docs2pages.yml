@@ -33,6 +33,8 @@ jobs:
         virtualenvs-create: true
         virtualenvs-in-project: true
         installer-parallel: true
+    - name: Install pandoc
+      run: sudo apt install -y pandoc
     - name: Install dependencies
       run: poetry install --with docs
     - name: Build documentation
