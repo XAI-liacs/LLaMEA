@@ -34,8 +34,8 @@ crucial.
 🔥 News
 ----
 
-- 2025.03 :sparkles: :sparkles: **LLaMEA v1.0.0 released**!
-- 2025.01 :sparkles: :sparkles: **LLaMEA paper accepted in IEEE TEVC**:
+- 2025.03 ✨✨ **LLaMEA v1.0.0 released**!
+- 2025.01 ✨✨ **LLaMEA paper accepted in IEEE TEVC**:
   `Llamea: A large language model evolutionary algorithm for automatically generating metaheuristics <https://ieeexplore.ieee.org/abstract/document/10752628/>`_!
 
 
@@ -51,13 +51,13 @@ Contributions to LLaMEA are welcome! Here are a few ways you can help:
 
 Please refer to ``CONTRIBUTING.md`` for more details on contributing guidelines.
 
-🪪 License
+License
 -------
 
 Distributed under the `MIT <https://choosealicense.com/licenses/mit/>`_ License.
 See ``LICENSE`` for more information.
 
-✨ Citation
+Cite us
 --------
 
 If you use LLaMEA in your research, please consider citing the associated paper:
