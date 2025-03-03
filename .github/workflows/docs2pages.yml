@@ -26,8 +26,9 @@ jobs:
     - uses: actions/setup-python@v2
       with:
         python-version: 3.9
-    - uses: abatilo/actions-poetry@v1.7.1
-    - name: install
+    - name: Install poetry
+      uses: snok/install-poetry@v1
+    - name: Install dependencies
       run: poetry install --with docs
     - name: Build documentation
       run: |
