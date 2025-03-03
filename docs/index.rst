@@ -6,10 +6,6 @@
 
 LLaMEA: Large Language Model Evolutionary Algorithm
 ===================================================
-.. image:: logo.png
-   :align: center
-   :alt: Shows the LLaMEA logo
-   :width: 200px
 
 .. image:: https://badge.fury.io/py/llamea.svg
    :target: https://pypi.org/project/llamea/
