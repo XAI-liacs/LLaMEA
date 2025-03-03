@@ -101,6 +101,14 @@ for problem in ["BP", "TSP", "BBO"]:
 
     # Separate metadata and features
     metadata_cols = ["fitness", "LLM", "exp_dir", "alg_id"]
+
+    complexity_cols = ["mean_complexity",
+        "total_complexity",
+        "mean_token_count",
+        "total_token_count",
+        "mean_parameter_count",
+        "total_parameter_count"]
+
     if "code_diff" in data.columns:
         metadata_cols.append("code_diff")
     if problem in ["BP", "TSP"]:
@@ -113,16 +121,21 @@ for problem in ["BP", "TSP", "BBO"]:
     else:
         metadata_cols.append("parent_id")
     features = data.drop(columns=metadata_cols)
+    features = features.drop(columns=complexity_cols)
     metadata = data[metadata_cols]
+    complexity_data = data[complexity_cols]
 
     # Standardize features for PCA/tSNE
     scaler = StandardScaler()
     features_scaled = scaler.fit_transform(features)
+    #print("Features:", len(features.columns), features.columns)
+
 
     # Create a 2D projection using PCA
     pca = PCA(n_components=2)
     pca_projection = pca.fit_transform(features_scaled)
-    print(problem, "Explained variance: ", pca.explained_variance_)
+    print(problem, "Explained variance ratio: ", pca.explained_variance_ratio_)
+    print(problem, "PCA components", pca.components_)
     data["pca_x"], data["pca_y"] = pca_projection[:, 0], pca_projection[:, 1]
 
     # Create a 2D projection using t-SNE
@@ -172,7 +185,7 @@ for problem in ["BP", "TSP", "BBO"]:
     plt.ylabel("PCA 2")
     plt.legend(title="LLM", bbox_to_anchor=(1.05, 1), loc="upper left")
     plt.tight_layout()
-    plt.savefig(f"{fig_folder}PCA_Projection_By_LLM.png")
+    plt.savefig(f"{fig_folder}{problem}_PCA_Projection_By_LLM.png")
     plt.close()
 
     # Plot t-SNE projection colored by LLM
@@ -222,7 +235,7 @@ for problem in ["BP", "TSP", "BBO"]:
     # Create a 1D projection using PCA
     pca = PCA(n_components=1)
     pca_projection = pca.fit_transform(features_scaled)
-    print(problem, "Explained variance 1D: ", pca.explained_variance_)
+    print(problem, "Explained variance 1D: ", pca.explained_variance_ratio_)
     data["pca_x"] = pca_projection[:, 0]
 
     # Create a 1D projection using t-SNE
@@ -460,7 +473,7 @@ for problem in ["BP", "TSP", "BBO"]:
             f'Evolution in {code_feature.replace("_", " ")} - All LLMs', y=1.02
         )
         plt.tight_layout()
-        plt.savefig(f"{fig_folder}{code_feature}_Evolution_All_LLMs.png")
+        plt.savefig(f"{fig_folder}{problem}_{code_feature}_Evolution_All_LLMs.png")
         plt.close()
 
     # Plot the evolution in t-SNE feature space for each experiment folder, colored by fitness, with first 3 exp folders per LLM
@@ -616,10 +629,10 @@ for problem in ["BP", "TSP", "BBO"]:
 
     plt.suptitle("Evolution in PCA Feature Space - All LLMs", y=1.02)
     plt.tight_layout()
-    plt.savefig(f"{fig_folder}PCA_Evolution_All_LLMs.png")
+    plt.savefig(f"{fig_folder}{problem}_PCA_Evolution_All_LLMs.png")
     plt.close()
 
-    if False:
+    if True:
         # Create output directory if not exists
         output_dir = f"{fig_folder}features"
         os.makedirs(output_dir, exist_ok=True)
@@ -644,7 +657,7 @@ for problem in ["BP", "TSP", "BBO"]:
         y_pred = rf.predict(X_test)
         mse = mean_squared_error(y_test, y_pred)
         r2_rf = rf.score(X_test, y_test)
-        print(f"Random Forest Model Performance: MSE: {mse:.4f} R^2: {r2_rf:.4f}")
+        print(problem, f"Random Forest Model Performance: MSE: {mse:.4f} R^2: {r2_rf:.4f}")
 
         # Plot feature importances
         importances = rf.feature_importances_

@@ -12,6 +12,8 @@
   <a href="https://pypi.org/project/llamea/">
     <img src="https://badge.fury.io/py/llamea.svg" alt="PyPI version" height="18">
   </a>
+  <img src="https://img.shields.io/badge/Maintained%3F-yes-brightgreen.svg" alt="Maintenance" height="18">
+  <img src="https://img.shields.io/badge/Python-3.9+-blue" alt="Python 3.9+" height="18">
   <a href="https://codecov.io/gh/nikivanstein/LLaMEA" > 
     <img src="https://codecov.io/gh/nikivanstein/LLaMEA/graph/badge.svg?token=VKCNPWVBNM"/> 
   </a>
@@ -19,49 +21,56 @@
 
 ## Table of Contents
 - [Introduction](#introduction)
+- [News](#news)
 - [Installation](#installation)
+- [Quick Start](#quick-start)
+- [Examples](#examples)
+  - [Running `example.py`](#running-examplepy)
+  - [Running `example_HPO.py` (LLaMEA-HPO)](#running-example_hpopy-llamea-hpo)
 - [Contributing](#contributing)
 - [Citation](#citation)
 - [License](#license)
 
+
+
 ## Introduction
 
-LLaMEA (Large Language Model Evolutionary Algorithm) is an innovative framework that leverages the power of large language models (LLMs) such as GPT-4 for the automated generation and refinement of metaheuristic optimization algorithms. The framework utilizes a novel approach to evolve and optimize algorithms iteratively based on performance metrics and runtime evaluations without requiring extensive prior algorithmic knowledge. This makes LLaMEA an ideal tool for both research and practical applications in fields where optimization is crucial.
+**LLaMEA** (Large Language Model Evolutionary Algorithm) is an innovative framework that leverages the power of large language models (LLMs) such as GPT-4 for the automated generation and refinement of metaheuristic optimization algorithms. The framework utilizes a novel approach to evolve and optimize algorithms iteratively based on performance metrics and runtime evaluations without requiring extensive prior algorithmic knowledge. This makes LLaMEA an ideal tool for both research and practical applications in fields where optimization is crucial.
 
-## Features
+**Key Features:**
+- **Automated Algorithm Generation**: Automatically generates and refines algorithms using GPT-based or similar LLM models.
+- **Performance Evaluation**: Integrates seamlessly with the IOHexperimenter for real-time performance feedback, guiding the evolutionary process.
+- **LLaMEA-HPO**: Provides an in-the-loop hyper-parameter optimization mechanism (via SMAC) to offload numerical tuning, so that LLM queries focus on novel structural improvements.
+- **Extensible & Modular**: You can easily integrate additional models and evaluation tools.
 
 <p align="center">
   <img src="framework.png" alt="LLaMEA framework" style="width:100%;"/>
 </p>
 
 
+## 🔥 News 
 
-- **Automated Algorithm Generation**: Automatically generates and refines algorithms using GPT models.
-- **Performance Evaluation**: Integrates with the IOHexperimenter for real-time performance feedback, guiding the evolutionary process to generate metaheuristic optimization algorithms.
-- **Customizable Evolution Strategies**: Supports configuration of evolutionary strategies to explore algorithmic design spaces effectively.
-- **Extensible and Modular**: Designed to be flexible, allowing users to integrate other models and evaluation tools.
++ 2025.03 🎉🎉 **LLaMEA v1.0.0 released**!  
+
++ 2025.01 🎉🎉 **LLaMEA paper accepted in IEEE TEVC** [“Llamea: A large language model evolutionary algorithm for automatically generating metaheuristics"](https://ieeexplore.ieee.org/abstract/document/10752628/)!  
 
 
-## Getting Started
-
-### Prerequisites
-
-- Python 3.8 or later
-- OpenAI API key for accessing GPT models
-
-### Installation
+## 🎁 Installation
 
 It is the easiest to use LLaMEA from the pypi package.
 
 ```bash
   pip install llamea
 ```
+> [!Important]
+> The Python version **must** be larger or equal to Python 3.9.
+> You need an OpenAI/Gemini/Ollama API key for using LLM models.
 
 You can also install the package from source using Poetry.
 
 1. Clone the repository:
    ```bash
-   git clone https://github.com/nikivanstein/LLaMEA.git
+   git clone https://github.com/xai-liacs/LLaMEA.git
    cd LLaMEA
    ```
 2. Install the required dependencies via Poetry:
@@ -69,7 +78,7 @@ You can also install the package from source using Poetry.
    poetry install
    ```
 
-### How to use
+## 💻 Quick Start
 
 1. Set up an OpenAI API key:
    - Obtain an API key from [OpenAI](https://openai.com/).
@@ -99,7 +108,61 @@ You can also install the package from source using Poetry.
     print(f"Best Solution: {best_solution}, Fitness: {best_fitness}")
     ```
 
-## Contributing
+---
+
+## 💻 Examples
+
+Below are two example scripts demonstrating LLaMEA in action for black-box optimization with a BBOB (24 noiseless) function suite. One script (`example.py`) runs basic LLaMEA, while the other (`example_HPO.py`) incorporates a **hyper-parameter optimization** pipeline—known as **LLaMEA-HPO**—that employs SMAC to tune the algorithm’s parameters in the loop.
+
+### Running `example.py`
+
+**`example.py`** showcases a straightforward use-case of LLaMEA. It:
+- Defines an evaluation function `evaluateBBOB` that runs generated algorithms on a standard set of BBOB problems (24 functions).
+- Initializes LLaMEA with a specific model (e.g., GPT-4, GPT-3.5) and prompts the LLM to generate metaheuristic code.
+- Iterates over a `(1+1)`-style evolutionary loop, refining the code until a certain budget is reached.
+
+**How to run:**
+```bash
+python example.py
+```
+
+The script will:
+1. Query the specified LLM with a prompt describing the black-box optimization task.
+2. Dynamically execute each generated algorithm on BBOB problems.
+3. Log performance data such as AOCC (Area Over the Convergence Curve).
+4. Iteratively refine the best-so-far algorithms.
+
+
+### Running `example_HPO.py` (LLaMEA-HPO)
+
+**`example_HPO.py`** extends LLaMEA with **in-the-loop hyper-parameter optimization**—termed **LLaMEA-HPO**. Instead of having the LLM guess or refine hyper-parameters directly, the code:
+- Allows the LLM to generate a Python class representing the metaheuristic **plus** a ConfigSpace dictionary describing hyper-parameters.
+- Passes these hyper-parameters to SMAC, which then searches for good parameter settings on a BBOB training set.
+- Evaluates the best hyper-parameters found by SMAC on the full BBOB suite.
+- Feeds back the final performance (and errors) to the LLM, prompting it to mutate the algorithm’s structure (rather than simply numeric settings).
+  
+**Why LLaMEA-HPO?**  
+Offloading hyper-parameter search to SMAC significantly reduces LLM query overhead and encourages the LLM to focus on novel structural improvements.
+
+**How to run:**
+```bash
+python example_HPO.py
+```
+
+**Script outline:**
+1. **Prompt & Generation**: Script sets up a role/task prompt, along with hyper-parameter config space templates.
+2. **HPO Step**: For each newly generated algorithm, SMAC tries different parameter values within a budget.
+3. **Evaluation**: The final best configuration from SMAC is tested across BBOB instances.
+4. **Refinement**: The script returns the performance to LLaMEA, prompting the LLM to mutate the algorithm design.
+
+> [!Note]
+> Adjust the model name (`ai_model`) or API key as needed in the script.
+> Changing `budget` or the HPO budget can drastically affect runtime and cost.
+> Additional arguments (e.g., logging directories) can be set if desired.
+
+---
+
+## 🤖 Contributing
 
 Contributions to LLaMEA are welcome! Here are a few ways you can help:
 
@@ -109,23 +172,33 @@ Contributions to LLaMEA are welcome! Here are a few ways you can help:
 
 Please refer to CONTRIBUTING.md for more details on contributing guidelines.
 
-## License
+## 🪪 License
 
 Distributed under the [MIT](https://choosealicense.com/licenses/mit/) License. See `LICENSE` for more information.
 
 
-## Citation
+## ✨ Citation
 
 If you use LLaMEA in your research, please consider citing the associated paper:
 
 ```bibtex
-@misc{vanstein2024llamea,
-      title={LLaMEA: A Large Language Model Evolutionary Algorithm for Automatically Generating Metaheuristics}, 
-      author={Niki van Stein and Thomas Bäck},
-      year={2024},
-      eprint={2405.20132},
-      archivePrefix={arXiv},
-      primaryClass={cs.NE}
+@article{van2024llamea,
+  title={Llamea: A large language model evolutionary algorithm for automatically generating metaheuristics},
+  author={van Stein, Niki and B{\"a}ck, Thomas},
+  journal={IEEE Transactions on Evolutionary Computation},
+  year={2024},
+  publisher={IEEE}
+}
+```
+
+If you only want to cite the LLaMEA-HPO variant use the folllowing:
+
+```bibtex
+@article{van2024loop,
+  title={In-the-loop hyper-parameter optimization for llm-based automated design of heuristics},
+  author={van Stein, Niki and Vermetten, Diederick and B{\"a}ck, Thomas},
+  journal={arXiv preprint arXiv:2410.16309},
+  year={2024}
 }
 ```
 
