@@ -17,17 +17,19 @@ Quick Start
       from llamea import LLaMEA
 
       # Define your evaluation function
-      def your_evaluation_function(solution):
+      def your_evaluation_function(individual, explogger=None):
           # Implementation of your function
-          # return feedback, quality score, error information
-          return "feedback for LLM", 0.1, ""
+          print(individual.solution, individual.name) #the code and name generated.
+          # Set fitness and feedback
+          solution.set_scores(1.0, "Great solution, with score 1.0")
+          return solution
 
       # Initialize LLaMEA with your API key and other parameters
       optimizer = LLaMEA(f=your_evaluation_function, api_key="your_api_key_here")
 
       # Run the optimizer
-      best_solution, best_fitness = optimizer.run()
-      print(f"Best Solution: {best_solution}, Fitness: {best_fitness}")
+      best_solution = optimizer.run()
+      print(f"Best Solution: {best_solution.solution}, Fitness: {best_solution.fitness}")
 
 Examples
 --------
