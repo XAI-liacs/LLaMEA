@@ -1,7 +1,7 @@
 [tool.poetry]
 name = "llamea"
-version = "0.9.3"
-description = ""
+version = "1.0.0"
+description = "Discovering and optimizing algorotihms automatically using an LLM-driven Evolutionary Algorithm; LLaMEA"
 authors = ["Niki van Stein <n.van.stein@liacs.leidenuniv.nl>"]
 readme = "README.md"
 license = "MIT"
