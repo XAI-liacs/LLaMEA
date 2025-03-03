@@ -5,8 +5,8 @@ description = "LLaMEA is a Python framework for automatically generating and ref
 authors = ["Niki van Stein <n.van.stein@liacs.leidenuniv.nl>"]
 readme = "README.md"
 license = "MIT"
-homepage = "https://github.com/nikivanstein/LLaMEA"
-repository = "https://github.com/nikivanstein/LLaMEA"
+homepage = "https://github.com/XAI-liacs/LLaMEA"
+repository = "https://github.com/XAI-liacs/LLaMEA"
 
 [tool.poetry.dependencies]
 python = "^3.10"
