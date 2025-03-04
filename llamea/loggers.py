@@ -43,7 +43,7 @@ class ExperimentLogger:
         """
         model_name = name.split("/")[-1]
         today = datetime.today().strftime("%m-%d_%H%M%S")
-        dirname = f"exp_data/CAI/clip/exp-{today}-{model_name}"
+        dirname = f"exp-{today}-{name}"
         os.mkdir(dirname)
         os.mkdir(f"{dirname}/configspace")
         os.mkdir(f"{dirname}/code")

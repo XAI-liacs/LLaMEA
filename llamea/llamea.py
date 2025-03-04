@@ -140,7 +140,7 @@ Space: <configuration_space>"""
         if mutation_prompts == None:
             self.mutation_prompts = [
                 "Refine the strategy of the selected solution to improve it.",  # small mutation
-                "Generate a new algorithm that is different from the algorithms you have tried before.", #new random solution
+                #"Generate a new algorithm that is different from the algorithms you have tried before.", #new random solution
             ]
         self.budget = budget
         self.n_parents = n_parents
@@ -282,12 +282,13 @@ Space: <configuration_space>"""
 
         return updated_individual
 
-    def construct_prompt(self, individual):
+    def construct_prompt(self, individual, power_law_mutation=False):
         """
         Constructs a new session prompt for the language model based on a selected individual.
 
         Args:
             individual (dict): The individual to mutate.
+            power_law_mutation (boolean): To use a small step mutation using the power law distribution prompt. Defaults to False.
 
         Returns:
             list: A list of dictionaries simulating a conversation with the language model for the next evolutionary step.
@@ -299,14 +300,16 @@ Space: <configuration_space>"""
         description = individual.description
         feedback = individual.feedback
         # TODO make a random selection between multiple feedback prompts (mutations)
-        num_lines = len(solution.split("\n"))
-        print(f"number of lines: {num_lines}")
-        prob = discrete_power_law_distribution(num_lines, 1.5)
-        # prob = 0.4
-        new_mutation_prompt = f"""
-Refine the strategy of the selected solution to improve it. Make sure you only change {(prob*100):.1f}% of the code, which means if the code has 100 lines, you can only change {prob*100} lines, and the rest of the lines should remain unchanged. This input code has {num_lines} lines, so you can only change {max(1, int(prob*num_lines))} lines, the rest {num_lines-max(1, int(prob*num_lines))} lines should remain unchanged. This changing rate {(prob*100):.1f}% is the mandatory requirement, you cannot change more or less than this rate.
-"""
-        self.mutation_prompts += [new_mutation_prompt]
+        if (power_law_mutation == True):
+            num_lines = len(solution.split("\n"))
+
+            prob = discrete_power_law_distribution(num_lines, 1.5)
+            # prob = 0.4
+            new_mutation_prompt = f"""
+    Refine the strategy of the selected solution to improve it. Make sure you only change {(prob*100):.1f}% of the code, which means if the code has 100 lines, you can only change {prob*100} lines, and the rest of the lines should remain unchanged. This input code has {num_lines} lines, so you can only change {max(1, int(prob*num_lines))} lines, the rest {num_lines-max(1, int(prob*num_lines))} lines should remain unchanged. This changing rate {(prob*100):.1f}% is the mandatory requirement, you cannot change more or less than this rate.
+    """
+            self.mutation_prompts = [new_mutation_prompt]
+
         mutation_operator = random.choice(self.mutation_prompts)
         individual.set_mutation_prompt(mutation_operator)
 
