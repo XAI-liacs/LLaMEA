@@ -19,7 +19,7 @@ class LLMmanager:
         Args:
             api_key (str): api key for authentication.
             model (str, optional): model abbreviation. Defaults to "gpt-4-turbo".
-                Options are: gpt-3.5-turbo, gpt-4-turbo, gpt-4o, 
+                Options are: gpt-3.5-turbo, gpt-4-turbo, gpt-4o,
                 Llama-3.2-1B-Instruct, Llama-3.2-3B-Instruct,
                 Meta-Llama-3.1-8B-Instruct, Meta-Llama-3.1-70B-Instruct,
                 CodeLlama-7b-Instruct-hf, CodeLlama-13b-Instruct-hf,
@@ -33,7 +33,8 @@ class LLMmanager:
             self.client = openai.OpenAI(
                 api_key=api_key,
                 # base_url = "https://api.deepseek.com")
-                base_url="https://api.lkeap.cloud.tencent.com/v1")
+                base_url="https://api.lkeap.cloud.tencent.com/v1",
+            )
         if "gemini" in self.model:
             genai.configure(api_key=api_key)
             generation_config = {
@@ -61,8 +62,8 @@ class LLMmanager:
             )
             self.llama_messages = [
                 {
-                    "role": "system", "content":
-                    "You are a computer scientist and excellent Python programmer."
+                    "role": "system",
+                    "content": "You are a computer scientist and excellent Python programmer.",
                 },
             ]
 
@@ -111,11 +112,6 @@ class LLMmanager:
                     role = "assistant"
                 else:
                     role = msg["role"]
-                history.append(
-                    {
-                        "role": role,
-                        "content": msg["content"]
-                    }
-                )
+                history.append({"role": role, "content": msg["content"]})
             response = self.client(history, max_new_tokens=8192)
-            return response[0]["generated_text"][-1]['content']
+            return response[0]["generated_text"][-1]["content"]
