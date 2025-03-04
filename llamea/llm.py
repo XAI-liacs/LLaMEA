@@ -7,10 +7,14 @@ import torch
 
 
 class LLMmanager:
-    """LLM manager, currently only supports ChatGPT models."""
+    """
+    A manager class for handling requests to multiple LLM providers, including
+    OpenAI's GPT, Google Gemini, and Ollama-based models.
+    """
 
     def __init__(self, api_key, model="gpt-4-turbo"):
-        """Initialize the LLM manager with an api key and model name.
+        """
+        Initializes the LLM manager with an API key and model name.
 
         Args:
             api_key (str): api key for authentication.
@@ -63,6 +67,16 @@ class LLMmanager:
             ]
 
     def chat(self, session_messages):
+        """
+        Sends a conversation history to the configured model and returns the response text.
+
+        Args:
+            session_messages (list of dict): A list of message dictionaries with keys
+                "role" (e.g. "user", "assistant") and "content" (the message text).
+
+        Returns:
+            str: The text content of the LLM's response.
+        """
         if "gpt" in self.model:
             response = self.client.chat.completions.create(
                 model=self.model, messages=session_messages, temperature=0.8
