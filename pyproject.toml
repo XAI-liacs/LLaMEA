@@ -59,6 +59,11 @@ sphinx-autobuild = "^2024.10.3"
 [tool.poetry.group.benchmarks.dependencies]
 pymoosh = "3.2"
 
+
+[tool.poetry.group.llm-extras.dependencies]
+torch = "^2.6.0"
+transformers = "^4.49.0"
+
 [build-system]
 requires = ["poetry-core>=1.2.0"]
 build-backend = "poetry.core.masonry.api"

@@ -2,8 +2,6 @@
 """
 import google.generativeai as genai
 import openai
-import transformers
-import torch
 
 
 class LLMmanager:
@@ -53,6 +51,8 @@ class LLMmanager:
                 system_instruction="You are a computer scientist and excellent Python programmer.",
             )
         if "Llama" in self.model:
+            import torch
+            import transformers
             model_id = f"meta-llama/{self.model}"
             self.client = transformers.pipeline(
                 "text-generation",
