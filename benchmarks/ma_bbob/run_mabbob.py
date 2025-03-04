@@ -150,7 +150,6 @@ def evaluateMABBOBWithHPO(
 
     # last but not least, perform the final validation
     
-    l2 = aoc_logger(budget, upper=1e2, triggers=[logger.trigger.ALWAYS])
     aucs = []
     for dim in [2,5]:
         for idx in range(100):
