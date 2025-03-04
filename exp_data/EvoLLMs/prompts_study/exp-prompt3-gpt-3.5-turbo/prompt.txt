@@ -1,3 +1,0 @@
-Now, refine the strategy of the selected solution to improve it. Make sure you 
-only change {prob*100}% of the code. This changing rate {prob*100}% is the 
-mandatory requirement, you cannot change more or less than this rate.

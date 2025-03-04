@@ -1,5 +1,0 @@
-Please take this optimization algorithm code and make changes to exactly {prob*100}% 
-of it. The goal is to create a performance-optimized variant, so introduce 
-improvements like reducing complexity, enhancing loop efficiency, or simplifying 
-data handling where possible. Keep the algorithm's purpose intact while focusing 
-on a meaningful performance boost and ensure exactly {prob*100}% code difference.

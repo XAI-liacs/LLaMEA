@@ -1,6 +1,0 @@
-Modify the optimization algorithm code to improve its performance in terms of 
-convergence speed. The modification should result in a code difference of 
-exactly {prob*100}%. Ensure that the changes are meaningful to enhance 
-optimization speed without focusing on code efficiency or readability 
-improvements. Explore any strategy within the algorithm to achieve this, 
-but keep the difference precisely at the specified percentage.

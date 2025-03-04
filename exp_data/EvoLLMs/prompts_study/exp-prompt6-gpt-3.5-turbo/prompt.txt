@@ -1,6 +1,0 @@
-Adjust the code such that the algorithm's convergence speed is improved, while 
-ensuring that the changes result in an exact difference of {prob*100}% compared 
-to the original code. This difference should reflect the modification in 
-functionality, not code style or syntax. Feel free to adjust any part of the 
-algorithm (e.g., initialization, selection, mutation, or other components) to 
-achieve faster convergence while maintaining the specified code difference.

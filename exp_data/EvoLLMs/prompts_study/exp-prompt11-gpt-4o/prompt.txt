@@ -1,6 +1,0 @@
-Please transform this optimization algorithm code by exactly {prob*100}% in a 
-way that enhances convergence speed. Keep the code difference precisely at 
-{prob*100}%, and focus solely on achieving performance improvements through 
-algorithmic adjustments across various elements of the code. Avoid focusing on 
-code efficiency; instead, prioritize exploration of diverse approaches within 
-the allowed modification percentage.

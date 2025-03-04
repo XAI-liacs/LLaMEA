@@ -1,5 +1,0 @@
-Now, refine the strategy of the selected solution to improve it. Make sure you 
-only change {prob*100}% of the code, which means if the code has 100 lines, you 
-can only change {int(prob*100)} lines, and the rest lines should remain the same. 
-This changing rate {prob*100}% is the mandatory requirement, you cannot change 
-more or less than this rate.
