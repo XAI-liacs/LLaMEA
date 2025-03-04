@@ -53,6 +53,7 @@ class LLMmanager:
         if "Llama" in self.model:
             import torch
             import transformers
+
             model_id = f"meta-llama/{self.model}"
             self.client = transformers.pipeline(
                 "text-generation",
