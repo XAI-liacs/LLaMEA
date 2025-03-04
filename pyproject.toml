@@ -34,6 +34,7 @@ shap = "^0.46.0"
 lizard = "^1.17.13"
 networkx = "^3.4.2"
 joblib = "^1.4.2"
+iohinspector = "^0.0.3"
 
 [tool.poetry.group.dev.dependencies]
 black = "^23.11.0"
