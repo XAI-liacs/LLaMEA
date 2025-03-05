@@ -2,34 +2,36 @@ import json
 import uuid
 
 
-class Individual:
+class Solution:
     """
     Represents a candidate solution (an individual) in the evolutionary algorithm.
-    Each individual has properties such as solution code, fitness, feedback, and metadata for additional information.
+    Each individual has properties such as code, fitness, feedback, and metadata for additional information.
     """
 
     def __init__(
         self,
-        solution="",
+        code="",
         name="",
         description="",
         configspace=None,
         generation=0,
         parent_id=None,
+        operator=None,
     ):
         """
         Initializes an individual with optional attributes.
 
         Args:
-            solution (str): The solution (code) of the individual.
-            name (str): The name of the individual (typically the class name in the solution).
+            code (str): The code of the individual.
+            name (str): The name of the individual (typically the class name in the code).
             description (str): A short description of the individual (e.g., algorithm's purpose or behavior).
             configspace (Optional[ConfigSpace]): Optional configuration space for HPO.
             generation (int): The generation this individual belongs to.
             parent_id (str): UUID of the parent individual.
+            operator (str): Optional identifier of the LLM operation that created this individual.
         """
         self.id = str(uuid.uuid4())  # Unique ID for this individual
-        self.solution = solution
+        self.code = code
         self.name = name
         self.description = description
         self.configspace = configspace
@@ -39,16 +41,16 @@ class Individual:
         self.error = ""
         self.parent_id = parent_id
         self.metadata = {}  # Dictionary to store additional metadata
-        self.mutation_prompt = None
+        self.operator = operator
 
-    def set_mutation_prompt(self, mutation_prompt):
+    def set_operator(self, operator):
         """
-        Sets the mutation prompt of this individual.
+        Sets the operator name that generated this individual.
 
         Args:
-            mutation_prompt (str): The mutation instruction to apply to this individual.
+            operator (str): The name of the operator (for logging purposes).
         """
-        self.mutation_prompt = mutation_prompt
+        self.operator = operator
 
     def add_metadata(self, key, value):
         """
@@ -76,30 +78,31 @@ class Individual:
 
     def get_summary(self):
         """
-        Returns a string summary of this individual's key attributes.
+        Returns a string summary of this solution's key attributes.
 
         Returns:
-            str: A string representing the individual in a summary format.
+            str: A string representing the solution in a summary format.
         """
         return f"{self.name}: {self.description} (Score: {self.fitness})"
 
     def copy(self):
         """
-        Returns a copy of this individual, with a new unique ID and a reference to the current individual as its parent.
+        Returns a copy of this solution, with a new unique ID and a reference to the current solution as its parent.
 
         Returns:
             Individual: A new instance of Individual with the same attributes but a different ID.
         """
-        new_individual = Individual(
-            solution=self.solution,
+        new_solution = Solution(
+            code=self.code,
             name=self.name,
             description=self.description,
             configspace=self.configspace,
             generation=self.generation + 1,
-            parent_id=self.id,  # Link this individual as the parent
+            parent_id=self.id,  # Link this solution as the parent
+            operator=self.operator
         )
-        new_individual.metadata = self.metadata.copy()  # Copy the metadata as well
-        return new_individual
+        new_solution.metadata = self.metadata.copy()  # Copy the metadata as well
+        return new_solution
 
     def to_dict(self):
         """
@@ -115,7 +118,7 @@ class Individual:
             cs = ""
         return {
             "id": self.id,
-            "solution": self.solution,
+            "code": self.code,
             "name": self.name,
             "description": self.description,
             "configspace": cs,
@@ -124,8 +127,8 @@ class Individual:
             "feedback": self.feedback,
             "error": self.error,
             "parent_id": self.parent_id,
+            "operator": self.operator,
             "metadata": self.metadata,
-            "mutation_prompt": self.mutation_prompt,
         }
 
     def to_json(self):

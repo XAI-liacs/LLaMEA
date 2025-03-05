@@ -3,15 +3,14 @@ import numpy as np
 from ioh import get_problem, logger
 import re
 from misc import aoc_logger, correct_aoc, OverBudgetException
-from llamea import LLaMEA
+from llamea import LLaMEA, Gemini_LLM
 import time
 
 # Execution code starts here
-api_key = os.getenv("OPENAI_API_KEY")
-ai_model = "gpt-4o-2024-05-13"  # gpt-4-turbo or gpt-3.5-turbo gpt-4o llama3:70b gpt-4o-2024-05-13, gemini-1.5-flash gpt-4-turbo-2024-04-09
-experiment_name = "gpt-4o-HPO"
-if "gemini" in ai_model:
-    api_key = os.environ["GEMINI_API_KEY"]
+api_key = os.getenv("GEMINI_API_KEY")
+ai_model = "gemini-1.5-flash"
+experiment_name ="pop1-5-HPO"
+llm = Gemini_LLM(api_key, ai_model)
 
 from itertools import product
 from ConfigSpace import Configuration, ConfigurationSpace
@@ -62,7 +61,7 @@ def evaluateBBOBWithHPO(
     """
     auc_mean = 0
     auc_std = 0
-    code = solution.solution
+    code = solution.code
     algorithm_name = solution.name
     exec(code, globals())
     dim = 5
@@ -213,12 +212,11 @@ feedback_prompts = [
 for experiment_i in [1]:
     es = LLaMEA(
         evaluateBBOBWithHPO,
+        llm=llm,
         role_prompt=role_prompt,
         task_prompt=task_prompt,
         mutation_prompts=feedback_prompts,
-        api_key=api_key,
         experiment_name=experiment_name,
-        model=ai_model,
         elitism=True,
         HPO=True,
     )

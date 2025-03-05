@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "llamea"
-version = "1.0.0"
+version = "1.0.1"
 description = "LLaMEA is a Python framework for automatically generating and refining metaheuristic optimization algorithms using large language models, featuring optional in-the-loop hyper-parameter optimization."
 authors = ["Niki van Stein <n.van.stein@liacs.leidenuniv.nl>"]
 readme = "README.md"

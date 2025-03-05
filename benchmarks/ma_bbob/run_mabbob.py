@@ -3,15 +3,8 @@ import numpy as np
 from ioh import get_problem, logger
 import re
 from misc import aoc_logger, correct_aoc, OverBudgetException
-from llamea import LLaMEA
+from llamea import LLaMEA, Gemini_LLM
 import time
-
-# Execution code starts here
-api_key = os.getenv("OPENAI_API_KEY")
-ai_model = "gemini-2.0-flash"  # gpt-4-turbo or gpt-3.5-turbo gpt-4o llama3:70b gpt-4o-2024-05-13, gemini-1.5-flash gpt-4-turbo-2024-04-09
-experiment_name = "gemini-mabbob"
-if "gemini" in ai_model:
-    api_key = os.environ["GEMINI_API_KEY"]
 
 from itertools import product
 from ConfigSpace import Configuration, ConfigurationSpace
@@ -27,6 +20,12 @@ import pandas as pd
 import polars as pl
 from tqdm import tqdm # optional, for progress bars
 import os
+
+# Execution code starts here
+api_key = os.getenv("GEMINI_API_KEY")
+ai_model = "gemini-2.0-flash"  # gpt-4-turbo or gpt-3.5-turbo gpt-4o llama3:70b gpt-4o-2024-05-13, gemini-1.5-flash gpt-4-turbo-2024-04-09
+experiment_name = "gemini-mabbob"
+llm = Gemini_LLM(api_key, ai_model)
 
 # Read in the instance specifications
 weights = pd.read_csv(os.path.join(os.path.dirname(__file__),"weights.csv"), index_col=0)
@@ -74,7 +73,7 @@ def evaluateMABBOBWithHPO(
     """
     auc_mean = 0
     auc_std = 0
-    code = solution.solution
+    code = solution.code
     algorithm_name = solution.name
     exec(code, globals())
 
@@ -137,9 +136,10 @@ def evaluateMABBOBWithHPO(
             configuration_space,
             name=str(int(time.time())) + "-" + algorithm_name,
             deterministic=False,
-            min_budget=12,
-            max_budget=200,
-            n_trials=2000,
+            min_budget=10,
+            max_budget=100,
+            n_trials=1000,
+            walltime_limit=3000,
             instances=args,
             instance_features=inst_feats,
             output_directory="smac3_output" if explogger is None else explogger.dirname + "/smac"
@@ -176,7 +176,7 @@ def evaluateMABBOBWithHPO(
     auc_mean = np.mean(aucs)
     auc_std = np.std(aucs)
     dict_hyperparams = dict(incumbent)
-    feedback = f"The algorithm {algorithm_name} got an average Area over the convergence curve (AOCC, 1.0 is the best) score of {auc_mean:0.2f} with optimal hyperparameters {dict_hyperparams}."
+    feedback = f"The algorithm {algorithm_name} got an average Area over the convergence curve (AOCC, 1.0 is the best) score of {auc_mean:0.3f} with optimal hyperparameters {dict_hyperparams}."
     print(algorithm_name, algorithm, auc_mean, auc_std)
 
     solution.add_metadata("aucs", aucs)
@@ -188,7 +188,7 @@ def evaluateMABBOBWithHPO(
 
 role_prompt = "You are a highly skilled computer scientist in the field of natural computing. Your task is to design novel metaheuristic algorithms to solve black box optimization problems."
 task_prompt = """
-The optimization algorithm should handle a wide range of tasks, which is evaluated on the BBOB test suite of 24 noiseless functions. Your task is to write the optimization algorithm in Python code. The code should contain an `__init__(self, budget, dim)` function with optional additional arguments and the function `def __call__(self, func)`, which should optimize the black box function `func` using `self.budget` function evaluations.
+The optimization algorithm should handle a wide range of tasks, which is evaluated on the Many Affine BBOB test suite of noiseless functions. Your task is to write the optimization algorithm in Python code. The code should contain an `__init__(self, budget, dim)` function with optional additional arguments and the function `def __call__(self, func)`, which should optimize the black box function `func` using `self.budget` function evaluations.
 The func() can only be called as many times as the budget allows, not more. Each of the optimization functions has a search space between -5.0 (lower bound) and 5.0 (upper bound). The dimensionality can be varied.
 An example of such code (a simple random search), is as follows:
 ```python
@@ -243,15 +243,15 @@ feedback_prompts = [
 for experiment_i in [1]:
     es = LLaMEA(
         evaluateMABBOBWithHPO,
-        budget=10,
+        llm=llm,
+        budget=500,
         n_parents=2,
         n_offspring=8,
+        eval_timeout=int(3600*1.5), #1.5 hours per algorithm
         role_prompt=role_prompt,
         task_prompt=task_prompt,
         mutation_prompts=feedback_prompts,
-        api_key=api_key,
         experiment_name=experiment_name,
-        model=ai_model,
         elitism=True,
         HPO=True,
     )

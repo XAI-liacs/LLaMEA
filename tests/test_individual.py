@@ -1,15 +1,13 @@
 import pytest
 import uuid
 import json
-from llamea import (
-    Individual,
-)  # Replace with the actual module where Individual is defined
+from llamea import Solution
 
 
 def test_individual_initialization():
     # Test initialization of an individual
-    individual = Individual(
-        solution="def my_solution(): pass",
+    individual = Solution(
+        code="def my_solution(): pass",
         name="MySolution",
         description="This is a test solution.",
         generation=1,
@@ -17,7 +15,7 @@ def test_individual_initialization():
 
     assert isinstance(individual.id, str)  # Check if ID is a string
     assert uuid.UUID(individual.id)  # Ensure the ID is a valid UUID
-    assert individual.solution == "def my_solution(): pass"
+    assert individual.code == "def my_solution(): pass"
     assert individual.name == "MySolution"
     assert individual.description == "This is a test solution."
     assert individual.generation == 1
@@ -28,7 +26,7 @@ def test_individual_initialization():
 
 def test_add_metadata():
     # Test adding metadata to an individual
-    individual = Individual()
+    individual = Solution()
     individual.add_metadata("source", "LLM-generated")
     individual.add_metadata("version", 1.0)
 
@@ -40,8 +38,8 @@ def test_add_metadata():
 
 def test_copy_individual():
     # Test copying an individual
-    individual = Individual(
-        solution="def my_solution(): pass",
+    individual = Solution(
+        code="def my_solution(): pass",
         name="MySolution",
         description="This is a test solution.",
         generation=1,
@@ -55,7 +53,7 @@ def test_copy_individual():
     assert (
         new_individual.parent_id == individual.id
     )  # The parent_id of the new individual should be the original individual's ID
-    assert new_individual.solution == individual.solution
+    assert new_individual.code == individual.code
     assert new_individual.name == individual.name
     assert new_individual.description == individual.description
     assert new_individual.metadata == individual.metadata  # Metadata should be copied
@@ -63,8 +61,8 @@ def test_copy_individual():
 
 def test_to_dict():
     # Test converting an individual to a dictionary
-    individual = Individual(
-        solution="def my_solution(): pass",
+    individual = Solution(
+        code="def my_solution(): pass",
         name="MySolution",
         description="This is a test solution.",
         generation=1,
@@ -74,7 +72,7 @@ def test_to_dict():
     individual_dict = individual.to_dict()
 
     assert isinstance(individual_dict, dict)
-    assert individual_dict["solution"] == "def my_solution(): pass"
+    assert individual_dict["code"] == "def my_solution(): pass"
     assert individual_dict["name"] == "MySolution"
     assert individual_dict["description"] == "This is a test solution."
     assert individual_dict["generation"] == 1
@@ -84,8 +82,8 @@ def test_to_dict():
 
 def test_to_json():
     # Test converting an individual to JSON
-    individual = Individual(
-        solution="def my_solution(): pass",
+    individual = Solution(
+        code="def my_solution(): pass",
         name="MySolution",
         description="This is a test solution.",
         generation=1,
@@ -99,7 +97,7 @@ def test_to_json():
     # Convert back to dict to validate content
     individual_dict = json.loads(individual_json)
 
-    assert individual_dict["solution"] == "def my_solution(): pass"
+    assert individual_dict["code"] == "def my_solution(): pass"
     assert individual_dict["name"] == "MySolution"
     assert individual_dict["description"] == "This is a test solution."
     assert individual_dict["generation"] == 1
@@ -108,18 +106,18 @@ def test_to_json():
 
 def test_mutation():
     # Test mutation prompt assignment
-    individual = Individual()
+    individual = Solution()
     mutation_prompt = "Refine the strategy of the solution."
-    individual.set_mutation_prompt(mutation_prompt)
+    individual.set_operator(mutation_prompt)
 
-    assert individual.mutation_prompt == mutation_prompt
+    assert individual.operator == mutation_prompt
 
 
 def test_default_values():
     # Test default values of an individual
-    individual = Individual()
+    individual = Solution()
 
-    assert individual.solution == ""
+    assert individual.code == ""
     assert individual.name == ""
     assert individual.description == ""
     assert individual.configspace is None

@@ -12,12 +12,9 @@ import numpy as np
 from ConfigSpace import ConfigurationSpace
 from joblib import Parallel, delayed
 
-from .ast import analyze_run
-from .individual import Individual
-from .llm import LLMmanager
+from .solution import Solution
 from .loggers import ExperimentLogger
-from .utils import NoCodeException, handle_timeout
-from .fmut_beta import discrete_power_law_distribution
+from .utils import NoCodeException, handle_timeout, discrete_power_law_distribution
 
 
 # TODOs:
@@ -40,7 +37,7 @@ class LLaMEA:
     def __init__(
         self,
         f,
-        api_key,
+        llm,
         n_parents=5,
         n_offspring=10,
         role_prompt="",
@@ -50,7 +47,6 @@ class LLaMEA:
         HPO=False,
         mutation_prompts=None,
         budget=100,
-        model="gpt-4-turbo",
         eval_timeout=3600,
         max_workers=10,
         log=True,
@@ -62,7 +58,6 @@ class LLaMEA:
 
         Args:
             f (callable): The evaluation function to measure the fitness of algorithms.
-            api_key (str): The API key for accessing OpenAI's services.
             n_parents (int): The number of parents in the population.
             n_offspring (int): The number of offspring each iteration.
             elitism (bool): Flag to decide if elitism (plus strategy) should be used in the evolutionary process or comma strategy.
@@ -74,15 +69,13 @@ class LLaMEA:
                 In case it is, a configuration space should be asked from the LLM as additional output in json format.
             mutation_prompts (list): A list of prompts to specify mutation operators to the LLM model. Each mutation, a random choice from this list is made.
             budget (int): The number of generations to run the evolutionary algorithm.
-            model (str): The model identifier from OpenAI or ollama to be used.
             eval_timeout (int): The number of seconds one evaluation can maximum take (to counter infinite loops etc.). Defaults to 1 hour.
             log (bool): Flag to switch of the logging of experiments.
             minimization (bool): Whether we minimize or maximize the objective function. Defaults to False.
             _random (bool): Flag to switch to random search (purely for debugging).
         """
-        self.client = LLMmanager(api_key, model)
-        self.api_key = api_key
-        self.model = model
+        self.client = llm
+        self.model = llm.model
         self.eval_timeout = eval_timeout
         self.f = f  # evaluation function, provides an individual as output.
         self.role_prompt = role_prompt
@@ -156,7 +149,7 @@ Space: <configuration_space>"""
         self.worst_value = -np.Inf
         if minimization:
             self.worst_value = np.Inf
-        self.best_so_far = Individual("", "", "", None, 0, None)
+        self.best_so_far = Solution(name="", code="", parent_id=None)
         self.best_so_far.set_scores(self.worst_value, "", "")
         self.experiment_name = experiment_name
 
@@ -177,7 +170,7 @@ Space: <configuration_space>"""
         """
         Initializes a single solution.
         """
-        new_individual = Individual("", "", "", None, self.generation, None)
+        new_individual = Solution(name="", code="", parent_id=None, generation=self.generation)
         session_messages = [
             {
                 "role": "user",
@@ -245,7 +238,7 @@ Space: <configuration_space>"""
                 "LLaMEA", "\n".join([d["content"] for d in session_messages])
             )
 
-        message = self.client.chat(session_messages)
+        message = self.client.query(session_messages)
 
         if self.log:
             self.logger.log_conversation(self.model, message)
@@ -260,7 +253,7 @@ Space: <configuration_space>"""
         cs = None
         if self.HPO:
             cs = self.extract_configspace(message)
-        new_individual = Individual(code, name, desc, cs, self.generation, parent_id)
+        new_individual = Solution(name=name, description=desc, configspace=cs, code=code, parent_id=parent_id, generation=self.generation)
 
         return new_individual
 
@@ -293,7 +286,7 @@ Space: <configuration_space>"""
         """
         # Generate the current population summary
         population_summary = "\n".join([ind.get_summary() for ind in self.population])
-        solution = individual.solution
+        solution = individual.code
         description = individual.description
         feedback = individual.feedback
         # TODO make a random selection between multiple feedback prompts (mutations)
@@ -308,7 +301,7 @@ Space: <configuration_space>"""
             self.mutation_prompts = [new_mutation_prompt]
 
         mutation_operator = random.choice(self.mutation_prompts)
-        individual.set_mutation_prompt(mutation_operator)
+        individual.set_operator(mutation_operator)
 
         final_prompt = f"""{self.task_prompt}
 The current population of algorithms already evaluated (name, description, score) is:
@@ -521,10 +514,5 @@ With code:
             self.logevent(
                 f"Generation {self.generation}, best so far: {self.best_so_far.fitness}"
             )
-        if self.log:
-            try:
-                analyze_run(self.logger.dirname, self.budget, self.experiment_name)
-            except Exception:
-                pass
 
         return self.best_so_far

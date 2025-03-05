@@ -1,7 +1,7 @@
-Individual
+Solution
 ==========
 
-.. automodule:: llamea.individual
+.. automodule:: llamea.solution
    :members:
    :undoc-members:
    :show-inheritance:
