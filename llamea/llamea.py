@@ -17,6 +17,8 @@ from .individual import Individual
 from .llm import LLMmanager
 from .loggers import ExperimentLogger
 from .utils import NoCodeException, handle_timeout
+from .fmut_beta import discrete_power_law_distribution
+
 
 # TODOs:
 # Implement diversity selection mechanisms (none, prefer short code, update population only when (distribution of) results is different, AST / code difference)
@@ -88,7 +90,7 @@ class LLaMEA:
             self.role_prompt = "You are a highly skilled computer scientist in the field of natural computing. Your task is to design novel metaheuristic algorithms to solve black box optimization problems."
         if task_prompt == "":
             self.task_prompt = """
-The optimization algorithm should handle a wide range of tasks, which is evaluated on the BBOB test suite of 24 noiseless functions. Your task is to write the optimization algorithm in Python code. The code should contain an `__init__(self, budget, dim)` function and the function `def __call__(self, func)`, which should optimize the black box function `func` using `self.budget` function evaluations.
+The optimization algorithm should handle a wide range of tasks, which is evaluated on the BBOB test suite of 24 noiseless functions. Your task is to write the optimization algorithm in Python code to minimize the function value. The code should contain an `__init__(self, budget, dim)` function and the function `def __call__(self, func)`, which should optimize the black box function `func` using `self.budget` function evaluations.
 The func() can only be called as many times as the budget allows, not more. Each of the optimization functions has a search space between -5.0 (lower bound) and 5.0 (upper bound). The dimensionality can be varied.
 An example of such code (a simple random search), is as follows:
 ```
@@ -120,18 +122,25 @@ Give an excellent and novel heuristic algorithm to solve this task.
         self.output_format_prompt = """
 Provide the Python code and a one-line description with the main idea (without enters). Give the response in the format:
 # Description: <short-description>
-# Code: <code>"""
+# Code: 
+```python
+<code>
+```
+"""
         if HPO:
             self.output_format_prompt = """
 Provide the Python code, a one-line description with the main idea (without enters) and the SMAC3 Configuration space to optimize the code (in Python dictionary format). Give the response in the format:
 # Description: <short-description>
-# Code: <code>
-# Space: <configuration_space>"""
+# Code: 
+```python
+<code>
+```
+Space: <configuration_space>"""
         self.mutation_prompts = mutation_prompts
         if mutation_prompts == None:
             self.mutation_prompts = [
                 "Refine the strategy of the selected solution to improve it.",  # small mutation
-                # "Generate a new algorithm that is different from the solutions you have tried before.", #new random solution
+                # "Generate a new algorithm that is different from the algorithms you have tried before.", #new random solution
             ]
         self.budget = budget
         self.n_parents = n_parents
@@ -203,6 +212,7 @@ Provide the Python code, a one-line description with the main idea (without ente
             timeout = self.eval_timeout
             population_gen = Parallel(
                 n_jobs=self.max_workers,
+                backend="threading",
                 timeout=timeout + 15,
                 return_as="generator_unordered",
             )(delayed(self.initialize_single)() for _ in range(self.n_parents))
@@ -270,12 +280,13 @@ Provide the Python code, a one-line description with the main idea (without ente
 
         return updated_individual
 
-    def construct_prompt(self, individual):
+    def construct_prompt(self, individual, power_law_mutation=False):
         """
         Constructs a new session prompt for the language model based on a selected individual.
 
         Args:
             individual (dict): The individual to mutate.
+            power_law_mutation (boolean): To use a small step mutation using the power law distribution prompt. Defaults to False.
 
         Returns:
             list: A list of dictionaries simulating a conversation with the language model for the next evolutionary step.
@@ -286,6 +297,16 @@ Provide the Python code, a one-line description with the main idea (without ente
         description = individual.description
         feedback = individual.feedback
         # TODO make a random selection between multiple feedback prompts (mutations)
+        if power_law_mutation == True:
+            num_lines = len(solution.split("\n"))
+
+            prob = discrete_power_law_distribution(num_lines, 1.5)
+            # prob = 0.4
+            new_mutation_prompt = f"""
+    Refine the strategy of the selected solution to improve it. Make sure you only change {(prob*100):.1f}% of the code, which means if the code has 100 lines, you can only change {prob*100} lines, and the rest of the lines should remain unchanged. This input code has {num_lines} lines, so you can only change {max(1, int(prob*num_lines))} lines, the rest {num_lines-max(1, int(prob*num_lines))} lines should remain unchanged. This changing rate {(prob*100):.1f}% is the mandatory requirement, you cannot change more or less than this rate.
+    """
+            self.mutation_prompts = [new_mutation_prompt]
+
         mutation_operator = random.choice(self.mutation_prompts)
         individual.set_mutation_prompt(mutation_operator)
 
@@ -478,6 +499,7 @@ With code:
                 new_population_gen = Parallel(
                     n_jobs=self.max_workers,
                     timeout=timeout + 15,
+                    backend="threading",
                     return_as="generator_unordered",
                 )(
                     delayed(self.evolve_solution)(individual)

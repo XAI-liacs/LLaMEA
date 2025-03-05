@@ -41,6 +41,7 @@ class ExperimentLogger:
         Returns:
             str: The name of the created directory.
         """
+        model_name = name.split("/")[-1]
         today = datetime.today().strftime("%m-%d_%H%M%S")
         dirname = f"exp-{today}-{name}"
         os.mkdir(dirname)

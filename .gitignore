@@ -171,6 +171,12 @@ user_tsp_gls/algs/
 benchmarks/LLMdesignedEA/LLMdesignedEA-comp
 benchmarks/user_tsp_gls/tsplib/
 
+# snellius server sbatch jobs output
+nohup.out
+sbatch_jobs/
+# exp-*
+currentexp/
+*.job
 
 #AST img and alg folders
 ast/fixed_mutation_experiments
@@ -179,3 +185,5 @@ ast/EoH_runs
 ast/*output*
 ast/img*
 ast/graphstats*
+
+logs/

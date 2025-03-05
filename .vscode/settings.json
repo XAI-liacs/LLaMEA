@@ -1,0 +1,5 @@
+{
+    "python.analysis.extraPaths": [
+        "./benchmarks/tuto_global_optimization_photonics"
+    ]
+}
