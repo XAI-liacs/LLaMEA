@@ -6,8 +6,9 @@ import google.generativeai as genai
 import openai
 import ollama
 
+
 class LLM(ABC):
-    def __init__(self, api_key, model='', base_url=''):
+    def __init__(self, api_key, model="", base_url=""):
         """
         Initializes the LLM manager with an API key, model name and base_url.
 
@@ -34,6 +35,7 @@ class LLM(ABC):
         """
         pass
 
+
 class OpenAI_LLM(LLM):
     """
     A manager class for handling requests to OpenAI's GPT models.
@@ -51,7 +53,6 @@ class OpenAI_LLM(LLM):
         super().__init__(api_key, model, None)
         self.client = openai.OpenAI(api_key=api_key)
 
-
     def query(self, session_messages):
         """
         Sends a conversation history to the configured model and returns the response text.
@@ -68,8 +69,8 @@ class OpenAI_LLM(LLM):
             model=self.model, messages=session_messages, temperature=0.8
         )
         return response.choices[0].message.content
-        
-        
+
+
 class Gemini_LLM(LLM):
     """
     A manager class for handling requests to Google's Gemini models.
@@ -100,7 +101,6 @@ class Gemini_LLM(LLM):
             system_instruction="You are a computer scientist and excellent Python programmer.",
         )
 
-
     def query(self, session_messages):
         """
         Sends a conversation history to the configured model and returns the response text.
@@ -112,7 +112,7 @@ class Gemini_LLM(LLM):
         Returns:
             str: The text content of the LLM's response.
         """
-        
+
         history = []
         last = session_messages.pop()
         for msg in session_messages:
@@ -127,7 +127,8 @@ class Gemini_LLM(LLM):
         chat_session = self.client.start_chat(history=history)
         response = chat_session.send_message(last["content"])
         return response.text
-        
+
+
 class Ollama_LLM(LLM):
     def __init__(self, model="llama3.2"):
         """
@@ -137,8 +138,7 @@ class Ollama_LLM(LLM):
             model (str, optional): model abbreviation. Defaults to "llama3.2".
                 See for options: https://ollama.com/search.
         """
-        super().__init__('', model, None)
-
+        super().__init__("", model, None)
 
     def query(self, session_messages):
         """

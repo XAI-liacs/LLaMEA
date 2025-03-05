@@ -3,6 +3,7 @@ import numpy as np
 
 class NoCodeException(Exception):
     """Could not extract generated code."""
+
     pass
 
 
@@ -13,7 +14,7 @@ def handle_timeout(signum, frame):
 
 def discrete_power_law_distribution(n, beta):
     """
-    Power law distribution function from: 
+    Power law distribution function from:
     # Benjamin Doerr, Huu Phuoc Le, Régis Makhmara, and Ta Duy Nguyen. 2017.
     # Fast genetic algorithms.
     # In Proceedings of the Genetic and Evolutionary Computation Conference (GECCO '17).

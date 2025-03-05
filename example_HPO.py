@@ -9,7 +9,7 @@ import time
 # Execution code starts here
 api_key = os.getenv("GEMINI_API_KEY")
 ai_model = "gemini-1.5-flash"
-experiment_name ="pop1-5-HPO"
+experiment_name = "pop1-5-HPO"
 llm = Gemini_LLM(api_key, ai_model)
 
 from itertools import product
@@ -20,9 +20,7 @@ from smac import Scenario
 from smac import AlgorithmConfigurationFacade
 
 
-def evaluateBBOBWithHPO(
-    solution, explogger = None
-):
+def evaluateBBOBWithHPO(solution, explogger=None):
     """
     Evaluates an optimization algorithm on the BBOB (Black-Box Optimization Benchmarking) suite and computes
     the Area Over the Convergence Curve (AOCC) to measure performance. In addddition, if a configuration space is provided, it
@@ -69,7 +67,6 @@ def evaluateBBOBWithHPO(
     error = ""
     algorithm = None
 
-
     # perform a small run to check for any code errors
     l2_temp = aoc_logger(100, upper=1e2, triggers=[logger.trigger.ALWAYS])
     problem = get_problem(11, 1, dim)
@@ -106,7 +103,7 @@ def evaluateBBOBWithHPO(
     inst_feats = {str(arg): [arg[0]] for idx, arg in enumerate(args)}
     # inst_feats = {str(arg): [idx] for idx, arg in enumerate(args)}
     error = ""
-    
+
     if "_configspace" not in solution.keys():
         # No HPO possible, evaluate only the default
         incumbent = {}
@@ -122,14 +119,18 @@ def evaluateBBOBWithHPO(
             n_trials=2000,
             instances=args,
             instance_features=inst_feats,
-            output_directory="smac3_output" if explogger is None else explogger.dirname + "/smac"
-            #n_workers=10
+            output_directory="smac3_output"
+            if explogger is None
+            else explogger.dirname + "/smac"
+            # n_workers=10
         )
-        smac = AlgorithmConfigurationFacade(scenario, get_bbob_performance, logging_level=30)
+        smac = AlgorithmConfigurationFacade(
+            scenario, get_bbob_performance, logging_level=30
+        )
         incumbent = smac.optimize()
 
     # last but not least, perform the final validation
-    
+
     l2 = aoc_logger(budget, upper=1e2, triggers=[logger.trigger.ALWAYS])
     aucs = []
     for fid in np.arange(1, 25):
@@ -139,7 +140,9 @@ def evaluateBBOBWithHPO(
             for rep in range(3):
                 np.random.seed(rep)
                 try:
-                    algorithm = globals()[algorithm_name](budget=budget, dim=dim, **dict(incumbent))
+                    algorithm = globals()[algorithm_name](
+                        budget=budget, dim=dim, **dict(incumbent)
+                    )
                     algorithm(problem)
                 except OverBudgetException:
                     pass
@@ -157,7 +160,7 @@ def evaluateBBOBWithHPO(
     solution.add_metadata("aucs", aucs)
     solution.add_metadata("incumbent", dict_hyperparams)
     solution.set_scores(auc_mean, feedback)
-    
+
     return solution
 
 

@@ -170,7 +170,9 @@ Space: <configuration_space>"""
         """
         Initializes a single solution.
         """
-        new_individual = Solution(name="", code="", parent_id=None, generation=self.generation)
+        new_individual = Solution(
+            name="", code="", parent_id=None, generation=self.generation
+        )
         session_messages = [
             {
                 "role": "user",
@@ -253,7 +255,14 @@ Space: <configuration_space>"""
         cs = None
         if self.HPO:
             cs = self.extract_configspace(message)
-        new_individual = Solution(name=name, description=desc, configspace=cs, code=code, parent_id=parent_id, generation=self.generation)
+        new_individual = Solution(
+            name=name,
+            description=desc,
+            configspace=cs,
+            code=code,
+            parent_id=parent_id,
+            generation=self.generation,
+        )
 
         return new_individual
 

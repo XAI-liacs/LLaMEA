@@ -6,7 +6,7 @@ from misc import aoc_logger, correct_aoc, OverBudgetException
 from llamea import LLaMEA, OpenAI_LLM
 import torch
 
-if torch.cuda.is_available():                        
+if torch.cuda.is_available():
     print(f"CUDA is available. PyTorch is using GPU: {torch.cuda.get_device_name(0)}")
     print(f"GPU device count: {torch.cuda.device_count()}")
     print(f"Current device index: {torch.cuda.current_device()}")
@@ -48,8 +48,7 @@ def evaluateBBOB(solution, explogger=None, details=False):
                 for rep in range(3):
                     np.random.seed(rep)
                     try:
-                        algorithm = globals()[algorithm_name](
-                            budget=budget, dim=dim)
+                        algorithm = globals()[algorithm_name](budget=budget, dim=dim)
                         algorithm(problem)
                     except OverBudgetException:
                         pass
@@ -109,6 +108,15 @@ Give an excellent and novel heuristic algorithm to solve this task and also give
 
 for experiment_i in range(2):
     # A 1+1 strategy
-    es = LLaMEA(evaluateBBOB, llm=llm, n_parents=1, n_offspring=1, task_prompt=task_prompt,
-                experiment_name=experiment_name, elitism=True, HPO=False, budget=100)
+    es = LLaMEA(
+        evaluateBBOB,
+        llm=llm,
+        n_parents=1,
+        n_offspring=1,
+        task_prompt=task_prompt,
+        experiment_name=experiment_name,
+        elitism=True,
+        HPO=False,
+        budget=100,
+    )
     print(es.run())
