@@ -7,6 +7,7 @@ from photonics_benchmark import *
 from llamea import LLaMEA
 from misc import aoc_logger, correct_aoc, OverBudgetException
 
+from llamea import Gemini_LLM, OpenAI_LLM
 
 def get_photonic_instances():
     problems = []
@@ -119,7 +120,7 @@ def evaluatePhotonic(solution, details=False):
         auc_upper = 1.
     auc_mean = 0
     auc_std = 0
-    code = solution.solution
+    code = solution.code
     algorithm_name = solution.name
     exec(code, globals())
     aucs = []
@@ -175,11 +176,13 @@ with_insight = True if sys.argv[4] == "1" else False
 parent_size = int(sys.argv[5])
 offspring_size = int(sys.argv[6])
 es_flag = False if sys.argv[7] == "0" else True
-if "deepseek" in ai_model:
-    # api_key = os.getenv("DEEPSEEK_API_KEY")
-    api_key = os.getenv("TENCENT_API_KEY")
+if "gemini" in ai_model:
+    api_key = os.getenv("GEMINI_API_KEY")
+    llm = Gemini_LLM(api_key, ai_model)
 else:
     api_key = os.getenv("OPENAI_API_KEY")
+    llm = OpenAI_LLM(api_key, ai_model)
+
 problem_types = ["bragg", "ellipsometry", "photovoltaic"]
 problem_name = problem_types[problem_id]
 n1 = "_with_description" if with_description else ""
@@ -206,8 +209,8 @@ The func() can only be called as many times as the budget allows, not more. Each
 Give an excellent and novel heuristic algorithm to solve this task and include it's one-line description with the main idea of the algorithm.
 """
 
-es = LLaMEA(evaluatePhotonic, n_parents=parent_size, n_offspring=offspring_size,
-            api_key=api_key, task_prompt=task_prompt,
-            experiment_name=experiment_name, model=ai_model, elitism=es_flag,
+es = LLaMEA(evaluatePhotonic, llm=llm, n_parents=parent_size, n_offspring=offspring_size,
+            task_prompt=task_prompt,
+            experiment_name=experiment_name, elitism=es_flag,
             HPO=False, budget=100)
 print(es.run())

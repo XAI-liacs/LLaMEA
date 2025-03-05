@@ -11,14 +11,11 @@ from ioh import get_problem, logger, wrap_problem
 from llamea import LLaMEA
 from misc import OverBudgetException, aoc_logger, correct_aoc
 
-# Execution code starts here
-api_key = os.getenv("OPENAI_API_KEY")
-ai_model = "gemini-1.5-flash"  # "gpt-4o-2024-05-13"  # gpt-4-turbo or gpt-3.5-turbo gpt-4o llama3:70b gpt-4o-2024-05-13, gemini-1.5-flash gpt-4-turbo-2024-04-09
-experiment_name = "minibrag"
-if "gemini" in ai_model:
-    api_key = os.environ["GEMINI_API_KEY"]
-
-import numpy as np
+from llamea import Gemini_LLM
+api_key = os.getenv("GEMINI_API_KEY")
+ai_model = "gemini-2.0-flash"  # gpt-4-turbo or gpt-3.5-turbo gpt-4o llama3:70b gpt-4o-2024-05-13, gemini-1.5-flash gpt-4-turbo-2024-04-09
+experiment_name = "gemini-minibrag"
+llm = Gemini_LLM(api_key, ai_model)
 
 log_folder = ""
 
@@ -27,7 +24,7 @@ def evaluate(solution, explogger=None):
     # first we wait a bit to not hit the Gemini threshold
     time.sleep(10)
 
-    code = solution.solution
+    code = solution.code
     algorithm_name = solution.name
     exec(code, globals())
 
@@ -166,6 +163,7 @@ if False:
 for experiment_i in [1]:
     es = LLaMEA(
         evaluate,
+        llm=llm,
         n_parents=4,
         n_offspring=12,
         budget=250,
@@ -173,9 +171,7 @@ for experiment_i in [1]:
         role_prompt=role_prompt,
         task_prompt=task_prompt,
         mutation_prompts=feedback_prompts,
-        api_key=api_key,
         experiment_name=experiment_name,
-        model=ai_model,
         elitism=True,
         HPO=False,
     )

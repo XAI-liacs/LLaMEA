@@ -6,7 +6,7 @@ LLaMEA API
    :caption: LLaMEA Modules
 
    llamea
-   individual
+   solution
    llm
    loggers
    utils

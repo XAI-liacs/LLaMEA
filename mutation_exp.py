@@ -3,10 +3,10 @@ import numpy as np
 from ioh import get_problem, logger
 import re
 from misc import aoc_logger, correct_aoc, OverBudgetException
-from llamea import LLaMEA
+from llamea import LLaMEA, OpenAI_LLM
 import torch
 
-if torch.cuda.is_available():                        
+if torch.cuda.is_available():
     print(f"CUDA is available. PyTorch is using GPU: {torch.cuda.get_device_name(0)}")
     print(f"GPU device count: {torch.cuda.device_count()}")
     print(f"Current device index: {torch.cuda.current_device()}")
@@ -17,6 +17,7 @@ torch.cuda.empty_cache()
 api_key = os.getenv("OPENAI_API_KEY")
 ai_model = "gpt-3.5-turbo"
 experiment_name = "prompt7"
+llm = OpenAI_LLM(api_key, ai_model)
 # Llama-3.2-1B-Instruct, Llama-3.2-3B-Instruct,
 # Meta-Llama-3.1-8B-Instruct, Meta-Llama-3.1-70B-Instruct,
 # CodeLlama-7b-Instruct-hf, CodeLlama-13b-Instruct-hf,
@@ -27,7 +28,7 @@ def evaluateBBOB(solution, explogger=None, details=False):
     auc_mean = 0
     auc_std = 0
     detailed_aucs = [0, 0, 0, 0, 0]
-    code = solution.solution
+    code = solution.code
     algorithm_name = solution.name
     exec(code, globals())
 
@@ -47,8 +48,7 @@ def evaluateBBOB(solution, explogger=None, details=False):
                 for rep in range(3):
                     np.random.seed(rep)
                     try:
-                        algorithm = globals()[algorithm_name](
-                            budget=budget, dim=dim)
+                        algorithm = globals()[algorithm_name](budget=budget, dim=dim)
                         algorithm(problem)
                     except OverBudgetException:
                         pass
@@ -108,6 +108,15 @@ Give an excellent and novel heuristic algorithm to solve this task and also give
 
 for experiment_i in range(2):
     # A 1+1 strategy
-    es = LLaMEA(evaluateBBOB, n_parents=1, n_offspring=1, api_key=api_key, task_prompt=task_prompt,
-                experiment_name=experiment_name, model=ai_model, elitism=True, HPO=False, budget=100)
+    es = LLaMEA(
+        evaluateBBOB,
+        llm=llm,
+        n_parents=1,
+        n_offspring=1,
+        task_prompt=task_prompt,
+        experiment_name=experiment_name,
+        elitism=True,
+        HPO=False,
+        budget=100,
+    )
     print(es.run())
