@@ -77,7 +77,7 @@ def evaluateMABBOBWithHPO(
     algorithm_name = solution.name
     exec(code, globals())
 
-    budget_factor = 2000
+    budget_factor = 100
     error = ""
     algorithm = None
 
@@ -98,7 +98,7 @@ def evaluateMABBOBWithHPO(
         dim, idx = instance.split(",")
         dim = int(dim[1:])
         idx = int(idx[:-1])
-        budget=2000 * dim
+        budget=budget_factor * dim
         
         f_new = ioh.problem.ManyAffine(xopt = np.array(opt_locs.iloc[idx])[:dim], 
                                     weights = np.array(weights.iloc[idx]),
@@ -123,7 +123,7 @@ def evaluateMABBOBWithHPO(
 
     args = list(product([2,5], range(0, 100)))
     np.random.shuffle(args)
-    inst_feats = {str(arg): [arg[0]] for idx, arg in enumerate(args)}
+    inst_feats = {str(arg): [arg[1]] for idx, arg in enumerate(args)}
     # inst_feats = {str(arg): [idx] for idx, arg in enumerate(args)}
     error = ""
     
@@ -137,10 +137,10 @@ def evaluateMABBOBWithHPO(
             configuration_space,
             name=str(int(time.time())) + "-" + algorithm_name,
             deterministic=False,
-            min_budget=10,
-            max_budget=100,
-            n_trials=1000,
-            walltime_limit=3000,
+            min_budget=2,
+            max_budget=10,
+            n_trials=100,
+            walltime_limit=300,
             instances=args,
             instance_features=inst_feats,
             output_directory="smac3_output" if explogger is None else explogger.dirname + "/smac"
@@ -148,13 +148,15 @@ def evaluateMABBOBWithHPO(
         )
         smac = AlgorithmConfigurationFacade(scenario, get_mabbob_performance, logging_level=30)
         incumbent = smac.optimize()
+        print(incumbent)
+        exit()
 
     # last but not least, perform the final validation
     
     aucs = []
     for dim in [2,5]:
         for idx in range(100):
-            budget=2000 * dim
+            budget=budget_factor * dim
             f_new = ioh.problem.ManyAffine(xopt = np.array(opt_locs.iloc[idx])[:dim], 
                                         weights = np.array(weights.iloc[idx]),
                                         instances = np.array(iids.iloc[idx], dtype=int), 
@@ -246,7 +248,7 @@ for experiment_i in [1]:
     es = LLaMEA(
         evaluateMABBOBWithHPO,
         llm=llm,
-        budget=500,
+        budget=10,
         n_parents=2,
         n_offspring=8,
         eval_timeout=int(3600*1.5), #1.5 hours per algorithm
@@ -255,6 +257,6 @@ for experiment_i in [1]:
         mutation_prompts=feedback_prompts,
         experiment_name=experiment_name,
         elitism=True,
-        HPO=True,
+        HPO=False,
     )
     print(es.run())

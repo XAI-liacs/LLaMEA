@@ -156,6 +156,7 @@ Space: <configuration_space>"""
         if self.log:
             modelname = self.model.replace(":", "_")
             self.logger = ExperimentLogger(f"LLaMEA-{modelname}-{experiment_name}")
+            self.llm.set_logger(self.logger)
         else:
             self.logger = None
         self.textlog = logging.getLogger(__name__)
@@ -187,6 +188,7 @@ Space: <configuration_space>"""
             new_individual = self.evaluate_fitness(new_individual)
         except NoCodeException:
             new_individual.set_scores(self.worst_value, "No code was extracted.")
+            self.textlog.warning("No code was extracted.")
         except Exception as e:
             new_individual.set_scores(
                 self.worst_value,
@@ -233,8 +235,8 @@ Space: <configuration_space>"""
         Returns:
             tuple: Updated individual with "_feedback", "_fitness" (float), and "_error" (string) filled.
         """
-        with contextlib.redirect_stdout(None):
-            updated_individual = self.f(individual, self.logger)
+        #with contextlib.redirect_stdout(None):
+        updated_individual = self.f(individual, self.logger)
 
         return updated_individual
 
@@ -349,7 +351,7 @@ With code:
 
         try:
             evolved_individual = self.llm.sample_solution(new_prompt, evolved_individual.parent_ids, HPO=self.HPO)
-            new_individual.generation = self.generation
+            evolved_individual.generation = self.generation
             evolved_individual = self.evaluate_fitness(evolved_individual)
         except NoCodeException:
             evolved_individual.set_scores(

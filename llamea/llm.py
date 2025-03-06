@@ -1,5 +1,5 @@
 """
-LLM modules to connect to different LLM providers.
+LLM modules to connect to different LLM providers. Also extracts code, name and description.
 """
 from abc import ABC, abstractmethod
 import google.generativeai as genai
@@ -30,8 +30,7 @@ class LLM(ABC):
         self.api_key = api_key
         self.model = model
         self.logger = logger
-        self.log = True
-        self.log = self.logger == None
+        self.log = self.logger != None
         self.code_pattern = code_pattern if code_pattern != None else r"```(?:python)?\n(.*?)\n```"
         self.name_pattern = name_pattern if name_pattern != None else "class\\s*(\\w*)(?:\\(\\w*\\))?\\:"
         self.desc_pattern = desc_pattern if desc_pattern != None else r"#\s*Description\s*:\s*(.*)"
@@ -51,6 +50,16 @@ class LLM(ABC):
             str: The text content of the LLM's response.
         """
         pass
+
+    def set_logger(self, logger):
+        """
+        Sets the logger object to log the conversation.
+
+        Args:
+            logger (Logger): A logger object to log the conversation.
+        """
+        self.logger = logger
+        self.log = True
 
     def sample_solution(self, session_messages: list, parent_ids=[], HPO=False):
         """
@@ -159,7 +168,7 @@ class OpenAI_LLM(LLM):
     A manager class for handling requests to OpenAI's GPT models.
     """
 
-    def __init__(self, api_key, model="gpt-4-turbo"):
+    def __init__(self, api_key, model="gpt-4-turbo", **kwargs):
         """
         Initializes the LLM manager with an API key and model name.
 
@@ -168,7 +177,7 @@ class OpenAI_LLM(LLM):
             model (str, optional): model abbreviation. Defaults to "gpt-4-turbo".
                 Options are: gpt-3.5-turbo, gpt-4-turbo, gpt-4o, and others from OpeNAI models library.
         """
-        super().__init__(api_key, model, None)
+        super().__init__(api_key, model, None, **kwargs)
         self.client = openai.OpenAI(api_key=api_key)
 
     def query(self, session_messages):
@@ -193,8 +202,7 @@ class Gemini_LLM(LLM):
     """
     A manager class for handling requests to Google's Gemini models.
     """
-
-    def __init__(self, api_key, model="gemini-2.0-flash"):
+    def __init__(self, api_key, model="gemini-2.0-flash", **kwargs):
         """
         Initializes the LLM manager with an API key and model name.
 
@@ -203,7 +211,7 @@ class Gemini_LLM(LLM):
             model (str, optional): model abbreviation. Defaults to "gemini-2.0-flash".
                 Options are: "gemini-1.5-flash","gemini-2.0-flash", and others from Googles models library.
         """
-        super().__init__(api_key, model, None)
+        super().__init__(api_key, model, None, **kwargs)
         genai.configure(api_key=api_key)
         generation_config = {
             "temperature": 1,
@@ -248,7 +256,7 @@ class Gemini_LLM(LLM):
 
 
 class Ollama_LLM(LLM):
-    def __init__(self, model="llama3.2"):
+    def __init__(self, model="llama3.2", **kwargs):
         """
         Initializes the Ollama LLM manager with a model name. See https://ollama.com/search for models.
 
@@ -256,7 +264,7 @@ class Ollama_LLM(LLM):
             model (str, optional): model abbreviation. Defaults to "llama3.2".
                 See for options: https://ollama.com/search.
         """
-        super().__init__("", model, None)
+        super().__init__("", model, None, **kwargs)
 
     def query(self, session_messages):
         """
