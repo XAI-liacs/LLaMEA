@@ -1,5 +1,6 @@
 import json
 import uuid
+import numpy as np
 
 
 class Solution:
@@ -15,7 +16,7 @@ class Solution:
         description="",
         configspace=None,
         generation=0,
-        parent_id=None,
+        parent_ids=[],
         operator=None,
     ):
         """
@@ -27,7 +28,7 @@ class Solution:
             description (str): A short description of the individual (e.g., algorithm's purpose or behavior).
             configspace (Optional[ConfigSpace]): Optional configuration space for HPO.
             generation (int): The generation this individual belongs to.
-            parent_id (str): UUID of the parent individual.
+            parent_ids (list): UUID of the parent individuals in a list.
             operator (str): Optional identifier of the LLM operation that created this individual.
         """
         self.id = str(uuid.uuid4())  # Unique ID for this individual
@@ -36,10 +37,10 @@ class Solution:
         self.description = description
         self.configspace = configspace
         self.generation = generation
-        self.fitness = None
+        self.fitness = -np.Inf
         self.feedback = ""
         self.error = ""
-        self.parent_id = parent_id
+        self.parent_ids = parent_ids
         self.metadata = {}  # Dictionary to store additional metadata
         self.operator = operator
 
@@ -98,8 +99,8 @@ class Solution:
             description=self.description,
             configspace=self.configspace,
             generation=self.generation + 1,
-            parent_id=self.id,  # Link this solution as the parent
-            operator=self.operator,
+            parent_ids=[self.id],  # Link this solution as the parent
+            operator=self.operator
         )
         new_solution.metadata = self.metadata.copy()  # Copy the metadata as well
         return new_solution
@@ -126,7 +127,7 @@ class Solution:
             "fitness": self.fitness,
             "feedback": self.feedback,
             "error": self.error,
-            "parent_id": self.parent_id,
+            "parent_ids": self.parent_ids,
             "operator": self.operator,
             "metadata": self.metadata,
         }

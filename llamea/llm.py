@@ -5,10 +5,14 @@ from abc import ABC, abstractmethod
 import google.generativeai as genai
 import openai
 import ollama
+import re
+from .utils import NoCodeException
+from .solution import Solution
+from ConfigSpace import ConfigurationSpace
 
 
 class LLM(ABC):
-    def __init__(self, api_key, model="", base_url=""):
+    def __init__(self, api_key, model="", base_url="", code_pattern=None, name_pattern=None, desc_pattern=None, cs_pattern=None, logger=None):
         """
         Initializes the LLM manager with an API key, model name and base_url.
 
@@ -16,10 +20,23 @@ class LLM(ABC):
             api_key (str): api key for authentication.
             model (str, optional): model abbreviation.
             base_url (str, optional): The url to call the API from.
+            code_pattern (str, optional): The regex pattern to extract code from the response.
+            name_pattern (str, optional): The regex pattern to extract the class name from the response.
+            desc_pattern (str, optional): The regex pattern to extract the description from the response.
+            cs_pattern (str, optional): The regex pattern to extract the configuration space from the response.
+            logger (Logger, optional): A logger object to log the conversation.
         """
         self.base_url = base_url
         self.api_key = api_key
         self.model = model
+        self.logger = logger
+        self.log = True
+        self.log = self.logger == None
+        self.code_pattern = code_pattern if code_pattern != None else r"```(?:python)?\n(.*?)\n```"
+        self.name_pattern = name_pattern if name_pattern != None else "class\\s*(\\w*)(?:\\(\\w*\\))?\\:"
+        self.desc_pattern = desc_pattern if desc_pattern != None else r"#\s*Description\s*:\s*(.*)"
+        self.cs_pattern = cs_pattern if cs_pattern != None else r"space\s*:\s*\n*```\n*(?:python)?\n(.*?)\n```"
+        
 
     @abstractmethod
     def query(self, session: list):
@@ -35,6 +52,107 @@ class LLM(ABC):
         """
         pass
 
+    def sample_solution(self, session_messages: list, parent_ids=[], HPO=False):
+        """
+        Interacts with a language model to generate or mutate solutions based on the provided session messages.
+
+        Args:
+            session_messages (list): A list of dictionaries with keys 'role' and 'content' to simulate a conversation with the language model.
+            parent_ids (list, optional): The id of the parent the next sample will be generated from (if any).
+            HPO (boolean, optional): If HPO is enabled, a configuration space will also be extracted (if possible).
+
+        Returns:
+            tuple: A tuple containing the new algorithm code, its class name, its full descriptive name and an optional configuration space object.
+
+        Raises:
+            NoCodeException: If the language model fails to return any code.
+            Exception: Captures and logs any other exceptions that occur during the interaction.
+        """
+        if self.log:
+            self.logger.log_conversation(
+                "client", "\n".join([d["content"] for d in session_messages])
+            )
+
+        message = self.query(session_messages)
+
+        if self.log:
+            self.logger.log_conversation(self.model, message)
+
+        code = self.extract_algorithm_code(message)
+        name = re.findall(
+            "class\\s*(\\w*)(?:\\(\\w*\\))?\\:",
+            code,
+            re.IGNORECASE,
+        )[0]
+        desc = self.extract_algorithm_description(message)
+        cs = None
+        if HPO:
+            cs = self.extract_configspace(message)
+        new_individual = Solution(
+            name=name,
+            description=desc,
+            configspace=cs,
+            code=code,
+            parent_ids=parent_ids,
+        )
+
+        return new_individual
+
+    def extract_configspace(self, message):
+        """
+        Extracts the configuration space definition in json from a given message string using regular expressions.
+
+        Args:
+            message (str): The message string containing the algorithm code.
+
+        Returns:
+            ConfigSpace: Extracted configuration space object.
+        """
+        pattern = r"space\s*:\s*\n*```\n*(?:python)?\n(.*?)\n```"
+        c = None
+        for m in re.finditer(pattern, message, re.DOTALL | re.IGNORECASE):
+            try:
+                c = ConfigurationSpace(eval(m.group(1)))
+            except Exception as e:
+                pass
+        return c
+
+    def extract_algorithm_code(self, message):
+        """
+        Extracts algorithm code from a given message string using regular expressions.
+
+        Args:
+            message (str): The message string containing the algorithm code.
+
+        Returns:
+            str: Extracted algorithm code.
+
+        Raises:
+            NoCodeException: If no code block is found within the message.
+        """
+        pattern = r"```(?:python)?\n(.*?)\n```"
+        match = re.search(pattern, message, re.DOTALL | re.IGNORECASE)
+        if match:
+            return match.group(1)
+        else:
+            raise NoCodeException
+
+    def extract_algorithm_description(self, message):
+        """
+        Extracts algorithm description from a given message string using regular expressions.
+
+        Args:
+            message (str): The message string containing the algorithm name and code.
+
+        Returns:
+            str: Extracted algorithm name or empty string.
+        """
+        pattern = r"#\s*Description\s*:\s*(.*)"
+        match = re.search(pattern, message, re.IGNORECASE)
+        if match:
+            return match.group(1)
+        else:
+            return ""
 
 class OpenAI_LLM(LLM):
     """

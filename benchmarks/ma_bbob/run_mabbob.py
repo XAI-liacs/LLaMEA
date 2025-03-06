@@ -91,6 +91,7 @@ def evaluateMABBOBWithHPO(
         algorithm(problem)
     except OverBudgetException:
         pass
+    # Other exceptions are catched at LLaMEA level.
 
     # now optimize the hyper-parameters
     def get_mabbob_performance(config: Configuration, instance: str, seed: int = 0):
@@ -168,6 +169,7 @@ def evaluateMABBOBWithHPO(
                 algorithm(f_new)
             except OverBudgetException:
                 pass
+            
             auc = correct_aoc(f_new, l2, budget)
             aucs.append(auc)
             l2.reset(f_new)

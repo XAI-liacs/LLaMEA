@@ -13,6 +13,8 @@ def convert_to_serializable(data):
         return [convert_to_serializable(item) for item in data]
     elif isinstance(data, np.integer):
         return int(data)
+    elif isinstance(data, np.bool_):
+        return bool(data)
     elif isinstance(data, np.floating):
         return float(data)
     if isinstance(data, np.ndarray):
