@@ -306,7 +306,7 @@ Space: <configuration_space>"""
         new_mutation_prompt = f"""
 Refine the strategy of the selected solution to improve it. Make sure you only change {(prob*100):.1f}% of the code, which means if the code has 100 lines, you can only change {prob*100} lines, and the rest of the lines should remain unchanged. This input code has {num_lines} lines, so you can only change {max(1, int(prob*num_lines))} lines, the rest {num_lines-max(1, int(prob*num_lines))} lines should remain unchanged. This changing rate {(prob*100):.1f}% is the mandatory requirement, you cannot change more or less than this rate.
 """
-        self.mutation_prompts += [new_mutation_prompt]
+        self.mutation_prompts = [new_mutation_prompt]
         mutation_operator = random.choice(self.mutation_prompts)
         individual.set_mutation_prompt(mutation_operator)
 
