@@ -235,8 +235,8 @@ Space: <configuration_space>"""
         Returns:
             tuple: Updated individual with "_feedback", "_fitness" (float), and "_error" (string) filled.
         """
-        #with contextlib.redirect_stdout(None):
-        updated_individual = self.f(individual, self.logger)
+        with contextlib.redirect_stdout(None):
+            updated_individual = self.f(individual, self.logger)
 
         return updated_individual
 

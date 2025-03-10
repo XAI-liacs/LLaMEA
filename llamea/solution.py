@@ -119,12 +119,12 @@ class Solution:
             cs = ""
         return {
             "id": self.id,
-            "code": self.code,
+            "fitness": self.fitness,
             "name": self.name,
             "description": self.description,
+            "code": self.code,
             "configspace": cs,
             "generation": self.generation,
-            "fitness": self.fitness,
             "feedback": self.feedback,
             "error": self.error,
             "parent_ids": self.parent_ids,
