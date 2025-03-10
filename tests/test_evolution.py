@@ -1,6 +1,6 @@
 import pytest
 from unittest.mock import MagicMock
-from llamea import LLaMEA
+from llamea import LLaMEA, Ollama_LLM
 import numpy as np
 
 
@@ -33,16 +33,16 @@ def test_evolutionary_process():
         f,
         n_parents=1,
         n_offspring=1,
-        api_key="test_key",
+        llm=Ollama_LLM("model"),
         experiment_name="test evolution",
         elitism=True,
         budget=10,
         log=True,
     )
-    optimizer.client.chat = MagicMock(return_value=response)
+    optimizer.llm.query = MagicMock(return_value=response)
     best_so_far = optimizer.run()  # Assuming run has a very simple loop for testing
     assert (
-        best_so_far.solution == "class ExampleAlgorithm:\n    pass"
+        best_so_far.code == "class ExampleAlgorithm:\n    pass"
     ), "best should be class ExampleAlgorithm(object):\n    pass"
     assert (
         best_so_far.fitness == 1.0
@@ -59,16 +59,16 @@ def test_evolutionary_process_with_errors():
     response = "hi!"
     optimizer = LLaMEA(
         f,
+        llm=Ollama_LLM("model"),
         n_parents=1,
         n_offspring=1,
         role_prompt="You are super cute",
         task_prompt="just say hi",
-        api_key="test_key",
         experiment_name="test evolution with errors",
         budget=10,
         log=False,
     )
-    optimizer.client.chat = MagicMock(return_value=response)
+    optimizer.llm.query = MagicMock(return_value=response)
     best_so_far = optimizer.run()  # Assuming run has a very simple loop for testing
     assert (
         best_so_far.fitness == -np.Inf

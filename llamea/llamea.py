@@ -12,12 +12,9 @@ import numpy as np
 from ConfigSpace import ConfigurationSpace
 from joblib import Parallel, delayed
 
-from .ast import analyze_run
-from .individual import Individual
-from .llm import LLMmanager
+from .solution import Solution
 from .loggers import ExperimentLogger
-from .utils import NoCodeException, handle_timeout
-from .fmut_beta import discrete_power_law_distribution
+from .utils import NoCodeException, handle_timeout, discrete_power_law_distribution
 
 
 # TODOs:
@@ -40,7 +37,7 @@ class LLaMEA:
     def __init__(
         self,
         f,
-        api_key,
+        llm,
         n_parents=5,
         n_offspring=10,
         role_prompt="",
@@ -50,7 +47,6 @@ class LLaMEA:
         HPO=False,
         mutation_prompts=None,
         budget=100,
-        model="gpt-4-turbo",
         eval_timeout=3600,
         max_workers=10,
         log=True,
@@ -62,7 +58,6 @@ class LLaMEA:
 
         Args:
             f (callable): The evaluation function to measure the fitness of algorithms.
-            api_key (str): The API key for accessing OpenAI's services.
             n_parents (int): The number of parents in the population.
             n_offspring (int): The number of offspring each iteration.
             elitism (bool): Flag to decide if elitism (plus strategy) should be used in the evolutionary process or comma strategy.
@@ -74,15 +69,13 @@ class LLaMEA:
                 In case it is, a configuration space should be asked from the LLM as additional output in json format.
             mutation_prompts (list): A list of prompts to specify mutation operators to the LLM model. Each mutation, a random choice from this list is made.
             budget (int): The number of generations to run the evolutionary algorithm.
-            model (str): The model identifier from OpenAI or ollama to be used.
             eval_timeout (int): The number of seconds one evaluation can maximum take (to counter infinite loops etc.). Defaults to 1 hour.
             log (bool): Flag to switch of the logging of experiments.
             minimization (bool): Whether we minimize or maximize the objective function. Defaults to False.
             _random (bool): Flag to switch to random search (purely for debugging).
         """
-        self.client = LLMmanager(api_key, model)
-        self.api_key = api_key
-        self.model = model
+        self.llm = llm
+        self.model = llm.model
         self.eval_timeout = eval_timeout
         self.f = f  # evaluation function, provides an individual as output.
         self.role_prompt = role_prompt
@@ -156,13 +149,14 @@ Space: <configuration_space>"""
         self.worst_value = -np.Inf
         if minimization:
             self.worst_value = np.Inf
-        self.best_so_far = Individual("", "", "", None, 0, None)
+        self.best_so_far = Solution(name="", code="")
         self.best_so_far.set_scores(self.worst_value, "", "")
         self.experiment_name = experiment_name
 
         if self.log:
             modelname = self.model.replace(":", "_")
             self.logger = ExperimentLogger(f"LLaMEA-{modelname}-{experiment_name}")
+            self.llm.set_logger(self.logger)
         else:
             self.logger = None
         self.textlog = logging.getLogger(__name__)
@@ -177,7 +171,7 @@ Space: <configuration_space>"""
         """
         Initializes a single solution.
         """
-        new_individual = Individual("", "", "", None, self.generation, None)
+        new_individual = Solution(name="", code="", generation=self.generation)
         session_messages = [
             {
                 "role": "user",
@@ -187,17 +181,19 @@ Space: <configuration_space>"""
             },
         ]
         try:
-            new_individual = self.llm(session_messages)
+            new_individual = self.llm.sample_solution(session_messages, HPO=self.HPO)
+            new_individual.generation = self.generation
             new_individual = self.evaluate_fitness(new_individual)
         except NoCodeException:
             new_individual.set_scores(self.worst_value, "No code was extracted.")
+            self.textlog.warning("No code was extracted.")
         except Exception as e:
             new_individual.set_scores(
                 self.worst_value,
                 f"An exception occured: {traceback.format_exc()}.",
                 repr(e) + traceback.format_exc(),
             )
-            self.textlog.warning(new_individual.error)
+            self.textlog.warning(f"An exception occured: {traceback.format_exc()}.")
 
         self.run_history.append(new_individual)  # update the history
         return new_individual
@@ -225,44 +221,6 @@ Space: <configuration_space>"""
         self.generation += 1
         self.population = population  # Save the entire population
         self.update_best()
-
-    def llm(self, session_messages, parent_id=None):
-        """
-        Interacts with a language model to generate or mutate solutions based on the provided session messages.
-
-        Args:
-            session_messages (list): A list of dictionaries with keys 'role' and 'content' to simulate a conversation with the language model.
-
-        Returns:
-            tuple: A tuple containing the new algorithm code, its class name, its full descriptive name and an optional configuration space object.
-
-        Raises:
-            NoCodeException: If the language model fails to return any code.
-            Exception: Captures and logs any other exceptions that occur during the interaction.
-        """
-        if self.log:
-            self.logger.log_conversation(
-                "LLaMEA", "\n".join([d["content"] for d in session_messages])
-            )
-
-        message = self.client.chat(session_messages)
-
-        if self.log:
-            self.logger.log_conversation(self.model, message)
-
-        code = self.extract_algorithm_code(message)
-        name = re.findall(
-            "class\\s*(\\w*)(?:\\(\\w*\\))?\\:",
-            code,
-            re.IGNORECASE,
-        )[0]
-        desc = self.extract_algorithm_description(message)
-        cs = None
-        if self.HPO:
-            cs = self.extract_configspace(message)
-        new_individual = Individual(code, name, desc, cs, self.generation, parent_id)
-
-        return new_individual
 
     def evaluate_fitness(self, individual):
         """
@@ -293,7 +251,7 @@ Space: <configuration_space>"""
         """
         # Generate the current population summary
         population_summary = "\n".join([ind.get_summary() for ind in self.population])
-        solution = individual.solution
+        solution = individual.code
         description = individual.description
         feedback = individual.feedback
         # TODO make a random selection between multiple feedback prompts (mutations)
@@ -308,7 +266,7 @@ Space: <configuration_space>"""
             self.mutation_prompts = [new_mutation_prompt]
 
         mutation_operator = random.choice(self.mutation_prompts)
-        individual.set_mutation_prompt(mutation_operator)
+        individual.set_operator(mutation_operator)
 
         final_prompt = f"""{self.task_prompt}
 The current population of algorithms already evaluated (name, description, score) is:
@@ -380,66 +338,6 @@ With code:
 
         return new_population
 
-    def extract_configspace(self, message):
-        """
-        Extracts the configuration space definition in json from a given message string using regular expressions.
-
-        Args:
-            message (str): The message string containing the algorithm code.
-
-        Returns:
-            ConfigSpace: Extracted configuration space object.
-        """
-        pattern = r"space\s*:\s*\n*```\n*(?:python)?\n(.*?)\n```"
-        c = None
-        for m in re.finditer(pattern, message, re.DOTALL | re.IGNORECASE):
-            try:
-                c = ConfigurationSpace(eval(m.group(1)))
-            except Exception as e:
-                self.textlog.warning(
-                    "Could not extract configuration space", e.with_traceback
-                )
-                pass
-        return c
-
-    def extract_algorithm_code(self, message):
-        """
-        Extracts algorithm code from a given message string using regular expressions.
-
-        Args:
-            message (str): The message string containing the algorithm code.
-
-        Returns:
-            str: Extracted algorithm code.
-
-        Raises:
-            NoCodeException: If no code block is found within the message.
-        """
-        pattern = r"```(?:python)?\n(.*?)\n```"
-        match = re.search(pattern, message, re.DOTALL | re.IGNORECASE)
-        if match:
-            return match.group(1)
-        else:
-            self.textlog.warning("Message contained no code block")
-            raise NoCodeException
-
-    def extract_algorithm_description(self, message):
-        """
-        Extracts algorithm description from a given message string using regular expressions.
-
-        Args:
-            message (str): The message string containing the algorithm name and code.
-
-        Returns:
-            str: Extracted algorithm name or empty string.
-        """
-        pattern = r"#\s*Description\s*:\s*(.*)"
-        match = re.search(pattern, message, re.IGNORECASE)
-        if match:
-            return match.group(1)
-        else:
-            return ""
-
     def evolve_solution(self, individual):
         """
         Evolves a single solution by constructing a new prompt,
@@ -449,7 +347,10 @@ With code:
         evolved_individual = individual.copy()
 
         try:
-            evolved_individual = self.llm(new_prompt, evolved_individual.parent_id)
+            evolved_individual = self.llm.sample_solution(
+                new_prompt, evolved_individual.parent_ids, HPO=self.HPO
+            )
+            evolved_individual.generation = self.generation
             evolved_individual = self.evaluate_fitness(evolved_individual)
         except NoCodeException:
             evolved_individual.set_scores(
@@ -521,10 +422,5 @@ With code:
             self.logevent(
                 f"Generation {self.generation}, best so far: {self.best_so_far.fitness}"
             )
-        if self.log:
-            try:
-                analyze_run(self.logger.dirname, self.budget, self.experiment_name)
-            except Exception:
-                pass
 
         return self.best_so_far

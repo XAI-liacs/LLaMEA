@@ -3,32 +3,33 @@ import numpy as np
 from ioh import get_problem, logger
 import re
 from misc import aoc_logger, correct_aoc, OverBudgetException
-from llamea import LLaMEA
+from llamea import LLaMEA, Gemini_LLM
 
 # Execution code starts here
-api_key = os.getenv("OPENAI_API_KEY")
-ai_model = "codellama:7b" # gpt-4-turbo or gpt-3.5-turbo gpt-4o llama3:70b
-experiment_name ="pop10-50"
+api_key = os.getenv("GEMINI_API_KEY")
+ai_model = "gemini-1.5-flash"
+experiment_name = "pop1-5"
+llm = Gemini_LLM(api_key, ai_model)
 
 
-def evaluateBBOB(solution, explogger = None, details=False):
+def evaluateBBOB(solution, explogger=None, details=False):
     auc_mean = 0
     auc_std = 0
     detailed_aucs = [0, 0, 0, 0, 0]
-    code = solution.solution
+    code = solution.code
     algorithm_name = solution.name
     exec(code, globals())
-    
+
     error = ""
-    
+
     aucs = []
     detail_aucs = []
     algorithm = None
     for dim in [5]:
         budget = 2000 * dim
         l2 = aoc_logger(budget, upper=1e2, triggers=[logger.trigger.ALWAYS])
-        for fid in np.arange(1,25):
-            for iid in [1,2,3]: #, 4, 5]
+        for fid in np.arange(1, 25):
+            for iid in [1, 2, 3]:  # , 4, 5]
                 problem = get_problem(fid, iid, dim)
                 problem.attach_logger(l2)
 
@@ -66,7 +67,7 @@ def evaluateBBOB(solution, explogger = None, details=False):
 
     i = 0
     while os.path.exists(f"currentexp/aucs-{algorithm_name}-{i}.npy"):
-        i+=1
+        i += 1
     np.save(f"currentexp/aucs-{algorithm_name}-{i}.npy", aucs)
 
     feedback = f"The algorithm {algorithm_name} got an average Area over the convergence curve (AOCC, 1.0 is the best) score of {auc_mean:0.2f} with standard deviation {auc_std:0.2f}."
@@ -92,7 +93,17 @@ The func() can only be called as many times as the budget allows, not more. Each
 Give an excellent and novel heuristic algorithm to solve this task and also give it a one-line description with the main idea.
 """
 
-for experiment_i in range(5):
-    #A 1+1 strategy
-    es = LLaMEA(evaluateBBOB, n_parents=1, n_offspring=1, api_key=api_key, task_prompt=task_prompt, experiment_name=experiment_name, model=ai_model, elitism=True, HPO=False, budget=1000)
+for experiment_i in [1]:
+    # A 1+1 strategy
+    es = LLaMEA(
+        evaluateBBOB,
+        n_parents=1,
+        n_offspring=1,
+        llm=llm,
+        task_prompt=task_prompt,
+        experiment_name=experiment_name,
+        elitism=True,
+        HPO=False,
+        budget=100,
+    )
     print(es.run())

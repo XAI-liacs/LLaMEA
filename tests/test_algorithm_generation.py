@@ -1,7 +1,6 @@
 import pytest
 from unittest.mock import MagicMock
-from llamea import LLaMEA
-
+from llamea import LLaMEA, Ollama_LLM
 
 # Helper
 class obj(object):
@@ -20,12 +19,12 @@ def test_algorithm_generation():
         return f"feedback {solution.name}", 1.0, "", {}
 
     optimizer = LLaMEA(
-        f, api_key="test_key", experiment_name="test generation", log=False
+        f, llm=Ollama_LLM("model"), experiment_name="test generation", log=False
     )
     response = "# Description: Long Example Algorithm\n# Code:\n```python\nclass ExampleAlgorithm:\n    pass\n```"
-    optimizer.client.chat = MagicMock(return_value=response)
+    optimizer.llm.query = MagicMock(return_value=response)
 
-    individual = optimizer.llm(
+    individual = optimizer.llm.sample_solution(
         session_messages=[{"role": "system", "content": "test prompt"}]
     )
 
@@ -36,5 +35,5 @@ def test_algorithm_generation():
         individual.name == "ExampleAlgorithm"
     ), "Algorithm name should be extracted correctly"
     assert (
-        "class ExampleAlgorithm" in individual.solution
+        "class ExampleAlgorithm" in individual.code
     ), "Algorithm code should be extracted correctly"

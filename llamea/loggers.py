@@ -13,6 +13,8 @@ def convert_to_serializable(data):
         return [convert_to_serializable(item) for item in data]
     elif isinstance(data, np.integer):
         return int(data)
+    elif isinstance(data, np.bool_):
+        return bool(data)
     elif isinstance(data, np.floating):
         return float(data)
     if isinstance(data, np.ndarray):
@@ -70,7 +72,7 @@ class ExperimentLogger:
 
     def log_population(self, population):
         for p in population:
-            self.log_code(self.attempt, p.name, p.solution)
+            self.log_code(self.attempt, p.name, p.code)
             if p.configspace != None:
                 self.log_configspace(self.attempt, p.name, p.configspace)
             self.log_individual(p)
