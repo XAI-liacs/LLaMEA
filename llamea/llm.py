@@ -12,7 +12,17 @@ from ConfigSpace import ConfigurationSpace
 
 
 class LLM(ABC):
-    def __init__(self, api_key, model="", base_url="", code_pattern=None, name_pattern=None, desc_pattern=None, cs_pattern=None, logger=None):
+    def __init__(
+        self,
+        api_key,
+        model="",
+        base_url="",
+        code_pattern=None,
+        name_pattern=None,
+        desc_pattern=None,
+        cs_pattern=None,
+        logger=None,
+    ):
         """
         Initializes the LLM manager with an API key, model name and base_url.
 
@@ -31,11 +41,22 @@ class LLM(ABC):
         self.model = model
         self.logger = logger
         self.log = self.logger != None
-        self.code_pattern = code_pattern if code_pattern != None else r"```(?:python)?\n(.*?)\n```"
-        self.name_pattern = name_pattern if name_pattern != None else "class\\s*(\\w*)(?:\\(\\w*\\))?\\:"
-        self.desc_pattern = desc_pattern if desc_pattern != None else r"#\s*Description\s*:\s*(.*)"
-        self.cs_pattern = cs_pattern if cs_pattern != None else r"space\s*:\s*\n*```\n*(?:python)?\n(.*?)\n```"
-        
+        self.code_pattern = (
+            code_pattern if code_pattern != None else r"```(?:python)?\n(.*?)\n```"
+        )
+        self.name_pattern = (
+            name_pattern
+            if name_pattern != None
+            else "class\\s*(\\w*)(?:\\(\\w*\\))?\\:"
+        )
+        self.desc_pattern = (
+            desc_pattern if desc_pattern != None else r"#\s*Description\s*:\s*(.*)"
+        )
+        self.cs_pattern = (
+            cs_pattern
+            if cs_pattern != None
+            else r"space\s*:\s*\n*```\n*(?:python)?\n(.*?)\n```"
+        )
 
     @abstractmethod
     def query(self, session: list):
@@ -163,6 +184,7 @@ class LLM(ABC):
         else:
             return ""
 
+
 class OpenAI_LLM(LLM):
     """
     A manager class for handling requests to OpenAI's GPT models.
@@ -202,6 +224,7 @@ class Gemini_LLM(LLM):
     """
     A manager class for handling requests to Google's Gemini models.
     """
+
     def __init__(self, api_key, model="gemini-2.0-flash", **kwargs):
         """
         Initializes the LLM manager with an API key and model name.

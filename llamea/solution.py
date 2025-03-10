@@ -100,7 +100,7 @@ class Solution:
             configspace=self.configspace,
             generation=self.generation + 1,
             parent_ids=[self.id],  # Link this solution as the parent
-            operator=self.operator
+            operator=self.operator,
         )
         new_solution.metadata = self.metadata.copy()  # Copy the metadata as well
         return new_solution

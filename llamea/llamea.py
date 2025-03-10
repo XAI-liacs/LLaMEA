@@ -171,9 +171,7 @@ Space: <configuration_space>"""
         """
         Initializes a single solution.
         """
-        new_individual = Solution(
-            name="", code="", generation=self.generation
-        )
+        new_individual = Solution(name="", code="", generation=self.generation)
         session_messages = [
             {
                 "role": "user",
@@ -340,7 +338,6 @@ With code:
 
         return new_population
 
-
     def evolve_solution(self, individual):
         """
         Evolves a single solution by constructing a new prompt,
@@ -350,7 +347,9 @@ With code:
         evolved_individual = individual.copy()
 
         try:
-            evolved_individual = self.llm.sample_solution(new_prompt, evolved_individual.parent_ids, HPO=self.HPO)
+            evolved_individual = self.llm.sample_solution(
+                new_prompt, evolved_individual.parent_ids, HPO=self.HPO
+            )
             evolved_individual.generation = self.generation
             evolved_individual = self.evaluate_fitness(evolved_individual)
         except NoCodeException:
