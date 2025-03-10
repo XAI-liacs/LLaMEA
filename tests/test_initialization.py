@@ -9,7 +9,7 @@ def f(ind, logger):
 def test_default_initialization():
     """Test the default initialization of the LLaMEA class."""
     optimizer = LLaMEA(f, llm=Ollama_LLM("test_model"))
-    assert optimizer.client.model == "test_model"
+    assert optimizer.llm.model == "test_model"
 
 
 def test_custom_initialization():

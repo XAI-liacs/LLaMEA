@@ -39,7 +39,7 @@ def test_evolutionary_process():
         budget=10,
         log=True,
     )
-    optimizer.client.query = MagicMock(return_value=response)
+    optimizer.llm.query = MagicMock(return_value=response)
     best_so_far = optimizer.run()  # Assuming run has a very simple loop for testing
     assert (
         best_so_far.code == "class ExampleAlgorithm:\n    pass"
@@ -68,7 +68,7 @@ def test_evolutionary_process_with_errors():
         budget=10,
         log=False,
     )
-    optimizer.client.query = MagicMock(return_value=response)
+    optimizer.llm.query = MagicMock(return_value=response)
     best_so_far = optimizer.run()  # Assuming run has a very simple loop for testing
     assert (
         best_so_far.fitness == -np.Inf

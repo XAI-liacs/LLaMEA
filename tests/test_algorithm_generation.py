@@ -22,9 +22,9 @@ def test_algorithm_generation():
         f, llm=Ollama_LLM("model"), experiment_name="test generation", log=False
     )
     response = "# Description: Long Example Algorithm\n# Code:\n```python\nclass ExampleAlgorithm:\n    pass\n```"
-    optimizer.client.query = MagicMock(return_value=response)
+    optimizer.llm.query = MagicMock(return_value=response)
 
-    individual = optimizer.llm(
+    individual = optimizer.llm.sample_solution(
         session_messages=[{"role": "system", "content": "test prompt"}]
     )
 
