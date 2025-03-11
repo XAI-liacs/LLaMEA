@@ -187,3 +187,4 @@ ast/img*
 ast/graphstats*
 
 logs/
+.DS_Store
