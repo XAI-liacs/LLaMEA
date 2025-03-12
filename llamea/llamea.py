@@ -56,6 +56,7 @@ class LLaMEA:
         log=True,
         minimization=False,
         _random=False,
+        init_solutions=None,
     ):
         """
         Initializes the LLaMEA instance with provided parameters. Note that by default LLaMEA maximizes the objective.
@@ -159,6 +160,7 @@ Space: <configuration_space>"""
         self.best_so_far = Individual("", "", "", None, 0, None)
         self.best_so_far.set_scores(self.worst_value, "", "")
         self.experiment_name = experiment_name
+        self.init_solutions = init_solutions
 
         if self.log:
             modelname = self.model.replace(":", "_")
@@ -209,19 +211,24 @@ Space: <configuration_space>"""
         """
 
         population = []
-        try:
-            timeout = self.eval_timeout
-            population_gen = Parallel(
-                n_jobs=self.max_workers,
-                backend="threading",
-                timeout=timeout + 15,
-                return_as="generator_unordered",
-            )(delayed(self.initialize_single)() for _ in range(self.n_parents))
-        except Exception as e:
-            print("Parallel time out in initialization, retrying.")
 
-        for p in population_gen:
-            population.append(p)
+        if self.init_solution != None and len(self.init_solutions) == self.n_parents:
+            population = self.init_solutions
+
+        else:
+            try:
+                timeout = self.eval_timeout
+                population_gen = Parallel(
+                    n_jobs=self.max_workers,
+                    backend="threading",
+                    timeout=timeout + 15,
+                    return_as="generator_unordered",
+                )(delayed(self.initialize_single)() for _ in range(self.n_parents))
+            except Exception as e:
+                print("Parallel time out in initialization, retrying.")
+
+            for p in population_gen:
+                population.append(p)
 
         self.generation += 1
         self.population = population  # Save the entire population
@@ -306,7 +313,7 @@ Space: <configuration_space>"""
         new_mutation_prompt = f"""
 Refine the strategy of the selected solution to improve it. Make sure you only change {(prob*100):.1f}% of the code, which means if the code has 100 lines, you can only change {prob*100} lines, and the rest of the lines should remain unchanged. This input code has {num_lines} lines, so you can only change {max(1, int(prob*num_lines))} lines, the rest {num_lines-max(1, int(prob*num_lines))} lines should remain unchanged. This changing rate {(prob*100):.1f}% is the mandatory requirement, you cannot change more or less than this rate.
 """
-        self.mutation_prompts += [new_mutation_prompt]
+        self.mutation_prompts = [new_mutation_prompt]
         mutation_operator = random.choice(self.mutation_prompts)
         individual.set_mutation_prompt(mutation_operator)
 

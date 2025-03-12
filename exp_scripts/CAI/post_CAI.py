@@ -28,6 +28,22 @@ def extract_auc(exp_folder):
         return None
     return aucs, final_y
 
+problems = ["bragg", "ellipsometry", "photovoltaic"]
+exps = []
+labels = []
+
+for prob in problems:
+    if prob == "photovoltaic":
+        exps += [f"{prob}_(1 + 1)",
+                 f"{prob}_with_description_(1 + 1)",
+                 f"{prob}_with_description_insight_(1 + 1)"]
+    else:
+        exps += [f"{prob}",
+                f"{prob}_with_description",
+                f"{prob}_with_description_insight"]
+    labels += [f"{prob}",
+               f"{prob} with description",
+               f"{prob} with description\nand algorithmic insights"]
 
 exps = []
 labels = []
@@ -79,6 +95,8 @@ for exp in exps:
     auc_data += [np.array(aucs)]
     y_data += [np.array(ys)]
 current_best_aucs = [np.maximum.accumulate(aucs, axis=1) for aucs in auc_data]
+# print(auc_data[0][0])
+# print(current_best_aucs[0][0])
 keys = ["generation", "auc", "final_y", "run", "problem"]
 values = []
 for k in range(len(current_best_aucs)):
@@ -87,6 +105,7 @@ for k in range(len(current_best_aucs)):
     for i in range(len(y)):
         for j in range(100):
             values += [[j, array[i, j], y[i, j], i, labels[k]]]
+# print(np.array(values)[:100, 1])
 df = pd.DataFrame(values, columns=keys)
 df.to_csv("exp_data/CAI/real/conv_plot_description_insight_1.csv")
 
@@ -96,24 +115,28 @@ df_baseline_label = df_baseline[df_baseline["problem"] == "mini-bragg (1 + 1)"]
 sns.lineplot(x="generation", y="auc", data=df_baseline_label,
              color=cud[5], label="mini-bragg (1 + 1)")
 df = pd.read_csv("exp_data/CAI/real/conv_plot_description_insight_1.csv")
-for i, label in enumerate(labels):
-    df_label = df[df["problem"] == label]
-    sns.lineplot(x="generation", y="auc", data=df_label,
-                 label=label, linestyle=linestyles[int(i/5)], color=cud[i%5])
-# plt.yscale("log")
-plt.ylabel("AOCC")
-plt.legend()
-plt.savefig("results/CAI/populations_bragg_auc_description_insight.png")
-plt.cla()
+for problem in problems:
+    for i, label in enumerate(labels):
+        if problem not in label:
+            continue
+        df_label = df[df["problem"] == label]
+        print(df_label)
+        sns.lineplot(x="generation", y="auc", data=df_label,
+                    label=label, linestyle=linestyles[int(i/3)], color=cud[i%3])
+    # plt.yscale("log")
+    plt.ylabel("AOCC")
+    plt.legend()
+    plt.savefig(f"results/CAI/auc_description_insight_{problem}.png")
+    plt.cla()
 
-sns.lineplot(x="generation", y="final_y", data=df_baseline_label,
-             color=cud[5], label="mini-bragg (1 + 1)")
-for i, label in enumerate(labels):
-    df_label = df[df["problem"] == label]
-    sns.lineplot(x="generation", y="final_y", data=df_label,
-                 label=label, linestyle=linestyles[int(i/5)], color=cud[i%5])
-plt.yscale("log")
-plt.ylabel(r"$y^*$")
-plt.legend()
-plt.savefig("results/CAI/populations_bragg_y_description_insight.png")
-plt.cla()
+    for i, label in enumerate(labels):
+        if problem not in label:
+            continue
+        df_label = df[df["problem"] == label]
+        sns.lineplot(x="generation", y="final_y", data=df_label,
+                    label=label, linestyle=linestyles[int(i/3)], color=cud[i%3])
+    plt.yscale("log")
+    plt.ylabel(r"$y^*$")
+    plt.legend()
+    plt.savefig(f"results/CAI/y_description_insight_{problem}.png")
+    plt.cla()
