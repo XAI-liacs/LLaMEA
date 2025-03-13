@@ -194,8 +194,7 @@ Space: <configuration_space>"""
                 repr(e) + traceback.format_exc(),
             )
             self.textlog.warning(f"An exception occured: {traceback.format_exc()}.")
-
-        self.run_history.append(new_individual)  # update the history
+        
         return new_individual
 
     def initialize(self, retry=0):
@@ -216,6 +215,7 @@ Space: <configuration_space>"""
             print("Parallel time out in initialization, retrying.")
 
         for p in population_gen:
+            self.run_history.append(p)  # update the history
             population.append(p)
 
         self.generation += 1
@@ -364,7 +364,6 @@ With code:
                 self.worst_value, f"An exception occurred: {error}.", error
             )
 
-        self.run_history.append(evolved_individual)
         # self.progress_bar.update(1)
         return evolved_individual
 
@@ -410,6 +409,7 @@ With code:
                 print("Parallel time out .")
 
             for p in new_population_gen:
+                self.run_history.append(p)
                 new_population.append(p)
             self.generation += 1
 
