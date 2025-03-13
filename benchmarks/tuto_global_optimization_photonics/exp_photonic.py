@@ -1,10 +1,14 @@
 import os
+import re
 import sys
 import ioh
+import jsonlines
 import numpy as np
 sys.path.append(".")
 from photonics_benchmark import *
 from llamea import LLaMEA
+from llamea.utils import NoCodeException
+from llamea.individual import Individual
 from misc import aoc_logger, correct_aoc, OverBudgetException
 
 
@@ -168,6 +172,45 @@ def evaluatePhotonic(solution, details=False):
     return solution
 
 
+def extract_algorithm_code(message):
+    """
+    Extracts algorithm code from a given message string using regular expressions.
+
+    Args:
+        message (str): The message string containing the algorithm code.
+
+    Returns:
+        str: Extracted algorithm code.
+
+    Raises:
+        NoCodeException: If no code block is found within the message.
+    """
+    pattern = r"```(?:python)?\n(.*?)\n```"
+    match = re.search(pattern, message, re.DOTALL | re.IGNORECASE)
+    if match:
+        return match.group(1)
+    else:
+        raise NoCodeException
+
+
+def extract_algorithm_description(message):
+        """
+        Extracts algorithm description from a given message string using regular expressions.
+
+        Args:
+            message (str): The message string containing the algorithm name and code.
+
+        Returns:
+            str: Extracted algorithm name or empty string.
+        """
+        pattern = r"#\s*Description\s*:\s*(.*)"
+        match = re.search(pattern, message, re.IGNORECASE)
+        if match:
+            return match.group(1)
+        else:
+            return ""
+
+
 ai_model = sys.argv[1]  # gpt-4-turbo or gpt-3.5-turbo gpt-4o llama3:70b
 problem_id = int(sys.argv[2])
 with_description = True if sys.argv[3] == "1" else False
@@ -206,8 +249,26 @@ The func() can only be called as many times as the budget allows, not more. Each
 Give an excellent and novel heuristic algorithm to solve this task and include it's one-line description with the main idea of the algorithm.
 """
 
-es = LLaMEA(evaluatePhotonic, n_parents=parent_size, n_offspring=offspring_size,
-            api_key=api_key, task_prompt=task_prompt,
-            experiment_name=experiment_name, model=ai_model, elitism=es_flag,
-            HPO=False, budget=100)
-print(es.run())
+init_solutions = []
+with jsonlines.open('exp_data/CAI/descriptions_insights/init_solutions.jsonl') as reader:
+    for obj in reader:
+        message = obj["content"]
+        code = extract_algorithm_code(message)
+        name = re.findall(
+            "class\\s*(\\w*)(?:\\(\\w*\\))?\\:",
+            code,
+            re.IGNORECASE,
+        )[0]
+        desc = extract_algorithm_description(message)
+        cs = None
+        new_individual = Individual(code, name, desc, cs, 0, None)
+        new_individual = evaluatePhotonic(new_individual)
+        init_solutions.append(new_individual)
+print(init_solutions[0].metadata)
+
+# es = LLaMEA(evaluatePhotonic, n_parents=parent_size, n_offspring=offspring_size,
+#             api_key=api_key, task_prompt=task_prompt,
+#             experiment_name=experiment_name, model=ai_model, elitism=es_flag,
+#             HPO=False, budget=100, init_solutions=None)
+# print(es.initialize_single())
+# print(es.run())
