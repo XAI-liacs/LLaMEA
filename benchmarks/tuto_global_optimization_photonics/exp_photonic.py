@@ -2,6 +2,7 @@ import os
 import re
 import sys
 import ioh
+import time
 import jsonlines
 import numpy as np
 sys.path.append(".")
@@ -112,6 +113,7 @@ def get_photonic_instances():
 
 
 def evaluatePhotonic(solution, details=False):
+    start_time = time.time()
     if problem_name == "bragg":
         auc_lower = 0.1648
         auc_upper = 1.
@@ -168,6 +170,8 @@ def evaluatePhotonic(solution, details=False):
     solution.add_metadata("aucs", aucs)
     solution.add_metadata("final_y", final_y)
     solution.set_scores(auc_mean, feedback)
+    end_time = time.time()
+    print(f"evaluatePhotonic() time taken: {end_time - start_time} seconds")
 
     return solution
 
@@ -262,13 +266,21 @@ with jsonlines.open('exp_data/CAI/descriptions_insights/init_solutions.jsonl') a
         desc = extract_algorithm_description(message)
         cs = None
         new_individual = Individual(code, name, desc, cs, 0, None)
-        new_individual = evaluatePhotonic(new_individual)
         init_solutions.append(new_individual)
-print(init_solutions[0].metadata)
 
-# es = LLaMEA(evaluatePhotonic, n_parents=parent_size, n_offspring=offspring_size,
-#             api_key=api_key, task_prompt=task_prompt,
-#             experiment_name=experiment_name, model=ai_model, elitism=es_flag,
-#             HPO=False, budget=100, init_solutions=None)
-# print(es.initialize_single())
-# print(es.run())
+solution = init_solutions[0]
+init_solution_aucs = [0.8041324604654931, 0.8227266579918514, 0.8524629924743906]
+init_solution_final_y = [0.1412466306774247, 0.13112094863304602, 0.12789490696654837]
+auc_mean = np.mean(init_solution_aucs)
+auc_std = np.std(init_solution_aucs)
+feedback = f"The algorithm {solution.name} got an average Area over the convergence curve (AOCC, 1.0 is the best) score of {auc_mean:0.3f} with standard deviation {auc_std:0.3f}. And the mean value of best solutions found was {np.mean(init_solution_final_y):0.3f} (0. is the best) with standard deviation {np.std(init_solution_final_y):0.3f}."
+solution.add_metadata("aucs", init_solution_aucs)
+solution.add_metadata("final_y", init_solution_final_y)
+solution.set_scores(auc_mean, feedback)
+init_solutions[0] = solution
+
+es = LLaMEA(evaluatePhotonic, n_parents=parent_size, n_offspring=offspring_size,
+            api_key=api_key, task_prompt=task_prompt,
+            experiment_name=experiment_name, model=ai_model, elitism=es_flag,
+            HPO=False, budget=100, init_solutions=init_solutions)
+print(es.run())

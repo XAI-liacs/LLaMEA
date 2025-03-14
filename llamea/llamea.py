@@ -212,7 +212,7 @@ Space: <configuration_space>"""
 
         population = []
 
-        if self.init_solution != None and len(self.init_solutions) == self.n_parents:
+        if self.init_solutions != None and len(self.init_solutions) == self.n_parents:
             population = self.init_solutions
 
         else:
