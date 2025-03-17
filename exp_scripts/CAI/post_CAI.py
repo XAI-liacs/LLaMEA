@@ -23,12 +23,16 @@ def extract_auc(exp_folder):
             final_y += [current_best]
     # check all the aucs are not NaN
     if all([np.isinf(auc) for auc in aucs]):
-        return None
+        return None, None
     if all([np.isnan(auc) for auc in aucs]):
-        return None
+        return None, None
+    if len(aucs) < 100:
+        return None, None
     return aucs, final_y
 
-problems = ["bragg", "ellipsometry", "photovoltaic"]
+problems = [
+    # "bragg", "ellipsometry", 
+            "photovoltaic"]
 exps = []
 labels = []
 
@@ -45,18 +49,18 @@ for prob in problems:
                f"{prob} with description",
                f"{prob} with description\nand algorithmic insights"]
 
-exps = []
-labels = []
-exp_classes = ["(1, 5)", "(1 + 5)", "(2, 10)", "(2 + 10)", "(5 + 5)"]
-for exp_class in exp_classes:
-    exps += [
-        f"bragg_with_description_insight_{exp_class}",
-        # f"ellipsometry_with_description_insight_{exp_class}"
-    ]
-    labels += [
-        f"mini-bragg {exp_class}",
-        # f"ellipsometry {exp_class}"
-    ]
+# exps = []
+# labels = []
+# exp_classes = ["(1, 5)", "(1 + 5)", "(2, 10)", "(2 + 10)", "(5 + 5)"]
+# for exp_class in exp_classes:
+#     exps += [
+#         f"bragg_with_description_insight_{exp_class}",
+#         # f"ellipsometry_with_description_insight_{exp_class}"
+#     ]
+#     labels += [
+#         f"mini-bragg {exp_class}",
+#         # f"ellipsometry {exp_class}"
+#     ]
 
 # exps = ["bragg",
 #         "bragg_with_description",
@@ -75,8 +79,9 @@ cud = ["#e69f00", "#56b4e9", "#009e73", "#f0e442",
 linestyles = ["-", "--", "-.", ":", "-", "--", "-.", ":"]
 auc_data = []
 y_data = []
-root_path = "exp_data/CAI/populations/"
+root_path = "exp_data/CAI/clip/"
 exp_folders = os.listdir(root_path)
+
 for exp in exps:
     aucs = []
     ys = []
@@ -85,11 +90,13 @@ for exp in exps:
         if contents[-1] != exp:
             continue
         auc, y = extract_auc(f"{root_path}{exp_folder}")
+        print(f"Extracting {exp_folder}")
         if auc == None or len(auc) < 100:
             print(f"Skipping {exp_folder}")
             continue
         aucs += [auc]
         ys += [y]
+    print([len(auc) for auc in aucs])
     max_len = max([len(auc) for auc in aucs])
     aucs = [auc + [auc[-1]]*(max_len - len(auc)) for auc in aucs]
     auc_data += [np.array(aucs)]
@@ -112,8 +119,8 @@ df.to_csv("exp_data/CAI/real/conv_plot_description_insight_1.csv")
 df_baseline = pd.read_csv("exp_data/CAI/real/baselines.csv")
 df_baseline_label = df_baseline[df_baseline["problem"] == "mini-bragg (1 + 1)"]
 
-sns.lineplot(x="generation", y="auc", data=df_baseline_label,
-             color=cud[5], label="mini-bragg (1 + 1)")
+# sns.lineplot(x="generation", y="auc", data=df_baseline_label,
+#              color=cud[5], label="mini-bragg (1 + 1)")
 df = pd.read_csv("exp_data/CAI/real/conv_plot_description_insight_1.csv")
 for problem in problems:
     for i, label in enumerate(labels):

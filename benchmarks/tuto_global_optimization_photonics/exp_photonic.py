@@ -215,72 +215,73 @@ def extract_algorithm_description(message):
             return ""
 
 
-ai_model = sys.argv[1]  # gpt-4-turbo or gpt-3.5-turbo gpt-4o llama3:70b
-problem_id = int(sys.argv[2])
-with_description = True if sys.argv[3] == "1" else False
-with_insight = True if sys.argv[4] == "1" else False
-parent_size = int(sys.argv[5])
-offspring_size = int(sys.argv[6])
-es_flag = False if sys.argv[7] == "0" else True
-if "deepseek" in ai_model:
-    # api_key = os.getenv("DEEPSEEK_API_KEY")
-    api_key = os.getenv("TENCENT_API_KEY")
-else:
-    api_key = os.getenv("OPENAI_API_KEY")
-problem_types = ["bragg", "ellipsometry", "photovoltaic"]
-problem_name = problem_types[problem_id]
-n1 = "_with_description" if with_description else ""
-n2 = "_insight" if with_insight else ""
-n3 = " + " if es_flag else ", "
-experiment_name = f"{problem_name}{n1}{n2}_({parent_size}{n3}{offspring_size})"
+if __name__ == "__main__":
+    ai_model = sys.argv[1]  # gpt-4-turbo or gpt-3.5-turbo gpt-4o llama3:70b
+    problem_id = int(sys.argv[2])
+    with_description = True if sys.argv[3] == "1" else False
+    with_insight = True if sys.argv[4] == "1" else False
+    parent_size = int(sys.argv[5])
+    offspring_size = int(sys.argv[6])
+    es_flag = False if sys.argv[7] == "0" else True
+    if "deepseek" in ai_model:
+        # api_key = os.getenv("DEEPSEEK_API_KEY")
+        api_key = os.getenv("TENCENT_API_KEY")
+    else:
+        api_key = os.getenv("OPENAI_API_KEY")
+    problem_types = ["bragg", "ellipsometry", "photovoltaic"]
+    problem_name = problem_types[problem_id]
+    n1 = "_with_description" if with_description else ""
+    n2 = "_insight" if with_insight else ""
+    n3 = " + " if es_flag else ", "
+    experiment_name = f"{problem_name}{n1}{n2}_({parent_size}{n3}{offspring_size})"
 
 
-descriptions = {
-    "bragg": "The Bragg mirror optimization aims to maximize reflectivity at a wavelength of 600 nm using a multilayer structure with alternating refractive indices (1.4 and 1.8). The structure's thicknesses are varied to find the configuration with the highest reflectivity. The problem involves two cases: one with 10 layers (minibragg) and another with 20 layers (bragg), with the latter representing a more complex inverse design problem. The known optimal solution is a periodic Bragg mirror, which achieves the best reflectivity by leveraging constructive interference. This case exemplifies challenges such as multiple local minima in the optimization landscape. ",
-    "ellipsometry": "The ellipsometry problem involves retrieving the material and thickness of a reference layer by matching its reflectance properties using a known spectral response. The optimization minimizes the difference between the calculated and measured ellipsometric parameters for wavelengths between 400 and 800 nm and a fixed incidence angle of 40°. The parameters to be optimized include the thickness (30 to 250 nm) and refractive index (1.1 to 3) of the test layer. This relatively straightforward problem models a practical scenario where photonics researchers fine-tune a small number of parameters to achieve a desired spectral fit. ",
-    "photovoltaic": "The photovoltaics problem optimizes the design of an antireflective multilayer coating to maximize the absorption in the active silicon layer of a solar cell. The goal is to achieve maximum short-circuit current in the 375 to 750 nm wavelength range. The structure consists of alternating materials with permittivities of 2 and 3, built upon a 30,000 nm thick silicon substrate. Three subcases with increasing complexity are explored, involving 10 layers (photovoltaics), 20 layers (bigphotovoltaics), and 32 layers (hugephotovoltaics). The optimization challenges include balancing high absorption with a low reflectance while addressing the inherent noise and irregularities in the solar spectrum. "
-}
-algorithmic_insights = {
-    "bragg": "For this problem, the optimization landscape contains multiple local minima due to the wave nature of the problem. And periodic solutions are known to provide near-optimal results, suggesting the importance of leveraging constructive interference principles. Here are some suggestions for designing algorithms: 1. Use global optimization algorithms like Differential Evolution (DE) or Genetic Algorithms (GA) to explore the parameter space broadly. 2. Symmetric initialization strategies (e.g., Quasi-Oppositional DE) can improve exploration by evenly sampling the search space. 3. Algorithms should preserve modular characteristics in solutions, as multilayer designs often benefit from distinct functional blocks. 4. Combine global methods with local optimization (e.g., BFGS) to fine-tune solutions near promising regions. 5. Encourage periodicity in solutions via tailored cost functions or constraints. ",
-    "ellipsometry": "This problem has small parameter space with fewer variables (thickness and refractive index), and the cost function is smooth and relatively free of noise, making it amenable to local optimization methods. Here are suggestions for designing algorithms: 1. Use local optimization algorithms like BFGS or Nelder-Mead, as they perform well in low-dimensional, smooth landscapes. 2. Uniform sampling across the parameter space ensures sufficient coverage for initial guesses. 3. Utilize fast convergence algorithms that can quickly exploit the smooth cost function landscape. 4. Iteratively adjust bounds and constraints to improve parameter estimates once initial solutions are obtained. ",
-    "photovoltaic": "This problem is a challenging high-dimensional optimization problem with noisy cost functions due to the realistic solar spectrum, and it requires maximizing absorption while addressing trade-offs between reflectance and interference effects. Here are the suggestions for designing algorithms: 1. Combine global methods (e.g., DE, CMA-ES) for exploration with local optimization for refinement. 2. Use consistent benchmarking and convergence analysis to allocate computational resources effectively. 3. Encourage algorithms to detect and preserve modular structures (e.g., layers with specific roles like anti-reflective or coupling layers). 4. Gradually increase the number of layers during optimization to balance problem complexity and computational cost. 5. Integrate robustness metrics into the cost function to ensure the optimized design tolerates small perturbations in layer parameters. "
-}
-description = descriptions[problem_name] if with_description == True else ""
-algorithmic_insight = algorithmic_insights[problem_name] if with_insight == True else ""
-task_prompt = f"""
-The optimization algorithm should be able to find high-performing solutions to a wide range of tasks, which include evaluation on real-world applications such as, e.g., optimization of multilayered photonic structures. {description}{algorithmic_insight}Your task is to write the optimization algorithm in Python code. The code should contain an `__init__(self, budget, dim)` function and the function `def __call__(self, func)`, which should optimize the black box function `func` using `self.budget` function evaluations.
-The func() can only be called as many times as the budget allows, not more. Each of the optimization functions has a search space between func.bounds.lb (lower bound) and func.bounds.ub (upper bound). The dimensionality can be varied.
-Give an excellent and novel heuristic algorithm to solve this task and include it's one-line description with the main idea of the algorithm.
-"""
+    descriptions = {
+        "bragg": "The Bragg mirror optimization aims to maximize reflectivity at a wavelength of 600 nm using a multilayer structure with alternating refractive indices (1.4 and 1.8). The structure's thicknesses are varied to find the configuration with the highest reflectivity. The problem involves two cases: one with 10 layers (minibragg) and another with 20 layers (bragg), with the latter representing a more complex inverse design problem. The known optimal solution is a periodic Bragg mirror, which achieves the best reflectivity by leveraging constructive interference. This case exemplifies challenges such as multiple local minima in the optimization landscape. ",
+        "ellipsometry": "The ellipsometry problem involves retrieving the material and thickness of a reference layer by matching its reflectance properties using a known spectral response. The optimization minimizes the difference between the calculated and measured ellipsometric parameters for wavelengths between 400 and 800 nm and a fixed incidence angle of 40°. The parameters to be optimized include the thickness (30 to 250 nm) and refractive index (1.1 to 3) of the test layer. This relatively straightforward problem models a practical scenario where photonics researchers fine-tune a small number of parameters to achieve a desired spectral fit. ",
+        "photovoltaic": "The photovoltaics problem optimizes the design of an antireflective multilayer coating to maximize the absorption in the active silicon layer of a solar cell. The goal is to achieve maximum short-circuit current in the 375 to 750 nm wavelength range. The structure consists of alternating materials with permittivities of 2 and 3, built upon a 30,000 nm thick silicon substrate. Three subcases with increasing complexity are explored, involving 10 layers (photovoltaics), 20 layers (bigphotovoltaics), and 32 layers (hugephotovoltaics). The optimization challenges include balancing high absorption with a low reflectance while addressing the inherent noise and irregularities in the solar spectrum. "
+    }
+    algorithmic_insights = {
+        "bragg": "For this problem, the optimization landscape contains multiple local minima due to the wave nature of the problem. And periodic solutions are known to provide near-optimal results, suggesting the importance of leveraging constructive interference principles. Here are some suggestions for designing algorithms: 1. Use global optimization algorithms like Differential Evolution (DE) or Genetic Algorithms (GA) to explore the parameter space broadly. 2. Symmetric initialization strategies (e.g., Quasi-Oppositional DE) can improve exploration by evenly sampling the search space. 3. Algorithms should preserve modular characteristics in solutions, as multilayer designs often benefit from distinct functional blocks. 4. Combine global methods with local optimization (e.g., BFGS) to fine-tune solutions near promising regions. 5. Encourage periodicity in solutions via tailored cost functions or constraints. ",
+        "ellipsometry": "This problem has small parameter space with fewer variables (thickness and refractive index), and the cost function is smooth and relatively free of noise, making it amenable to local optimization methods. Here are suggestions for designing algorithms: 1. Use local optimization algorithms like BFGS or Nelder-Mead, as they perform well in low-dimensional, smooth landscapes. 2. Uniform sampling across the parameter space ensures sufficient coverage for initial guesses. 3. Utilize fast convergence algorithms that can quickly exploit the smooth cost function landscape. 4. Iteratively adjust bounds and constraints to improve parameter estimates once initial solutions are obtained. ",
+        "photovoltaic": "This problem is a challenging high-dimensional optimization problem with noisy cost functions due to the realistic solar spectrum, and it requires maximizing absorption while addressing trade-offs between reflectance and interference effects. Here are the suggestions for designing algorithms: 1. Combine global methods (e.g., DE, CMA-ES) for exploration with local optimization for refinement. 2. Use consistent benchmarking and convergence analysis to allocate computational resources effectively. 3. Encourage algorithms to detect and preserve modular structures (e.g., layers with specific roles like anti-reflective or coupling layers). 4. Gradually increase the number of layers during optimization to balance problem complexity and computational cost. 5. Integrate robustness metrics into the cost function to ensure the optimized design tolerates small perturbations in layer parameters. "
+    }
+    description = descriptions[problem_name] if with_description == True else ""
+    algorithmic_insight = algorithmic_insights[problem_name] if with_insight == True else ""
+    task_prompt = f"""
+    The optimization algorithm should be able to find high-performing solutions to a wide range of tasks, which include evaluation on real-world applications such as, e.g., optimization of multilayered photonic structures. {description}{algorithmic_insight}Your task is to write the optimization algorithm in Python code. The code should contain an `__init__(self, budget, dim)` function and the function `def __call__(self, func)`, which should optimize the black box function `func` using `self.budget` function evaluations.
+    The func() can only be called as many times as the budget allows, not more. Each of the optimization functions has a search space between func.bounds.lb (lower bound) and func.bounds.ub (upper bound). The dimensionality can be varied.
+    Give an excellent and novel heuristic algorithm to solve this task and include it's one-line description with the main idea of the algorithm.
+    """
 
-init_solutions = []
-with jsonlines.open('exp_data/CAI/descriptions_insights/init_solutions.jsonl') as reader:
-    for obj in reader:
-        message = obj["content"]
-        code = extract_algorithm_code(message)
-        name = re.findall(
-            "class\\s*(\\w*)(?:\\(\\w*\\))?\\:",
-            code,
-            re.IGNORECASE,
-        )[0]
-        desc = extract_algorithm_description(message)
-        cs = None
-        new_individual = Individual(code, name, desc, cs, 0, None)
-        init_solutions.append(new_individual)
+    init_solutions = []
+    with jsonlines.open('exp_data/CAI/descriptions_insights/init_solutions.jsonl') as reader:
+        for obj in reader:
+            message = obj["content"]
+            code = extract_algorithm_code(message)
+            name = re.findall(
+                "class\\s*(\\w*)(?:\\(\\w*\\))?\\:",
+                code,
+                re.IGNORECASE,
+            )[0]
+            desc = extract_algorithm_description(message)
+            cs = None
+            new_individual = Individual(code, name, desc, cs, 0, None)
+            init_solutions.append(new_individual)
 
-solution = init_solutions[0]
-init_solution_aucs = [0.8041324604654931, 0.8227266579918514, 0.8524629924743906]
-init_solution_final_y = [0.1412466306774247, 0.13112094863304602, 0.12789490696654837]
-auc_mean = np.mean(init_solution_aucs)
-auc_std = np.std(init_solution_aucs)
-feedback = f"The algorithm {solution.name} got an average Area over the convergence curve (AOCC, 1.0 is the best) score of {auc_mean:0.3f} with standard deviation {auc_std:0.3f}. And the mean value of best solutions found was {np.mean(init_solution_final_y):0.3f} (0. is the best) with standard deviation {np.std(init_solution_final_y):0.3f}."
-solution.add_metadata("aucs", init_solution_aucs)
-solution.add_metadata("final_y", init_solution_final_y)
-solution.set_scores(auc_mean, feedback)
-init_solutions[0] = solution
+    solution = init_solutions[0]
+    init_solution_aucs = [0.8041324604654931, 0.8227266579918514, 0.8524629924743906]
+    init_solution_final_y = [0.1412466306774247, 0.13112094863304602, 0.12789490696654837]
+    auc_mean = np.mean(init_solution_aucs)
+    auc_std = np.std(init_solution_aucs)
+    feedback = f"The algorithm {solution.name} got an average Area over the convergence curve (AOCC, 1.0 is the best) score of {auc_mean:0.3f} with standard deviation {auc_std:0.3f}. And the mean value of best solutions found was {np.mean(init_solution_final_y):0.3f} (0. is the best) with standard deviation {np.std(init_solution_final_y):0.3f}."
+    solution.add_metadata("aucs", init_solution_aucs)
+    solution.add_metadata("final_y", init_solution_final_y)
+    solution.set_scores(auc_mean, feedback)
+    init_solutions[0] = solution
 
-es = LLaMEA(evaluatePhotonic, n_parents=parent_size, n_offspring=offspring_size,
-            api_key=api_key, task_prompt=task_prompt,
-            experiment_name=experiment_name, model=ai_model, elitism=es_flag,
-            HPO=False, budget=100, init_solutions=init_solutions)
-print(es.run())
+    es = LLaMEA(evaluatePhotonic, n_parents=parent_size, n_offspring=offspring_size,
+                api_key=api_key, task_prompt=task_prompt,
+                experiment_name=experiment_name, model=ai_model, elitism=es_flag,
+                HPO=False, budget=100, init_solutions=init_solutions)
+    print(es.run())
