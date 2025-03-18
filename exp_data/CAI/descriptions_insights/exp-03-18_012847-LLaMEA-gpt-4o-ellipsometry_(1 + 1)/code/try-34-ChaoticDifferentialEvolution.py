@@ -1,0 +1,82 @@
+import numpy as np
+
+class ChaoticDifferentialEvolution:
+    def __init__(self, budget, dim):
+        self.budget = budget
+        self.dim = dim
+        self.initial_population_size = 10 * dim
+        self.crossover_rate = 0.85
+        self.F = 0.5
+        self.lb, self.ub = None, None
+        self.chaotic_seed = 0.5678
+
+    def chaotic_sequence(self, seed, n):
+        x = seed
+        result = []
+        for _ in range(n):
+            x = 3.91 * x * (1.0 - x)
+            result.append(x)
+        return result
+
+    def initialize_population(self, population_size):
+        chaotic_seq = self.chaotic_sequence(self.chaotic_seed, population_size * self.dim)
+        population = np.array(chaotic_seq).reshape(population_size, self.dim)
+        return self.lb + population * (self.ub - self.lb)
+
+    def adaptive_scaling_factor(self, success_rate):
+        return self.F * (0.9 + 0.1 * np.tanh(success_rate))
+
+    def adaptive_population_size(self, evaluations):
+        return max(3, int(self.initial_population_size * (1 - evaluations / self.budget)))
+
+    def self_adaptive_crossover_rate(self, trial_fitness, current_fitness):
+        return 0.9 if trial_fitness < current_fitness else 0.6
+
+    def __call__(self, func):
+        self.lb, self.ub = func.bounds.lb, func.bounds.ub
+        population_size = self.initial_population_size
+        population = self.initialize_population(population_size)
+        fitness = np.apply_along_axis(func, 1, population)
+        best_idx = np.argmin(fitness)
+        best_solution = population[best_idx]
+        evaluations = population_size
+
+        adaptive_F = self.F
+
+        while evaluations < self.budget:
+            success_count = 0
+            for i in range(population_size):
+                indices = list(range(population_size))
+                indices.remove(i)
+                a, b, c = np.random.choice(indices, 3, replace=False)
+                d = np.random.choice(indices)
+                mutant = population[a] + adaptive_F * (population[b] - population[c]) + 0.1 * (population[d] - population[i])
+                mutant = np.clip(mutant, self.lb, self.ub)
+
+                chaotic_cross = self.chaotic_sequence(self.chaotic_seed, 1)[0]
+                self.crossover_rate = self.self_adaptive_crossover_rate(fitness[i], fitness[best_idx])
+                cross_points = np.random.rand(self.dim) < self.crossover_rate
+                if not np.any(cross_points):
+                    cross_points[np.random.randint(0, self.dim)] = True
+
+                trial = np.where(cross_points, mutant, population[i])
+                trial_fitness = func(trial)
+                evaluations += 1
+
+                if trial_fitness < fitness[i]:
+                    population[i] = trial
+                    fitness[i] = trial_fitness
+                    success_count += 1
+
+                    if trial_fitness < fitness[best_idx]:
+                        best_idx = i
+                        best_solution = trial
+                        adaptive_F = self.adaptive_scaling_factor(success_count / population_size)
+
+                if evaluations >= self.budget:
+                    break
+
+            population_size = self.adaptive_population_size(evaluations)
+            population = self.initialize_population(population_size)
+
+        return best_solution
