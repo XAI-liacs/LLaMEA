@@ -1,0 +1,55 @@
+import numpy as np
+from scipy.optimize import minimize
+
+class BraggMirrorOptimizer:
+    def __init__(self, budget, dim):
+        self.budget = budget
+        self.dim = dim
+        self.pop_size = 20
+        self.cr = 0.9
+        self.f = 0.8
+        self.evaluations = 0
+
+    def symmetric_initialization(self, bounds):
+        lb, ub = bounds.lb, bounds.ub
+        pop = np.random.uniform(lb, ub, (self.pop_size, self.dim))
+        qopop = lb + ub - pop  # Quasi-oppositional solutions
+        return np.concatenate((pop, qopop), axis=0)
+
+    def differential_evolution_step(self, pop, func, bounds):
+        new_pop = np.zeros_like(pop)
+        for i in range(len(pop)):
+            if self.evaluations >= self.budget:
+                break
+            idxs = [idx for idx in range(len(pop)) if idx != i]
+            a, b, c = pop[np.random.choice(idxs, 3, replace=False)]
+            self.f = 0.5 + 0.3 * np.random.rand()  # Adaptive scaling factor
+            mutant = np.clip(a + self.f * (b - c), bounds.lb, bounds.ub)
+            cross_points = np.random.rand(self.dim) < self.cr
+            if not np.any(cross_points):
+                cross_points[np.random.randint(0, self.dim)] = True
+            trial = np.where(cross_points, mutant, pop[i])
+            if func(trial) < func(pop[i]):
+                new_pop[i] = trial
+            else:
+                new_pop[i] = pop[i]
+            self.evaluations += 1
+        return new_pop
+    
+    def local_optimization(self, best, func, bounds):
+        res = minimize(func, best, bounds=list(zip(bounds.lb, bounds.ub)), method='L-BFGS-B')
+        self.evaluations += res.nfev
+        return res.x if res.success else best
+
+    def __call__(self, func):
+        bounds = func.bounds
+        pop = self.symmetric_initialization(bounds)
+        while self.evaluations < self.budget:
+            pop = self.differential_evolution_step(pop, func, bounds)
+            best_idx = np.argmin([func(ind) for ind in pop])
+            best = pop[best_idx]
+            best = self.local_optimization(best, func, bounds)
+            if self.evaluations >= self.budget:
+                break
+            pop[best_idx] = best
+        return best
