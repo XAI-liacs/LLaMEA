@@ -1,0 +1,36 @@
+import numpy as np
+from scipy.optimize import minimize
+
+class BlackBoxOptimizer:
+    def __init__(self, budget, dim):
+        self.budget = budget
+        self.dim = dim
+        self.evaluations = 0
+
+    def __call__(self, func):
+        bounds = list(zip(func.bounds.lb, func.bounds.ub))
+        best_solution = None
+        best_value = np.inf
+        remaining_budget = self.budget
+        adaptive_scale = lambda b: 0.1 * (b / self.budget) + 0.05
+        
+        while remaining_budget > 0:
+            initial_guesses = [np.array([np.random.uniform(low, high) for low, high in bounds]) for _ in range(3)]
+            initial_guess = min(initial_guesses, key=lambda g: func(g))
+            
+            local_budget = max(5, remaining_budget // 2)
+            
+            # Hybrid strategy: dynamic perturbation scaling and adaptive local search
+            scale_factor = adaptive_scale(remaining_budget)
+            perturbed_guess = initial_guess + np.random.normal(0, scale_factor, self.dim)
+            perturbed_guess = np.clip(perturbed_guess, func.bounds.lb, func.bounds.ub)
+
+            result = minimize(func, perturbed_guess, method='L-BFGS-B', bounds=bounds, options={'maxfun': local_budget})
+
+            if result.fun < best_value:
+                best_value = result.fun
+                best_solution = result.x
+
+            remaining_budget -= result.nfev
+
+        return best_solution, best_value

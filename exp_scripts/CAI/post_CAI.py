@@ -32,7 +32,7 @@ def extract_auc(exp_folder):
 
 problems = [
     "bragg",
-    # "ellipsometry",
+    "ellipsometry",
     "photovoltaic"
 ]
 exps = []
@@ -42,14 +42,6 @@ for prob in problems:
     exps += [f"{prob}_(1 + 1)",
                 f"{prob}_with_description_(1 + 1)",
                 f"{prob}_with_description_insight_(1 + 1)"]
-    # if prob == "photovoltaic":
-    #     exps += [f"{prob}_(1 + 1)",
-    #              f"{prob}_with_description_(1 + 1)",
-    #              f"{prob}_with_description_insight_(1 + 1)"]
-    # else:
-    #     exps += [f"{prob}",
-    #             f"{prob}_with_description",
-    #             f"{prob}_with_description_insight"]
     labels += [f"{prob}",
                f"{prob} with description",
                f"{prob} with description\nand algorithmic insights"]

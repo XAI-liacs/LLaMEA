@@ -1,0 +1,45 @@
+import numpy as np
+from scipy.optimize import minimize, differential_evolution
+
+class HybridOptimizer:
+    def __init__(self, budget, dim):
+        self.budget = budget
+        self.dim = dim
+    
+    def __call__(self, func):
+        # Extract bounds from the function
+        bounds = [(func.bounds.lb[i], func.bounds.ub[i]) for i in range(self.dim)]
+        
+        # Dynamic allocation for initial exploration using differential evolution
+        num_samples = int(0.2 * self.budget)  # Allocate 20% of the budget for initial sampling
+        
+        def count_calls_de(x, func=func):
+            if self.evaluation_count < self.budget:
+                self.evaluation_count += 1
+                return func(x)
+            else:
+                raise RuntimeError("Exceeded budget in exploration phase")
+        
+        result_de = differential_evolution(count_calls_de, bounds, maxiter=num_samples, popsize=15)
+        
+        # Start with the best sample from differential evolution
+        best_sample, best_cost = result_de.x, result_de.fun
+        
+        # Remaining budget for the local optimization
+        remaining_budget = self.budget - self.evaluation_count
+        
+        # Define a wrapper for the cost function to count evaluations
+        self.evaluation_count = 0
+        
+        def count_calls(x):
+            if self.evaluation_count < remaining_budget:
+                self.evaluation_count += 1
+                return func(x)
+            else:
+                raise RuntimeError("Exceeded budget in local optimization")
+        
+        # Apply BFGS starting from the best initial sample
+        result = minimize(count_calls, best_sample, method='L-BFGS-B', bounds=bounds)
+        
+        # Return the best found solution and its cost
+        return result.x, result.fun

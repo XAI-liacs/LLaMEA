@@ -1,0 +1,48 @@
+import numpy as np
+from scipy.optimize import minimize
+
+class AdaptiveLocalOptimizer:
+    def __init__(self, budget, dim):
+        self.budget = budget
+        self.dim = dim
+        self.evaluations = 0
+
+    def __call__(self, func):
+        # Define search bounds
+        lb, ub = func.bounds.lb, func.bounds.ub
+
+        # Strategic initial sampling to include midpoint
+        init_points = np.vstack((np.random.uniform(lb, ub, size=(14, self.dim)), (lb + ub) / 2))
+        
+        best_solution = None
+        best_value = float('inf')
+
+        for point in init_points:
+            if self.evaluations >= self.budget:
+                break
+
+            # Optimize using local optimizer starting from the initial point
+            result = minimize(self.bounded_func(func, lb, ub), point, method='BFGS',  # Changed method to 'BFGS'
+                              options={'maxfev': self.budget - self.evaluations})
+            
+            # Count the number of function evaluations
+            self.evaluations += result.nfev
+
+            # Update best solution if found
+            if result.fun < best_value:
+                best_value = result.fun
+                best_solution = result.x
+
+            # Dynamic adjustment factor based on the current best value
+            adjustment_factor = 0.01 + 0.02 * (best_value / (best_value + 1))  # Changed adjustment calculation
+            lb = np.maximum(lb, best_solution - adjustment_factor * (ub - lb))
+            ub = np.minimum(ub, best_solution + adjustment_factor * (ub - lb))
+
+        return best_solution
+
+    def bounded_func(self, func, lb, ub):
+        def func_with_bounds(x):
+            # Clip the solution to remain within bounds
+            x_clipped = np.clip(x, lb, ub)
+            return func(x_clipped)
+        return func_with_bounds

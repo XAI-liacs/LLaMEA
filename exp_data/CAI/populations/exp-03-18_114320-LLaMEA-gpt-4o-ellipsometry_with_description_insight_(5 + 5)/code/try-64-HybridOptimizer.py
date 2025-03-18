@@ -1,0 +1,39 @@
+import numpy as np
+from scipy.optimize import minimize, Bounds
+
+class HybridOptimizer:
+    def __init__(self, budget, dim):
+        self.budget = budget
+        self.dim = dim
+        
+    def __call__(self, func):
+        # Unpack bounds
+        lb, ub = func.bounds.lb, func.bounds.ub
+        # Remaining budget after initial exploration
+        remaining_budget = self.budget
+        
+        # Initial exploration with adaptive sampling density
+        num_samples = min(remaining_budget // 2, 30 * self.dim)  # Adjusted samples for more robust exploration
+        samples = np.random.uniform(lb, ub, (num_samples, self.dim))
+        remaining_budget -= num_samples
+        
+        # Evaluate samples and find the best initial guess
+        sample_evaluations = np.array([func(sample) for sample in samples])
+        best_idx = np.argmin(sample_evaluations)
+        best_solution = samples[best_idx]
+        best_value = sample_evaluations[best_idx]
+        
+        # Local optimization using a trust-region method
+        def local_objective(x):
+            return func(x)
+        
+        # Adjust budget allocation for local optimization with trust-region
+        remaining_budget = max(remaining_budget, 10)
+        result = minimize(local_objective, best_solution, bounds=Bounds(lb, ub), method='trust-constr', options={'maxiter': remaining_budget})
+        
+        # Choose the best solution found
+        if result.fun < best_value:
+            best_solution = result.x
+            best_value = result.fun
+        
+        return best_solution

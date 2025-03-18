@@ -1,0 +1,60 @@
+import numpy as np
+from scipy.optimize import minimize
+
+class AdaptiveBoundaryRefinement:
+    def __init__(self, budget, dim):
+        self.budget = budget
+        self.dim = dim
+
+    def __call__(self, func):
+        remaining_budget = self.budget
+        
+        # Adjusting the number of initial samples based on the remaining budget
+        num_samples = max(10, remaining_budget // 10)
+        random_samples = np.random.uniform(func.bounds.lb, func.bounds.ub, (num_samples, self.dim))
+        
+        for i in range(num_samples):
+            indices = np.random.choice(num_samples, 3, replace=False)
+            # Change 1: Dynamic mutation factor
+            F = 0.5 + np.random.rand() * 0.3  # Mutation factor between 0.5 and 0.8
+            donor_vector = (random_samples[indices[0]] + 
+                            F * (random_samples[indices[1]] - random_samples[indices[2]]))
+            donor_vector = np.clip(donor_vector, func.bounds.lb, func.bounds.ub)
+            random_samples[i] = donor_vector
+        
+        sample_evals = [func(sample) for sample in random_samples]
+        remaining_budget -= num_samples
+        
+        # Choose the best initial guess from the samples
+        best_index = np.argmin(sample_evals)
+        best_solution = random_samples[best_index]
+        best_value = sample_evals[best_index]
+        
+        # Iteratively refine solution using local optimizer
+        while remaining_budget > 0:
+            # Define a local optimization strategy
+            local_optimizer = 'nelder-mead'
+            options = {'maxiter': min(remaining_budget, 50), 'adaptive': True}
+
+            # Perform local optimization
+            result = minimize(
+                func, best_solution, method=local_optimizer,
+                bounds=list(zip(func.bounds.lb, func.bounds.ub)),
+                options=options
+            )
+            
+            # Update remaining budget and best solution found
+            remaining_budget -= result.nfev
+            if result.fun < best_value:
+                best_value = result.fun
+                best_solution = result.x
+            
+            # Update bounds to be closer to the best solution
+            func.bounds.lb = np.maximum(func.bounds.lb, best_solution - 0.1 * (func.bounds.ub - func.bounds.lb))
+            func.bounds.ub = np.minimum(func.bounds.ub, best_solution + 0.1 * (func.bounds.ub - func.bounds.lb))
+            
+            # Early stopping if budget is exhausted
+            if remaining_budget <= 0:
+                break
+        
+        return best_solution
