@@ -1,0 +1,64 @@
+import numpy as np
+import random
+
+class DynamicPopulationEvolution:
+    def __init__(self, budget, dim):
+        self.budget = budget
+        self.dim = dim
+
+    def __call__(self, func):
+        # Define population size
+        population_size = min(20, self.budget // 2)
+        # Initialize population within bounds
+        population = np.random.uniform(
+            low=func.bounds.lb, 
+            high=func.bounds.ub, 
+            size=(population_size, self.dim)
+        )
+        fitness = np.array([func(ind) for ind in population])
+        self.budget -= population_size
+        
+        # Evolution loop
+        while self.budget > 0:
+            # Select parents based on fitness proportional selection
+            parents_idx = np.random.choice(
+                population_size, 
+                size=population_size, 
+                p=fitness / fitness.sum()
+            )
+            parents = population[parents_idx]
+            
+            # Generate offspring through crossover and mutation
+            offspring = []
+            for i in range(population_size):
+                parent1, parent2 = parents[i], parents[(i + 1) % population_size]
+                
+                # Crossover (blend crossover)
+                alpha = np.random.uniform(0.3, 0.7, self.dim)  # refined blend range
+                child = alpha * parent1 + (1 - alpha) * parent2
+                
+                # Mutation (adaptive Gaussian mutation)
+                mutation_strength = 0.05 * (func.bounds.ub - func.bounds.lb) # reduced mutation strength
+                mutation = np.random.normal(0, mutation_strength, self.dim)
+                child += mutation
+                
+                # Ensure child is within bounds
+                child = np.clip(child, func.bounds.lb, func.bounds.ub)
+                offspring.append(child)
+            
+            offspring = np.array(offspring)
+            offspring_fitness = np.array([func(ind) for ind in offspring])
+            self.budget -= population_size
+            
+            # Combine and select the next generation
+            combined_population = np.vstack((population, offspring))
+            combined_fitness = np.hstack((fitness, offspring_fitness))
+            best_individuals_idx = np.argsort(combined_fitness)[:population_size]
+            elitism_idx = np.argmin(combined_fitness) # Elite strategy
+            population = combined_population[best_individuals_idx]
+            population[0] = combined_population[elitism_idx] # Add elite
+            fitness = combined_fitness[best_individuals_idx]
+        
+        # Return the best found solution
+        best_idx = np.argmin(fitness)
+        return population[best_idx]

@@ -31,20 +31,25 @@ def extract_auc(exp_folder):
     return aucs, final_y
 
 problems = [
-    # "bragg", "ellipsometry", 
-            "photovoltaic"]
+    "bragg",
+    # "ellipsometry",
+    "photovoltaic"
+]
 exps = []
 labels = []
 
 for prob in problems:
-    if prob == "photovoltaic":
-        exps += [f"{prob}_(1 + 1)",
-                 f"{prob}_with_description_(1 + 1)",
-                 f"{prob}_with_description_insight_(1 + 1)"]
-    else:
-        exps += [f"{prob}",
-                f"{prob}_with_description",
-                f"{prob}_with_description_insight"]
+    exps += [f"{prob}_(1 + 1)",
+                f"{prob}_with_description_(1 + 1)",
+                f"{prob}_with_description_insight_(1 + 1)"]
+    # if prob == "photovoltaic":
+    #     exps += [f"{prob}_(1 + 1)",
+    #              f"{prob}_with_description_(1 + 1)",
+    #              f"{prob}_with_description_insight_(1 + 1)"]
+    # else:
+    #     exps += [f"{prob}",
+    #             f"{prob}_with_description",
+    #             f"{prob}_with_description_insight"]
     labels += [f"{prob}",
                f"{prob} with description",
                f"{prob} with description\nand algorithmic insights"]
@@ -79,7 +84,7 @@ cud = ["#e69f00", "#56b4e9", "#009e73", "#f0e442",
 linestyles = ["-", "--", "-.", ":", "-", "--", "-.", ":"]
 auc_data = []
 y_data = []
-root_path = "exp_data/CAI/clip/"
+root_path = "exp_data/CAI/descriptions_insights/"
 exp_folders = os.listdir(root_path)
 
 for exp in exps:
