@@ -191,9 +191,9 @@ Space: <configuration_space>"""
                 repr(e) + traceback.format_exc(),
             )
             self.logevent(f"An exception occured: {traceback.format_exc()}.")
-            if (hasattr(self.f, "log_individual")):
+            if hasattr(self.f, "log_individual"):
                 self.f.log_individual(new_individual)
-        
+
         return new_individual
 
     def initialize(self, retry=0):
@@ -357,7 +357,7 @@ With code:
             evolved_individual.set_scores(
                 self.worst_value, f"An exception occurred: {error}.", error
             )
-            if (hasattr(self.f, "log_individual")):
+            if hasattr(self.f, "log_individual"):
                 self.f.log_individual(evolved_individual)
             self.logevent(f"An exception occured: {traceback.format_exc()}.")
 
