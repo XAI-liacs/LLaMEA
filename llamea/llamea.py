@@ -184,18 +184,16 @@ Space: <configuration_space>"""
             new_individual = self.llm.sample_solution(session_messages, HPO=self.HPO)
             new_individual.generation = self.generation
             new_individual = self.evaluate_fitness(new_individual)
-        except NoCodeException:
-            new_individual.set_scores(self.worst_value, "No code was extracted.")
-            self.textlog.warning("No code was extracted.")
         except Exception as e:
             new_individual.set_scores(
                 self.worst_value,
                 f"An exception occured: {traceback.format_exc()}.",
                 repr(e) + traceback.format_exc(),
             )
-            self.textlog.warning(f"An exception occured: {traceback.format_exc()}.")
+            self.logevent(f"An exception occured: {traceback.format_exc()}.")
+            if hasattr(self.f, "log_individual"):
+                self.f.log_individual(new_individual)
 
-        self.run_history.append(new_individual)  # update the history
         return new_individual
 
     def initialize(self, retry=0):
@@ -204,18 +202,20 @@ Space: <configuration_space>"""
         """
 
         population = []
+        population_gen = []
         try:
             timeout = self.eval_timeout
             population_gen = Parallel(
                 n_jobs=self.max_workers,
-                backend="threading",
+                backend="loky",
                 timeout=timeout + 15,
                 return_as="generator_unordered",
             )(delayed(self.initialize_single)() for _ in range(self.n_parents))
         except Exception as e:
-            print("Parallel time out in initialization, retrying.")
+            print(f"Parallel time out in initialization {e}, retrying.")
 
         for p in population_gen:
+            self.run_history.append(p)  # update the history
             population.append(p)
 
         self.generation += 1
@@ -352,19 +352,15 @@ With code:
             )
             evolved_individual.generation = self.generation
             evolved_individual = self.evaluate_fitness(evolved_individual)
-        except NoCodeException:
-            evolved_individual.set_scores(
-                self.worst_value,
-                "No code was extracted. The code should be encapsulated with ``` in your response.",
-                "The code should be encapsulated with ``` in your response.",
-            )
         except Exception as e:
             error = repr(e)
             evolved_individual.set_scores(
                 self.worst_value, f"An exception occurred: {error}.", error
             )
+            if hasattr(self.f, "log_individual"):
+                self.f.log_individual(evolved_individual)
+            self.logevent(f"An exception occured: {traceback.format_exc()}.")
 
-        self.run_history.append(evolved_individual)
         # self.progress_bar.update(1)
         return evolved_individual
 
@@ -400,7 +396,7 @@ With code:
                 new_population_gen = Parallel(
                     n_jobs=self.max_workers,
                     timeout=timeout + 15,
-                    backend="threading",
+                    backend="loky",
                     return_as="generator_unordered",
                 )(
                     delayed(self.evolve_solution)(individual)
@@ -410,6 +406,7 @@ With code:
                 print("Parallel time out .")
 
             for p in new_population_gen:
+                self.run_history.append(p)
                 new_population.append(p)
             self.generation += 1
 
