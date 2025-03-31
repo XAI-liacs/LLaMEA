@@ -1,7 +1,0 @@
-Here's a piece of code for an optimization algorithm. Please modify it by 
-exactly {prob*100}% to improve the algorithm's performance in terms of 
-optimization convergence speed. Focus on introducing meaningful changes that 
-can potentially enhance its effectiveness, such as exploring alternative 
-strategies or approaches across any aspect of the algorithm. Keep the 
-modifications strictly within the specified {prob*100}% range for code 
-difference while striving for faster convergence.

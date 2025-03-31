@@ -1,6 +1,0 @@
-Please enhance the convergence speed of the optimization algorithm given below 
-by modifying it. The modifications should introduce a code difference of 
-precisely {prob*100}% compared to the original code. Focus on optimizing the 
-algorithm's behavior rather than its implementation efficiency. You are free to 
-explore any area of the algorithm's logic, but ensure that the total code 
-difference remains exactly at {prob*100}% and is geared toward faster convergence.

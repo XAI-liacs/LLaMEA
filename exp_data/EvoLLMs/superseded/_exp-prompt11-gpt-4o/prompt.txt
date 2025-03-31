@@ -1,5 +1,0 @@
-Modify the code to be exactly {prob*100}% different. Your changes should enhance 
-the algorithm's runtime efficiency without altering its main functionality. 
-Focus on practical performance improvements, such as reducing redundant 
-calculations, restructuring loops, or replacing expensive operations. Please 
-confirm the difference is exactly {prob*100}%.

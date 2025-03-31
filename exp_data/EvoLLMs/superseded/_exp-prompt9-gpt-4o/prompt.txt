@@ -1,6 +1,0 @@
-Please modify the code so that the difference between the original and modified 
-versions is exactly {prob*100}%. Aim to improve the algorithm's efficiency by 
-making adjustments that optimize its performance, such as by refining the 
-mathematical functions, streamlining logic, or adjusting parameters. Ensure the 
-functionality remains essentially the same, with the focus on achieving the 
-exact {prob*100}% code difference.

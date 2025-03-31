@@ -1,5 +1,0 @@
-Please adjust the code so that it is exactly {prob*100}% different, aiming for 
-a performance boost without changing the core functionality. Suggested 
-improvements could include optimizing data structures, simplifying control 
-flow, or consolidating repeated operations. When done, confirm that the 
-difference is {prob*100}%.

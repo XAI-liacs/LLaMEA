@@ -1,6 +1,0 @@
-import numpy as np
-
-class ModifiedRefinedEnhancedHybridCuckooDE(EnhancedHybridCuckooDE):
-    def __call__(self, func):
-        self.pa = np.clip(self.pa * 0.25, 0, 1)
-        return super().__call__(func)

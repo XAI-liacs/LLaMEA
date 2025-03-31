@@ -1,5 +1,0 @@
-Take this code of an optimization algorithm and adjust it by {prob*100}% to 
-improve convergence speed. Make sure the modifications cover a broad spectrum 
-of possible algorithm adjustments, considering changes across different 
-components without exceeding {prob*100}% in code difference. Your changes should 
-aim to improve the algorithm's ability to reach optimal solutions more quickly.

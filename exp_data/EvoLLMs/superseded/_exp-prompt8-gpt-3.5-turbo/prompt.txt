@@ -1,5 +1,0 @@
-Create an improved variant of this optimization algorithm that has exactly 
-{prob*100}% difference in code. Focus on practical performance enhancements, 
-such as optimizing loops, restructuring inefficient parts, or removing redundant 
-steps. List each change with a brief explanation, and verify that the difference 
-meets the exact {prob*100}% target.
