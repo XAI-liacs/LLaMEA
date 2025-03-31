@@ -188,3 +188,7 @@ ast/graphstats*
 
 logs/
 .DS_Store
+benchmarks/ma_bbob/MABBOB_Baselines/
+benchmarks/ma_bbob/ERADS*
+benchmarks/ma_bbob/RS*
+exp-*

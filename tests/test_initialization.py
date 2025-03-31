@@ -1,5 +1,5 @@
 import pytest
-from llamea import LLaMEA
+from llamea import LLaMEA, Ollama_LLM
 
 
 def f(ind, logger):
@@ -8,13 +8,11 @@ def f(ind, logger):
 
 def test_default_initialization():
     """Test the default initialization of the LLaMEA class."""
-    optimizer = LLaMEA(f, api_key="test_key")
-    assert optimizer.api_key == "test_key"
-    assert optimizer.model == "gpt-4-turbo", "Default model should be gpt-4-turbo"
+    optimizer = LLaMEA(f, llm=Ollama_LLM("test_model"))
+    assert optimizer.llm.model == "test_model"
 
 
 def test_custom_initialization():
     """Test custom initialization parameters."""
-    optimizer = LLaMEA(f, api_key="test_key", model="custom-model", budget=500)
-    assert optimizer.model == "custom-model"
+    optimizer = LLaMEA(f, llm=Ollama_LLM("custom model"), budget=500, log=False)
     assert optimizer.budget == 500, "Custom budget should be respected"

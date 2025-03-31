@@ -12,6 +12,7 @@ from llamea.utils import NoCodeException
 from llamea.individual import Individual
 from misc import aoc_logger, correct_aoc, OverBudgetException
 
+from llamea import Gemini_LLM, OpenAI_LLM
 
 def get_photonic_instances():
     problems = []
@@ -125,7 +126,7 @@ def evaluatePhotonic(solution, details=False):
         auc_upper = 1.
     auc_mean = 0
     auc_std = 0
-    code = solution.solution
+    code = solution.code
     algorithm_name = solution.name
     exec(code, globals())
     aucs = []
