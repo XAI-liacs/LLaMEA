@@ -9,7 +9,7 @@ sys.path.append(".")
 from photonics_benchmark import *
 from llamea import LLaMEA
 from llamea.utils import NoCodeException
-from llamea.individual import Individual
+from llamea.solution import Solution
 from misc import aoc_logger, correct_aoc, OverBudgetException
 
 from llamea import Gemini_LLM, OpenAI_LLM
