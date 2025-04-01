@@ -86,6 +86,41 @@ class aoc_logger(logger.AbstractLogger):
         self.aoc = 0
 
 
+class final_y_logger(logger.AbstractLogger):
+    """final_y_logger class implementing the logging module for ioh."""
+
+    def __init__(
+        self,
+        budget,
+        *args,
+        **kwargs,
+    ):
+        """Initialize the logger.
+
+        Args:
+            budget (int): Evaluation budget for calculating aoc.
+        """
+        super().__init__(*args, **kwargs)
+        self.final_y = np.inf
+        self.budget = budget
+
+    def __call__(self, log_info: LogInfo):
+        """Subscalculate the aoc.
+
+        Args:
+            log_info (ioh.LogInfo): info about current values.
+        """
+        if log_info.evaluations > self.budget:
+            raise OverBudgetException
+        if log_info.evaluations == self.budget:
+            return
+        self.final_y = log_info.raw_y_best
+
+    def reset(self, func):
+        super().reset()
+        self.final_y = np.inf
+
+
 class budget_logger(logger.AbstractLogger):
     """budget_logger class implementing the logging module for ioh."""
 

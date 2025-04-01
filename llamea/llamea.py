@@ -350,7 +350,7 @@ With code:
         Evolves a single solution by constructing a new prompt,
         querying the LLM, and evaluating the fitness.
         """
-        new_prompt = self.construct_prompt(individual)
+        new_prompt = self.construct_prompt(individual, True)
         evolved_individual = individual.copy()
 
         try:
@@ -403,7 +403,7 @@ With code:
                 new_population_gen = Parallel(
                     n_jobs=self.max_workers,
                     timeout=timeout + 15,
-                    backend="loky",
+                    backend="threading",
                     return_as="generator_unordered",
                 )(
                     delayed(self.evolve_solution)(individual)
