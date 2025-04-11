@@ -181,19 +181,23 @@ Distributed under the [MIT](https://choosealicense.com/licenses/mit/) License. S
 If you use LLaMEA in your research, please consider citing the associated paper:
 
 ```bibtex
-@article{van2024llamea,
-  title={Llamea: A large language model evolutionary algorithm for automatically generating metaheuristics},
-  author={van Stein, Niki and B{\"a}ck, Thomas},
-  journal={IEEE Transactions on Evolutionary Computation},
-  year={2024},
-  publisher={IEEE}
+@article{stein2025llamea,
+  author={Stein, Niki van and Bäck, Thomas},
+  journal={IEEE Transactions on Evolutionary Computation}, 
+  title={LLaMEA: A Large Language Model Evolutionary Algorithm for Automatically Generating Metaheuristics}, 
+  year={2025},
+  volume={29},
+  number={2},
+  pages={331-345},
+  keywords={Benchmark testing;Evolutionary computation;Metaheuristics;Codes;Large language models;Closed box;Heuristic algorithms;Mathematical models;Vectors;Systematics;Automated code generation;evolutionary computation (EC);large language models (LLMs);metaheuristics;optimization},
+  doi={10.1109/TEVC.2024.3497793}
 }
 ```
 
 If you only want to cite the LLaMEA-HPO variant use the folllowing:
 
 ```bibtex
-@article{van2024loop,
+@article{stein2024loop,
   title={In-the-loop hyper-parameter optimization for llm-based automated design of heuristics},
   author={van Stein, Niki and Vermetten, Diederick and B{\"a}ck, Thomas},
   journal={arXiv preprint arXiv:2410.16309},
