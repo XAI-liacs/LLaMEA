@@ -46,6 +46,7 @@ class LLaMEA:
         elitism=False,
         HPO=False,
         mutation_prompts=None,
+        adaptive_mutation=False,
         budget=100,
         eval_timeout=3600,
         max_workers=10,
@@ -68,6 +69,8 @@ class LLaMEA:
             HPO (bool): Flag to decide if hyper-parameter optimization is part of the evaluation function.
                 In case it is, a configuration space should be asked from the LLM as additional output in json format.
             mutation_prompts (list): A list of prompts to specify mutation operators to the LLM model. Each mutation, a random choice from this list is made.
+            adaptive_mutation (bool): If set to True, the mutation prompt 'Change X% of the lines of code' will be used in an adaptive control setting. 
+                This overwrites mutation_prompts.
             budget (int): The number of generations to run the evolutionary algorithm.
             eval_timeout (int): The number of seconds one evaluation can maximum take (to counter infinite loops etc.). Defaults to 1 hour.
             log (bool): Flag to switch of the logging of experiments.
@@ -130,6 +133,7 @@ Provide the Python code, a one-line description with the main idea (without ente
 ```
 Space: <configuration_space>"""
         self.mutation_prompts = mutation_prompts
+        self.adaptive_mutation = adaptive_mutation
         if mutation_prompts == None:
             self.mutation_prompts = [
                 "Refine the strategy of the selected solution to improve it.",  # small mutation
@@ -196,7 +200,7 @@ Space: <configuration_space>"""
 
         return new_individual
 
-    def initialize(self, retry=0):
+    def initialize(self):
         """
         Initializes the evolutionary process by generating the first parent population.
         """
@@ -238,13 +242,12 @@ Space: <configuration_space>"""
 
         return updated_individual
 
-    def construct_prompt(self, individual, power_law_mutation=False):
+    def construct_prompt(self, individual):
         """
         Constructs a new session prompt for the language model based on a selected individual.
 
         Args:
             individual (dict): The individual to mutate.
-            power_law_mutation (boolean): To use a small step mutation using the power law distribution prompt. Defaults to False.
 
         Returns:
             list: A list of dictionaries simulating a conversation with the language model for the next evolutionary step.
@@ -254,15 +257,14 @@ Space: <configuration_space>"""
         solution = individual.code
         description = individual.description
         feedback = individual.feedback
-        # TODO make a random selection between multiple feedback prompts (mutations)
-        if power_law_mutation == True:
+        if self.adaptive_mutation == True:
             num_lines = len(solution.split("\n"))
-
             prob = discrete_power_law_distribution(num_lines, 1.5)
-            # prob = 0.4
-            new_mutation_prompt = f"""
-    Refine the strategy of the selected solution to improve it. Make sure you only change {(prob*100):.1f}% of the code, which means if the code has 100 lines, you can only change {prob*100} lines, and the rest of the lines should remain unchanged. This input code has {num_lines} lines, so you can only change {max(1, int(prob*num_lines))} lines, the rest {num_lines-max(1, int(prob*num_lines))} lines should remain unchanged. This changing rate {(prob*100):.1f}% is the mandatory requirement, you cannot change more or less than this rate.
-    """
+            new_mutation_prompt = f"""Refine the strategy of the selected solution to improve it. 
+Make sure you only change {(prob*100):.1f}% of the code, which means if the code has 100 lines, you can only change {prob*100} lines, and the rest of the lines should remain unchanged. 
+This input code has {num_lines} lines, so you can only change {max(1, int(prob*num_lines))} lines, the rest {num_lines-max(1, int(prob*num_lines))} lines should remain unchanged. 
+This changing rate {(prob*100):.1f}% is a mandatory requirement, you cannot change more or less than this rate.
+"""
             self.mutation_prompts = [new_mutation_prompt]
 
         mutation_operator = random.choice(self.mutation_prompts)
