@@ -201,6 +201,20 @@ If you only want to cite the LLaMEA-HPO variant use the folllowing:
 }
 ```
 
+Other works about extensions or integrations of LLaMEA:
+
+```bibtex
+@misc{yin2024controllingmutation,
+      title={Controlling the Mutation in Large Language Models for the Efficient Evolution of Algorithms}, 
+      author={Haoran Yin and Anna V. Kononova and Thomas Bäck and Niki van Stein},
+      year={2024},
+      eprint={2412.03250},
+      archivePrefix={arXiv},
+      primaryClass={cs.NE},
+      url={https://arxiv.org/abs/2412.03250}, 
+}
+```
+
 ---
 
 For more details, please refer to the documentation and tutorials available in the repository.
