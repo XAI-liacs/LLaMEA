@@ -14,9 +14,9 @@
   </a>
   <img src="https://img.shields.io/badge/Maintained%3F-yes-brightgreen.svg" alt="Maintenance" height="18">
   <img src="https://img.shields.io/badge/Python-3.10+-blue" alt="Python 3.10+" height="18">
-  <a href="https://codecov.io/gh/nikivanstein/LLaMEA" > 
-    <img src="https://codecov.io/gh/nikivanstein/LLaMEA/graph/badge.svg?token=VKCNPWVBNM"/> 
-  </a>
+  <a href="https://codecov.io/gh/XAI-liacs/LLaMEA" > 
+    <img src="https://codecov.io/gh/XAI-liacs/LLaMEA/graph/badge.svg?token=VKCNPWVBNM"/> 
+ </a>
 </p>
 
 ## Table of Contents
@@ -69,7 +69,7 @@ You can also install the package from source using Poetry (1.8.5).
 
 1. Clone the repository:
    ```bash
-   git clone https://github.com/xai-liacs/LLaMEA.git
+   git clone https://github.com/XAI-liacs/LLaMEA.git
    cd LLaMEA
    ```
 2. Install the required dependencies via Poetry:
@@ -165,7 +165,7 @@ python example_HPO.py
 
 Contributions to LLaMEA are welcome! Here are a few ways you can help:
 
-- **Report Bugs**: Use [GitHub Issues](https://github.com/nikivanstein/LLaMEA/issues) to report bugs.
+- **Report Bugs**: Use [GitHub Issues](https://github.com/XAI-liacs/LLaMEA/issues) to report bugs.
 - **Feature Requests**: Suggest new features or improvements.
 - **Pull Requests**: Submit PRs for bug fixes or feature additions.
 
@@ -234,5 +234,5 @@ flowchart LR
 
 CodeCov test coverage
 
-<img src="https://codecov.io/gh/nikivanstein/LLaMEA/graphs/sunburst.svg?token=VKCNPWVBNM"/> 
+<img src="https://codecov.io/gh/XAI-liacs/LLaMEA/graphs/sunburst.svg?token=VKCNPWVBNM"/> 
 

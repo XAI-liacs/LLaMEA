@@ -17,8 +17,8 @@ LLaMEA: Large Language Model Evolutionary Algorithm
 .. image:: https://img.shields.io/badge/Python-3.10+-blue.svg
    :alt: Python 3.10+
    :height: 18
-.. image:: https://codecov.io/gh/nikivanstein/LLaMEA/graph/badge.svg?token=VKCNPWVBNM
-   :target: https://codecov.io/gh/nikivanstein/LLaMEA
+.. image:: https://codecov.io/gh//XAI-liacs/LLaMEA/graph/badge.svg?token=VKCNPWVBNM
+   :target: https://codecov.io/gh//XAI-liacs/LLaMEA
    :alt: Codecov
 
 
