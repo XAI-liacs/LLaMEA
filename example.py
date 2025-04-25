@@ -5,7 +5,7 @@ import re
 from misc import aoc_logger, correct_aoc, OverBudgetException
 from llamea import LLaMEA, Gemini_LLM
 
-if __name__ == "__main__": # prevents weird restarting behaviour
+if __name__ == "__main__":
 
     # Execution code starts here
     api_key = os.getenv("GEMINI_API_KEY")

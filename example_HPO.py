@@ -5,21 +5,21 @@ import re
 from misc import aoc_logger, correct_aoc, OverBudgetException
 from llamea import LLaMEA, Gemini_LLM
 import time
+from itertools import product
+from ConfigSpace import Configuration, ConfigurationSpace
 
-if __name__ == "__main__": # prevents weird restarting behaviour
+import numpy as np
+from smac import Scenario
+from smac import AlgorithmConfigurationFacade
+
+
+if __name__ == "__main__":
 
     # Execution code starts here
     api_key = os.getenv("GEMINI_API_KEY")
     ai_model = "gemini-1.5-flash"
     experiment_name = "pop1-5-HPO"
     llm = Gemini_LLM(api_key, ai_model)
-
-    from itertools import product
-    from ConfigSpace import Configuration, ConfigurationSpace
-
-    import numpy as np
-    from smac import Scenario
-    from smac import AlgorithmConfigurationFacade
 
 
     def evaluateBBOBWithHPO(solution, explogger=None):
