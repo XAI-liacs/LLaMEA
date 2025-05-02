@@ -49,6 +49,13 @@
 
 ## 🔥 News 
 
+
++ 2025.05 🎉🎉 **["Optimizing Photonic Structures with Large Language Model Driven Algorithm Discovery"](https://arxiv.org/abs/2503.19742) accepted as workshop paper at GECCO 2025**!  
+
++ 2025.05 🎉🎉 **["BLADE: Benchmark Suite for LLM-Driven Automated Design and Evolution of iterative optimisation heuristics"](https://arxiv.org/abs/2504.20183) accepted as workshop paper at GECCO 2025**!  
+
++ 2025.04 🎉🎉 **["Code Evolution Graphs"](https://arxiv.org/abs/2503.16668) accepted as full paper at GECCO 2025**!  
+
 + 2025.03 🎉🎉 **LLaMEA v1.0.0 released**!  
 
 + 2025.01 🎉🎉 **LLaMEA paper accepted in IEEE TEVC** [“Llamea: A large language model evolutionary algorithm for automatically generating metaheuristics"](https://ieeexplore.ieee.org/abstract/document/10752628/)!  
@@ -176,12 +183,23 @@ Please refer to CONTRIBUTING.md for more details on contributing guidelines.
 Distributed under the [MIT](https://choosealicense.com/licenses/mit/) License. See `LICENSE` for more information.
 
 
+
+## 🤖 Reproducability
+
+Each paper we published also has an accompanying Zenodo repository for full reproducability of all our results.
+
+* van Stein, N. (2025). BLADE - Code and Results for the paper [Data set]. Zenodo. [https://doi.org/10.5281/zenodo.15119985](https://doi.org/10.5281/zenodo.15119985)
+* van Stein, N., Vermetten, D., & Bäck, T. (2025). LLaMEA-HPO: code, generated algorithms and IOH logging data. [https://doi.org/10.5281/zenodo.14917719](https://doi.org/10.5281/zenodo.14917719)
+* van Stein, N., Kononova, A. V., Kotthoff, L., & Bäck, T. (2025). Figures and code for Code Evolution Graphs. Zenodo. [https://doi.org/10.5281/zenodo.14770672](https://doi.org/10.5281/zenodo.14770672)
+* van Stein, N., & Bäck, T. (2024). LLaMEA. Zenodo. [https://doi.org/10.5281/zenodo.13842144](https://doi.org/10.5281/zenodo.13842144)
+
+
 ## ✨ Citation
 
 If you use LLaMEA in your research, please consider citing the associated paper:
 
 ```bibtex
-@article{stein2025llamea,
+@ARTICLE{van2025llamea,
   author={Stein, Niki van and Bäck, Thomas},
   journal={IEEE Transactions on Evolutionary Computation}, 
   title={LLaMEA: A Large Language Model Evolutionary Algorithm for Automatically Generating Metaheuristics}, 
@@ -197,25 +215,34 @@ If you use LLaMEA in your research, please consider citing the associated paper:
 If you only want to cite the LLaMEA-HPO variant use the folllowing:
 
 ```bibtex
-@article{stein2024loop,
-  title={In-the-loop hyper-parameter optimization for llm-based automated design of heuristics},
-  author={van Stein, Niki and Vermetten, Diederick and B{\"a}ck, Thomas},
-  journal={arXiv preprint arXiv:2410.16309},
-  year={2024}
+@article{van2024intheloop,
+  author = {van Stein, Niki and Vermetten, Diederick and B\"{a}ck, Thomas},
+  title = {In-the-loop Hyper-Parameter Optimization for LLM-Based Automated Design of Heuristics},
+  year = {2025},
+  publisher = {Association for Computing Machinery},
+  address = {New York, NY, USA},
+  url = {https://doi.org/10.1145/3731567},
+  doi = {10.1145/3731567},
+  note = {Just Accepted},
+  journal = {ACM Trans. Evol. Learn. Optim.},
+  month = apr,
+  keywords = {Code Generation, Heuristic Optimization, Large Language Models, Evolutionary Computation, Black-Box Optimization, Traveling Salesperson Problems}
 }
 ```
 
 Other works about extensions or integrations of LLaMEA:
 
 ```bibtex
-@misc{yin2024controllingmutation,
-      title={Controlling the Mutation in Large Language Models for the Efficient Evolution of Algorithms}, 
-      author={Haoran Yin and Anna V. Kononova and Thomas Bäck and Niki van Stein},
-      year={2024},
-      eprint={2412.03250},
-      archivePrefix={arXiv},
-      primaryClass={cs.NE},
-      url={https://arxiv.org/abs/2412.03250}, 
+@InProceedings{yin2024controlling,
+  author="Yin, Haoran and Kononova, Anna V. and B{\"a}ck, Thomas and van Stein, Niki",
+  editor="Garc{\'i}a-S{\'a}nchez, Pablo and Hart, Emma and Thomson, Sarah L.",
+  title="Controlling the Mutation in Large Language Models for the Efficient Evolution of Algorithms",
+  booktitle="Applications of Evolutionary Computation",
+  year="2025",
+  publisher="Springer Nature Switzerland",
+  address="Cham",
+  pages="403--417",
+  isbn="978-3-031-90065-5"
 }
 ```
 
