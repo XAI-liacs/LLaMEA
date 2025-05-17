@@ -18,12 +18,14 @@ from llamea import llm
 from benchmarks.LLMdesignedEA.GNBG.GNBG_instances import load_problem
 from scipy.optimize import differential_evolution
 import matplotlib.pyplot as plt
-from modcma import c_maes
+# from modcma import c_maes
 
 import time
 from collections.abc import Iterator
 from contextlib import contextmanager
 
+import warnings
+warnings.filterwarnings("ignore", category=DeprecationWarning) 
 
 @contextmanager
 def time_it() -> Iterator[None]:
@@ -136,12 +138,13 @@ def evaluateWithHPO(solution, explogger=None):
                     515809.33898351557, -71.7352743403886, 411.9519954018563,
                     2334787.72645128, 90.6017808856152, 272.5615041022129]
         for i in range(len(maximums)):
-            maximums[i] = maximums[i] + abs(maximums[i]) * 0.05
+            maximums[i] = abs(maximums[i] - optimums[i]) * 1.05
         for seed in range(1):
             for fid in range(1, 25):
                 gnbg = load_problem(fid, seed)
                 dim = gnbg.Dimension
-                budget = gnbg.MaxEvals
+                budget = gnbg.MaxEvals      
+                # budget = int(gnbg.MaxEvals / 2)
 
                 wrap_problem(
                     lambda x: gnbg.fitness(x) - gnbg.OptimumValue,
@@ -164,7 +167,7 @@ def evaluateWithHPO(solution, explogger=None):
                 bl = aoc_logger(
                     budget,
                     upper=maximums[fid - 1],
-                    lower=optimums[fid - 1],
+                    lower=1e-8,
                     stop_on_threshold=True,
                     triggers=[logger.trigger.ALWAYS],
                 )
@@ -187,12 +190,79 @@ def evaluateWithHPO(solution, explogger=None):
                 all_x.append(gnbg.BestFoundPosition)
                 bl.reset(problem)
                 problem.reset()
+                print(f"{fid}: {auc}")
+        
+        # def process_single_fid(fid):
+        #     fid_results = []
+        #     gnbg = load_problem(fid, 0)  # 原代码中seed固定为0
+        #     dim = gnbg.Dimension
+        #     budget = int(gnbg.MaxEvals / 10)
+
+        #     wrap_problem(
+        #         lambda x: gnbg.fitness(x) - gnbg.OptimumValue,
+        #         f"gnbg{fid}",
+        #         ioh.ProblemClass.REAL,
+        #         lb=-100,
+        #         ub=100,
+        #         dimension=dim,
+        #         instance=fid,
+        #         calculate_objective=calculate_objective,
+        #     )
+
+        #     problem = get_problem(
+        #         f"gnbg{fid}",
+        #         dimension=dim,
+        #         instance=fid,
+        #         problem_class=ioh.ProblemClass.REAL,
+        #     )
+
+        #     bl = aoc_logger(
+        #         budget,
+        #         upper=maximums[fid - 1],
+        #         lower=1e-8,
+        #         stop_on_threshold=True,
+        #         triggers=[logger.trigger.ALWAYS],
+        #     )
+        #     problem.attach_logger(bl)
+
+        #     try:
+        #         algorithm = globals()[algorithm_name](budget=budget, dim=dim)
+        #         algorithm(problem)
+        #     except OverBudgetException:
+        #         pass
+        #     except ThresholdReachedException:
+        #         pass
+        #     except Exception as e:
+        #         print(problem.state, budget, e)
+
+        #     error = abs(gnbg.BestFoundResult - gnbg.OptimumValue)
+        #     auc = correct_aoc(problem, bl, budget)
+        #     bl.reset(problem)
+        #     problem.reset()
+            
+        #     print(f"{fid}: {auc}")
+        #     return auc, gnbg.BestFoundResult, gnbg.BestFoundPosition
+        
+        # with concurrent.futures.ProcessPoolExecutor(max_workers=24) as executor:
+        #     futures = [executor.submit(
+        #         process_single_fid, fid) for fid in range(1, 25)]
+        #     for future in concurrent.futures.as_completed(futures):
+        #         try:
+        #             auc, f, x = future.result()
+        #             all_auc.append(auc)
+        #             all_f.append(f)
+        #             all_x.append(x)
+        #         except Exception as e:
+        #             print(f"Error processing fid: {e}")
 
         return all_auc, all_f, all_x
 
     # last but not least, perform the final validation
 
     all_auc, all_f, all_x = get_fitness_all()
+    # all_auc = np.random.rand(25)
+    # all_f = np.random.rand(25)
+    # all_x = np.random.rand(25)
     final_f = np.mean(all_auc)
 
     feedback = f"The algorithm {algorithm_name} got an average area over the convergence curve (1.0 is the best) of {final_f:0.2f}."
@@ -344,7 +414,7 @@ else:
             llm=model,
             budget=100,
             n_offspring=5,
-            n_parents=1,
+            n_parents=5,
             role_prompt=role_prompt,
             task_prompt=task_prompt,
             mutation_prompts=feedback_prompts,

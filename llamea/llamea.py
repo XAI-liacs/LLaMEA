@@ -211,14 +211,17 @@ Space: <configuration_space>"""
         else:
             population_gen = []
             try:
-                timeout = self.eval_timeout
-                population_gen = Parallel(
-                    n_jobs=self.max_workers,
-                    backend="threading",
-                    timeout=timeout + 15,
-                    return_as="generator_unordered",
-                )(delayed(self.initialize_single)() for _ in range(self.n_parents))
+                # timeout = self.eval_timeout
+                for _ in range(self.n_parents):
+                    population_gen += [self.initialize_single()]
+                # population_gen = Parallel(
+                #     n_jobs=self.max_workers,
+                #     backend="threading",
+                #     timeout=timeout + 15,
+                #     return_as="generator_unordered",
+                # )(delayed(self.initialize_single)() for _ in range(self.n_parents))
             except Exception as e:
+                print(e)
                 print("Parallel time out in initialization, retrying.")
 
             for p in population_gen:
@@ -398,17 +401,20 @@ With code:
             )
 
             new_population = []
+            new_population_gen = []
             try:
-                timeout = self.eval_timeout
-                new_population_gen = Parallel(
-                    n_jobs=self.max_workers,
-                    timeout=timeout + 15,
-                    backend="threading",
-                    return_as="generator_unordered",
-                )(
-                    delayed(self.evolve_solution)(individual)
-                    for individual in new_offspring_population
-                )
+                for individual in new_offspring_population:
+                    new_population_gen += [self.evolve_solution(individual)]
+                # timeout = self.eval_timeout
+                # new_population_gen = Parallel(
+                #     n_jobs=self.max_workers,
+                #     timeout=timeout + 15,
+                #     backend="threading",
+                #     return_as="generator_unordered",
+                # )(
+                #     delayed(self.evolve_solution)(individual)
+                #     for individual in new_offspring_population
+                # )
             except Exception as e:
                 print("Parallel time out .")
 
