@@ -37,9 +37,32 @@ gpu = "A100"
 
 # TODO: run for all.
 applications = ["gemm", "convolution", "dedispersion", "hotspot"]
-gpus = ["A100", "A4000", "A6000", "MI250X", "W6600", "W7700", "W7800"]
+gpus = ["A100", "A4000", "A6000", "MI250X", "W6600", "W7800"]
 
-
+optima = {'gemm-A100': 8.01820807158947, 
+'convolution-A100': 0.5536000076681376, 
+'dedispersion-A100': 68.1165759563446, 
+'hotspot-A100': 0.1966720037162304, 
+'gemm-A4000': 13.089913964271545, 
+'convolution-A4000': 1.021171996369958, 
+'dedispersion-A4000': 147.6977825164795, 
+'hotspot-A4000': 1.4143739938735962, 
+'gemm-A6000': 6.123518988490105, 
+'convolution-A6000': 0.6030377962291835, 
+'dedispersion-A6000': 84.21807646751404, 
+'hotspot-A6000': 0.8206389956176281, 
+'gemm-MI250X': 6.940651074051857, 
+'convolution-MI250X': 0.6587962452322245, 
+'dedispersion-MI250X': 49.5724800825119, 
+'hotspot-MI250X': 0.2868224401026964, 
+'gemm-W6600': 22.872174671718053, 
+'convolution-W6600': 1.7276193872094154, 
+'dedispersion-W6600': 135.0808186531067, 
+'hotspot-W6600': 1.3389952592551708, 
+'gemm-W7800': 6.276454776525497, 
+'convolution-W7800': 0.8161421902477741, 
+'dedispersion-W7800': 50.36081421375275, 
+'hotspot-W7800': 0.805098531767726}
 
 class OverBudgetException(Exception):
     """The algorithm tried to do more evaluations than allowed."""
@@ -51,17 +74,18 @@ class problem_wrapper:
         self.f = f
         self.budget = budget
         self.aoc = 0
-        self.lower = 5
+        self.lower = 1e-5
         self.upper = 1e2
         self.budget = budget
         self.eval_count = 0
         self.raw_y_best = self.upper
+        self.global_best = 8.01820807158947
         self.transform = lambda x: np.log10(x) if scale_log else (lambda x: x)
     
     def __call__(self, x):
         if self.eval_count > self.budget:
             raise OverBudgetException("Budget exceeded")
-        y = self.f(x)
+        y = self.f(x) - self.global_best #so optimum at 0
         if y < self.raw_y_best:
             self.raw_y_best = y
         y_value = np.clip(self.raw_y_best, self.lower, self.upper)
@@ -141,11 +165,12 @@ def evaluateTuner(
     error = ""
     algorithm = None
 
-    budget = 500
+    budget = 100
     
     # strategy = "genetic_algorithm"
     strategy_options = {
-    #    "budget": 15
+        "max_fevals": budget,
+        "time_limit": 60,
     }
     iterations = 1 #number of kernel runs (1 because we use cached results anyways, by default 7)
     input_filepath = Path(f"/data/neocortex/repos/benchmark_hub/kernels/{application}_milo.json")
@@ -180,6 +205,8 @@ def evaluateTuner(
         strategy=strategy,
         strategy_options=strategy_options,
     )
+    print(env) #this is how we can get the global best.. but now how to integrate this..
+    #print(global_best)
     aoc = strategy.aoc
     print(aoc)
 
@@ -347,7 +374,7 @@ class RandomSearch:
         return self.f_opt, self.x_opt
 
 
-debug = False
+debug = True
 if debug==True:
 
     algorithm_name = "RS"
@@ -358,39 +385,45 @@ if debug==True:
     strategy_options = {
     #    "budget": 15
     }
-    iterations = 1
-    input_filepath = Path(f"/data/neocortex/repos/benchmark_hub/kernels/{application}_milo.json")
-    cache_filepath = Path(f"/data/neocortex/repos/benchmark_hub/cachefiles/{application}_milo/{gpu}.json")
 
-    with open(input_filepath) as json_data:
-        tune_params = json.load(json_data)
+    for gpu in gpus:
+        for application in applications:
+            iterations = 1
+            input_filepath = Path(f"/data/neocortex/repos/benchmark_hub/kernels/{application}_milo.json")
+            cache_filepath = Path(f"/data/neocortex/repos/benchmark_hub/cachefiles/{application}_milo/{gpu}.json")
 
-    optimizer = RandomSearch(budget=budget)
+            with open(input_filepath) as json_data:
+                tune_params = json.load(json_data)
 
-    # Wrap the algorithm class in the OptAlgWrapper
-    # for use in Kernel Tuner
-    strategy = OptAlgWrapper(optimizer)
+            optimizer = RandomSearch(budget=budget)
 
-    results, env = tune_kernel_T1(
-        input_filepath,
-        cache_filepath,
-        objective="time",
-        objective_higher_is_better=False,
-        simulation_mode=True,
-        output_T4=False,
-        iterations=iterations,
-        device=gpu,
-        strategy=strategy,
-        strategy_options=strategy_options,
-    )
-    aoc = strategy.aoc
-    print(aoc)
+            # Wrap the algorithm class in the OptAlgWrapper
+            # for use in Kernel Tuner
+            strategy = OptAlgWrapper(optimizer)
 
-    print(results)
-    
-    score = util.get_best_config(results, "time", False)["time"]
-    feedback = f"The algorithm {algorithm_name} got a score of {score:0.4f} (closer to zero is better)."
-    print("RS", score)
+            results, env = tune_kernel_T1(
+                input_filepath,
+                cache_filepath,
+                objective="time",
+                objective_higher_is_better=False,
+                simulation_mode=True,
+                output_T4=False,
+                iterations=iterations,
+                device=gpu,
+                strategy="brute_force", #strategy,
+                #strategy_options=strategy_options,
+            )
+            optima[f"{application}-{gpu}"] = env['best_config']['time']
+            #print(env['best_config']['time'])
+            aoc = strategy.aoc
+            #print(aoc)
+
+            #print(results)
+            
+            score = util.get_best_config(results, "time", False)["time"]
+            feedback = f"The algorithm {algorithm_name} got a score of {score:0.4f} (closer to zero is better)."
+            #print("RS", score)
+    print(optima)
 
 else:
 
@@ -408,7 +441,8 @@ else:
             experiment_name=experiment_name,
             elitism=False,
             HPO=False,
-            max_workers=2,
+            max_workers=1,
+            verbose=True,
         )
         print(es.run())
 
