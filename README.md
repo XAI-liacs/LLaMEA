@@ -17,7 +17,13 @@
   <a href="https://codecov.io/gh/XAI-liacs/LLaMEA" > 
     <img src="https://codecov.io/gh/XAI-liacs/LLaMEA/graph/badge.svg?token=VKCNPWVBNM"/> 
  </a>
+  <a href="https://doi.org/10.5281/zenodo.13842144"><img src="https://zenodo.org/badge/DOI/10.5281/zenodo.13842144.svg" alt="DOI"></a>
 </p>
+
+> **The fully-open alternative to Google DeepMind’s AlphaEvolve.  
+> First released 📅 Nov 2024 • MIT License • 100 % reproducible.**
+
+LLaMEA couples large-language-model reasoning with an evolutionary loop to **invent, mutate and benchmark algorithms fully autonomously**.  
 
 ## Table of Contents
 - [Introduction](#introduction)
@@ -36,7 +42,7 @@
 
 **LLaMEA** (Large Language Model Evolutionary Algorithm) is an innovative framework that leverages the power of large language models (LLMs) such as GPT-4 for the automated generation and refinement of metaheuristic optimization algorithms. The framework utilizes a novel approach to evolve and optimize algorithms iteratively based on performance metrics and runtime evaluations without requiring extensive prior algorithmic knowledge. This makes LLaMEA an ideal tool for both research and practical applications in fields where optimization is crucial.
 
-**Key Features:**
+**Key Features:**  
 - **Automated Algorithm Generation**: Automatically generates and refines algorithms using GPT-based or similar LLM models.
 - **Performance Evaluation**: Integrates seamlessly with the IOHexperimenter for real-time performance feedback, guiding the evolutionary process.
 - **LLaMEA-HPO**: Provides an in-the-loop hyper-parameter optimization mechanism (via SMAC) to offload numerical tuning, so that LLM queries focus on novel structural improvements.
@@ -46,9 +52,15 @@
   <img src="framework.png" alt="LLaMEA framework" style="width:100%;"/>
 </p>
 
+**Example use-cases:**
+- **Problem specific optimization algorithms**: Easily generate and fine-tune optimization algorithms to work on **your specific** problem. By leveraging problem knowledge in the prompt the generated optimzed algorithms can perform even better.
+- **Efficient new Bayesian Optimization algorithms**: Generate optimized and novel Bayesian optimization algorithms, specifically for optimzing very expensive problems such as auto-motive crash worthiness or car shape design optimization tasks.
+- **Machine Learning Pipelines**: Without any ML knowledge, you can use LLaMEA to generate optimized machine learning pipelines for any task. Just insert the task description and provide the dataset and evaluation metric and start LLaMEA.
+
 
 ## 🔥 News 
 
++ 2025.06 🎉🎉 **["LLaMEA-BO: A Large Language Model Evolutionary Algorithm for Automatically Generating Bayesian Optimization Algorithms"](https://arxiv.org/abs/2505.21034) published on Arxiv**!  
 
 + 2025.05 🎉🎉 **["Optimizing Photonic Structures with Large Language Model Driven Algorithm Discovery"](https://arxiv.org/abs/2503.19742) accepted as workshop paper at GECCO 2025**!  
 
