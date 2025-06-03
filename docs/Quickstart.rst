@@ -3,29 +3,26 @@ Quick Start
 
 1. Set up an OpenAI API key:
 
-   - Obtain an API key from `OpenAI <https://openai.com/>`_.
-   - Set the API key in your environment variables:
-
-   .. code-block:: bash
-
-      export OPENAI_API_KEY='your_api_key_here'
+   - Obtain an API key from `OpenAI <https://openai.com/>`_. (or other supported LLM providers)
 
 2. Running an Experiment
 
    .. code-block:: python
 
-      from llamea import LLaMEA
+      from llamea import LLaMEA, OpenAI_LLM
+
+      llm = OpenAI_LLM(model="gpt-3.5-turbo", api_key="your_api_key_here")
 
       # Define your evaluation function
-      def your_evaluation_function(individual, explogger=None):
+      def your_evaluation_function(solution, explogger=None):
           # Implementation of your function
-          print(individual.solution, individual.name) #the code and name generated.
+          print(solution.code, solution.name) #the code and name generated.
           # Set fitness and feedback
           solution.set_scores(1.0, "Great solution, with score 1.0")
           return solution
 
       # Initialize LLaMEA with your API key and other parameters
-      optimizer = LLaMEA(f=your_evaluation_function, api_key="your_api_key_here")
+      optimizer = LLaMEA(f=your_evaluation_function, llm=llm)
 
       # Run the optimizer
       best_solution = optimizer.run()
@@ -34,9 +31,9 @@ Quick Start
 Examples
 --------
 
-Below are two example scripts demonstrating LLaMEA in action for black-box
-optimization with a BBOB (24 noiseless) function suite. One script
-(`example.py`) runs basic LLaMEA, while the other (`example_HPO.py`) incorporates
+Below are three example scripts demonstrating LLaMEA in action for black-box
+optimization with a BBOB (24 noiseless) function suite, and one Automated Machine Learning use-case.   
+One of the black-box optimization scripts (`example.py`) runs basic LLaMEA, while the other (`example_HPO.py`) incorporates
 a **hyper-parameter optimization** pipeline—known as **LLaMEA-HPO**—that employs
 SMAC to tune the algorithm’s parameters in the loop.
 
@@ -107,3 +104,24 @@ Script outline:
    Adjust the model name (``ai_model``) or API key as needed in the script.
    Changing ``budget`` or the HPO budget can drastically affect runtime and cost.
    Additional arguments (e.g., logging directories) can be set if desired.
+
+
+Running ``example_AutoML.py``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+**`example_AutoML.py`** uses LLaMEA to showcase that it can not only evolve and generate metaheuristics but also all kind of other algorithms, such as Machine Learning pipelines.  
+In this example, a basic classification task on the breast-cancer dataset from sklearn is solved by generating and evolving open-ended ML pipelines.
+
+- We define the evaluate function (accuracy score on a hold-out test set)
+- We provide a very basic example code to get the algorithm started.
+- We run a few iterations and observe the excellent performance of our completely automatic ML pipeline.
+
+
+**How to run:**
+
+.. code-block:: bash
+   python example_AutoML.py
+
+.. note::
+   Adjust the model name (`ai_model`) or API key as needed in the script.
+   You can easily change the dataset, task and evaluation function to fit your needs.

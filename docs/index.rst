@@ -7,6 +7,12 @@
 LLaMEA: Large Language Model Evolutionary Algorithm
 ===================================================
 
+.. note::
+   **The fully-open alternative to Google DeepMind's AlphaEvolve.  
+   First released 📅 Nov 2024 • MIT License • 100 % reproducible.**
+
+LLaMEA couples large-language-model reasoning with an evolutionary loop to **invent, mutate and benchmark algorithms fully autonomously**.  
+
 .. image:: https://badge.fury.io/py/llamea.svg
    :target: https://pypi.org/project/llamea/
    :alt: PyPI version
@@ -17,8 +23,8 @@ LLaMEA: Large Language Model Evolutionary Algorithm
 .. image:: https://img.shields.io/badge/Python-3.10+-blue.svg
    :alt: Python 3.10+
    :height: 18
-.. image:: https://codecov.io/gh//XAI-liacs/LLaMEA/graph/badge.svg?token=VKCNPWVBNM
-   :target: https://codecov.io/gh//XAI-liacs/LLaMEA
+.. image:: https://codecov.io/gh/XAI-liacs/LLaMEA/graph/badge.svg?token=VKCNPWVBNM
+   :target: https://codecov.io/gh/XAI-liacs/LLaMEA
    :alt: Codecov
 
 
@@ -65,11 +71,15 @@ If you use LLaMEA in your research, please consider citing the associated paper:
 .. code-block:: bibtex
 
    @article{van2024llamea,
-     title={Llamea: A large language model evolutionary algorithm for automatically generating metaheuristics},
-     author={van Stein, Niki and B{\"a}ck, Thomas},
-     journal={IEEE Transactions on Evolutionary Computation},
-     year={2024},
-     publisher={IEEE}
+      author={Stein, Niki van and Bäck, Thomas},
+      journal={IEEE Transactions on Evolutionary Computation}, 
+      title={LLaMEA: A Large Language Model Evolutionary Algorithm for Automatically Generating Metaheuristics}, 
+      year={2025},
+      volume={29},
+      number={2},
+      pages={331-345},
+      keywords={Benchmark testing;Evolutionary computation;Metaheuristics;Codes;Large language models;Closed box;Heuristic algorithms;Mathematical models;Vectors;Systematics;Automated code generation;evolutionary computation (EC);large language models (LLMs);metaheuristics;optimization},
+      doi={10.1109/TEVC.2024.3497793}
    }
 
 If you only want to cite the LLaMEA-HPO variant, use the following:
@@ -77,10 +87,16 @@ If you only want to cite the LLaMEA-HPO variant, use the following:
 .. code-block:: bibtex
 
    @article{van2024loop,
-     title={In-the-loop hyper-parameter optimization for llm-based automated design of heuristics},
-     author={van Stein, Niki and Vermetten, Diederick and B{\"a}ck, Thomas},
-     journal={arXiv preprint arXiv:2410.16309},
-     year={2024}
+      author = {van Stein, Niki and Vermetten, Diederick and B\"{a}ck, Thomas},
+      title = {In-the-loop Hyper-Parameter Optimization for LLM-Based Automated Design of Heuristics},
+      year = {2025},
+      publisher = {Association for Computing Machinery},
+      address = {New York, NY, USA},
+      url = {https://doi.org/10.1145/3731567},
+      doi = {10.1145/3731567},
+      note = {Just Accepted},
+      journal = {ACM Trans. Evol. Learn. Optim.},
+      month = apr,
    }
 
 .. toctree::
@@ -91,6 +107,7 @@ If you only want to cite the LLaMEA-HPO variant, use the following:
    Installation
    Quickstart
    notebooks/simple_example
+   notebooks/automl_example
    modules
 
 
