@@ -1,23 +1,31 @@
+# This is a minimal example of how to use the LLaMEA algorithm with the Gemini LLM to generate optimization algorithms for the BBOB test suite.
+# We have to define the following components for LLaMEA to work:
+# - An evaluation function that executes the generated code and evaluates its performance.
+# - A task prompt that describes the problem to be solved.
+# - An LLM instance that will generate the code based on the task prompt.
+
 import os
-import numpy as np
-from ioh import get_problem, logger
 import re
-from misc import aoc_logger, correct_aoc, OverBudgetException
-from llamea import LLaMEA, Gemini_LLM
+
+import numpy as np
+
+from ioh import get_problem, logger
+from llamea import Gemini_LLM, LLaMEA
+from misc import OverBudgetException, aoc_logger, correct_aoc
 
 if __name__ == "__main__":
-
     # Execution code starts here
     api_key = os.getenv("GEMINI_API_KEY")
     ai_model = "gemini-1.5-flash"
     experiment_name = "pop1-5"
     llm = Gemini_LLM(api_key, ai_model)
 
-
-    def evaluateBBOB(solution, explogger=None, details=False):
+    # We define the evaluation function that executes the generated algorithm (solution.code) on the BBOB test suite.
+    # It should set the scores and feedback of the solution based on the performance metric, in this case we use mean AOCC.
+    def evaluateBBOB(solution, explogger=None):
         auc_mean = 0
         auc_std = 0
-        detailed_aucs = [0, 0, 0, 0, 0]
+
         code = solution.code
         algorithm_name = solution.name
         exec(code, globals())
@@ -25,7 +33,7 @@ if __name__ == "__main__":
         error = ""
 
         aucs = []
-        detail_aucs = []
+
         algorithm = None
         for dim in [5]:
             budget = 2000 * dim
@@ -38,7 +46,9 @@ if __name__ == "__main__":
                     for rep in range(3):
                         np.random.seed(rep)
                         try:
-                            algorithm = globals()[algorithm_name](budget=budget, dim=dim)
+                            algorithm = globals()[algorithm_name](
+                                budget=budget, dim=dim
+                            )
                             algorithm(problem)
                         except OverBudgetException:
                             pass
@@ -48,39 +58,10 @@ if __name__ == "__main__":
                         detail_aucs.append(auc)
                         l2.reset(problem)
                         problem.reset()
-                if fid == 5:
-                    detailed_aucs[0] = np.mean(detail_aucs)
-                    detail_aucs = []
-                if fid == 9:
-                    detailed_aucs[1] = np.mean(detail_aucs)
-                    detail_aucs = []
-                if fid == 14:
-                    detailed_aucs[2] = np.mean(detail_aucs)
-                    detail_aucs = []
-                if fid == 19:
-                    detailed_aucs[3] = np.mean(detail_aucs)
-                    detail_aucs = []
-                if fid == 24:
-                    detailed_aucs[4] = np.mean(detail_aucs)
-                    detail_aucs = []
-
         auc_mean = np.mean(aucs)
         auc_std = np.std(aucs)
 
-        # i = 0
-        # while os.path.exists(f"currentexp/aucs-{algorithm_name}-{i}.npy"):
-        #     i += 1
-        # np.save(f"currentexp/aucs-{algorithm_name}-{i}.npy", aucs)
-
         feedback = f"The algorithm {algorithm_name} got an average Area over the convergence curve (AOCC, 1.0 is the best) score of {auc_mean:0.2f} with standard deviation {auc_std:0.2f}."
-        if details:
-            feedback = (
-                f"{feedback}\nThe mean AOCC score of the algorithm {algorithm_name} on Separable functions was {detailed_aucs[0]:.02f}, "
-                f"on functions with low or moderate conditioning {detailed_aucs[1]:.02f}, "
-                f"on functions with high conditioning and unimodal {detailed_aucs[2]:.02f}, "
-                f"on Multi-modal functions with adequate global structure {detailed_aucs[3]:.02f}, "
-                f"and on Multi-modal functions with weak global structure {detailed_aucs[4]:.02f}"
-            )
 
         print(algorithm_name, algorithm, auc_mean, auc_std)
         solution.add_metadata("aucs", aucs)
@@ -88,7 +69,7 @@ if __name__ == "__main__":
 
         return solution
 
-
+    # The task prompt describes the problem to be solved by the LLaMEA algorithm.
     task_prompt = """
     The optimization algorithm should handle a wide range of tasks, which is evaluated on the BBOB test suite of 24 noiseless functions. Your task is to write the optimization algorithm in Python code. The code should contain an `__init__(self, budget, dim)` function and the function `def __call__(self, func)`, which should optimize the black box function `func` using `self.budget` function evaluations.
     The func() can only be called as many times as the budget allows, not more. Each of the optimization functions has a search space between -5.0 (lower bound) and 5.0 (upper bound). The dimensionality can be varied.

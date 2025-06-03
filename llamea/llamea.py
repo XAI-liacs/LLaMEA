@@ -3,19 +3,21 @@ This module integrates OpenAI's language models to generate and evolve
 algorithms to automatically evaluate (for example metaheuristics evaluated on BBOB).
 """
 import concurrent.futures
+import contextlib
 import logging
+import os
 import random
 import re
 import traceback
-import os, contextlib
+
 import numpy as np
 from ConfigSpace import ConfigurationSpace
 from joblib import Parallel, delayed
 
-from .solution import Solution
 from .loggers import ExperimentLogger
-from .utils import NoCodeException, handle_timeout, discrete_power_law_distribution
-
+from .solution import Solution
+from .utils import (NoCodeException, discrete_power_law_distribution,
+                    handle_timeout)
 
 # TODOs:
 # Implement diversity selection mechanisms (none, prefer short code, update population only when (distribution of) results is different, AST / code difference)
@@ -42,6 +44,8 @@ class LLaMEA:
         n_offspring=10,
         role_prompt="",
         task_prompt="",
+        example_prompt=None,
+        output_format_prompt=None,
         experiment_name="",
         elitism=False,
         HPO=False,
@@ -59,11 +63,14 @@ class LLaMEA:
 
         Args:
             f (callable): The evaluation function to measure the fitness of algorithms.
+            llm (object): An instance of a language model that will be used to generate and evolve algorithms.
             n_parents (int): The number of parents in the population.
             n_offspring (int): The number of offspring each iteration.
             elitism (bool): Flag to decide if elitism (plus strategy) should be used in the evolutionary process or comma strategy.
             role_prompt (str): A prompt that defines the role of the language model in the optimization task.
             task_prompt (str): A prompt describing the task for the language model to generate optimization algorithms.
+            example_prompt (str): An example prompt to guide the language model in generating code (or None for default).
+            output_format_prompt (str): A prompt that specifies the output format of the language model's response.
             experiment_name (str): The name of the experiment for logging purposes.
             elitism (bool): Flag to decide if elitism should be used in the evolutionary process.
             HPO (bool): Flag to decide if hyper-parameter optimization is part of the evaluation function.
@@ -88,6 +95,14 @@ class LLaMEA:
             self.task_prompt = """
 The optimization algorithm should handle a wide range of tasks, which is evaluated on the BBOB test suite of 24 noiseless functions. Your task is to write the optimization algorithm in Python code to minimize the function value. The code should contain an `__init__(self, budget, dim)` function and the function `def __call__(self, func)`, which should optimize the black box function `func` using `self.budget` function evaluations.
 The func() can only be called as many times as the budget allows, not more. Each of the optimization functions has a search space between -5.0 (lower bound) and 5.0 (upper bound). The dimensionality can be varied.
+
+Give an excellent and novel heuristic algorithm to solve this task.
+"""
+        else:
+            self.task_prompt = task_prompt
+
+        if example_prompt == None:        
+            self.example_prompt = """
 An example of such code (a simple random search), is as follows:
 ```
 import numpy as np
@@ -110,12 +125,13 @@ class RandomSearch:
             
         return self.f_opt, self.x_opt
 ```
-Give an excellent and novel heuristic algorithm to solve this task.
 """
         else:
-            self.task_prompt = task_prompt
+            self.example_prompt = example_prompt
 
-        self.output_format_prompt = """
+
+        if output_format_prompt is None:
+            self.output_format_prompt = """
 Provide the Python code and a one-line description with the main idea (without enters). Give the response in the format:
 # Description: <short-description>
 # Code: 
@@ -123,8 +139,8 @@ Provide the Python code and a one-line description with the main idea (without e
 <code>
 ```
 """
-        if HPO:
-            self.output_format_prompt = """
+            if HPO:
+                self.output_format_prompt = """
 Provide the Python code, a one-line description with the main idea (without enters) and the SMAC3 Configuration space to optimize the code (in Python dictionary format). Give the response in the format:
 # Description: <short-description>
 # Code: 
@@ -132,6 +148,8 @@ Provide the Python code, a one-line description with the main idea (without ente
 <code>
 ```
 Space: <configuration_space>"""
+        else:
+            self.output_format_prompt = output_format_prompt
         self.mutation_prompts = mutation_prompts
         self.adaptive_mutation = adaptive_mutation
         if mutation_prompts == None:
@@ -181,6 +199,7 @@ Space: <configuration_space>"""
                 "role": "user",
                 "content": self.role_prompt
                 + self.task_prompt
+                + self.example_prompt
                 + self.output_format_prompt,
             },
         ]

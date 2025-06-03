@@ -1,26 +1,30 @@
+# This is a more advanced example of how to use the LLaMEA algorithm with the Gemini LLM to generate optimization algorithms for the BBOB test suite.
+# It includes the in-the-loop hyper-parameter optimization (HPO) using SMAC extension of LLaMEA and a more complex evaluation function.
+# We have to define the following components for LLaMEA to work:
+# - An evaluation function that executes the generated code and evaluates its performance.
+# - A task prompt that describes the problem to be solved.
+# - An LLM instance that will generate the code based on the task prompt.
+
+
 import os
-import numpy as np
-from ioh import get_problem, logger
 import re
-from misc import aoc_logger, correct_aoc, OverBudgetException
-from llamea import LLaMEA, Gemini_LLM
 import time
 from itertools import product
-from ConfigSpace import Configuration, ConfigurationSpace
 
 import numpy as np
-from smac import Scenario
-from smac import AlgorithmConfigurationFacade
+from ConfigSpace import Configuration, ConfigurationSpace
+from smac import AlgorithmConfigurationFacade, Scenario
 
+from ioh import get_problem, logger
+from llamea import Gemini_LLM, LLaMEA
+from misc import OverBudgetException, aoc_logger, correct_aoc
 
 if __name__ == "__main__":
-
     # Execution code starts here
     api_key = os.getenv("GEMINI_API_KEY")
     ai_model = "gemini-1.5-flash"
     experiment_name = "pop1-5-HPO"
     llm = Gemini_LLM(api_key, ai_model)
-
 
     def evaluateBBOBWithHPO(solution, explogger=None):
         """
@@ -165,11 +169,33 @@ if __name__ == "__main__":
 
         return solution
 
-
     role_prompt = "You are a highly skilled computer scientist in the field of natural computing. Your task is to design novel metaheuristic algorithms to solve black box optimization problems."
     task_prompt = """
     The optimization algorithm should handle a wide range of tasks, which is evaluated on the BBOB test suite of 24 noiseless functions. Your task is to write the optimization algorithm in Python code. The code should contain an `__init__(self, budget, dim)` function with optional additional arguments and the function `def __call__(self, func)`, which should optimize the black box function `func` using `self.budget` function evaluations.
     The func() can only be called as many times as the budget allows, not more. Each of the optimization functions has a search space between -5.0 (lower bound) and 5.0 (upper bound). The dimensionality can be varied.
+
+    In addition, any hyper-parameters the algorithm uses will be optimized by SMAC, for this, provide a Configuration space as Python dictionary (without the dim and budget parameters) and include all hyper-parameters in the __init__ function header.
+    An example configuration space is as follows:
+
+    ```python
+    {
+        "float_parameter": (0.1, 1.5),
+        "int_parameter": (2, 10), 
+        "categoral_parameter": ["mouse", "cat", "dog"]
+    }
+    ```
+
+    Give an excellent and novel heuristic algorithm including its configuration space to solve this task and also give it a one-line description, describing the main idea. 
+    """
+
+    format_prompt = """
+    Give the response in the format:
+    # Description: <short-description>
+    # Code: <code>
+    # Space: <configuration_space>
+    """
+
+    example_prompt = """
     An example of such code (a simple random search), is as follows:
     ```python
     import numpy as np
@@ -192,22 +218,6 @@ if __name__ == "__main__":
                 
             return self.f_opt, self.x_opt
     ```
-
-    In addition, any hyper-parameters the algorithm uses will be optimized by SMAC, for this, provide a Configuration space as Python dictionary (without the dim and budget parameters) and include all hyper-parameters in the __init__ function header.
-    An example configuration space is as follows:
-
-    ```python
-    {
-        "float_parameter": (0.1, 1.5),
-        "int_parameter": (2, 10), 
-        "categoral_parameter": ["mouse", "cat", "dog"]
-    }
-    ```
-
-    Give an excellent and novel heuristic algorithm including its configuration space to solve this task and also give it a one-line description, describing the main idea. Give the response in the format:
-    # Description: <short-description>
-    # Code: <code>
-    # Space: <configuration_space>
     """
 
     feedback_prompts = [
@@ -220,6 +230,8 @@ if __name__ == "__main__":
             llm=llm,
             role_prompt=role_prompt,
             task_prompt=task_prompt,
+            example_prompt=example_prompt,
+            output_format_prompt=format_prompt,
             mutation_prompts=feedback_prompts,
             experiment_name=experiment_name,
             elitism=True,

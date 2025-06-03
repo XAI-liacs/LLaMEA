@@ -1,14 +1,16 @@
 """
 LLM modules to connect to different LLM providers. Also extracts code, name and description.
 """
-from abc import ABC, abstractmethod
-import google.generativeai as genai
-import openai
-import ollama
 import re
-from .utils import NoCodeException
-from .solution import Solution
+from abc import ABC, abstractmethod
+
+import google.generativeai as genai
+import ollama
+import openai
 from ConfigSpace import ConfigurationSpace
+
+from .solution import Solution
+from .utils import NoCodeException
 
 
 class LLM(ABC):

@@ -33,6 +33,7 @@ LLaMEA couples large-language-model reasoning with an evolutionary loop to **inv
 - [Examples](#-examples)
   - [Running `example.py`](#running-examplepy)
   - [Running `example_HPO.py` (LLaMEA-HPO)](#running-example_hpopy-llamea-hpo)
+  - [Running `example_AutoML.py`](#running-example_automlpy)
 - [Contributing](#-contributing)
 - [License](#-license)
 - [Citation](#-citation)
@@ -177,6 +178,21 @@ python example_HPO.py
 > Adjust the model name (`ai_model`) or API key as needed in the script.
 > Changing `budget` or the HPO budget can drastically affect runtime and cost.
 > Additional arguments (e.g., logging directories) can be set if desired.
+
+### Running `example_AutoML.py`
+
+**`example_AutoML.py`** uses LLaMEA to showcase that it can not only evolve and generate metaheuristics but also all kind of other algorithms, such as Machine Learning pipelines.  
+In this example, a basic classification task on the breast-cancer dataset from sklearn is solved by generating and evolving open-ended ML pipelines.
+- We define the evaluate function (accuracy score on a hold-out test set)
+- We provide a very basic example code to get the algorithm started.
+- We run a few iterations and observe the excellent performance of our completely automatic ML pipeline.
+  
+**How to run:**
+```bash
+python example_AutoML.py
+```
+> [!Note]
+> Adjust the model name (`ai_model`) or API key as needed in the script.
 
 ---
 
