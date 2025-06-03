@@ -16,8 +16,7 @@ from joblib import Parallel, delayed
 
 from .loggers import ExperimentLogger
 from .solution import Solution
-from .utils import (NoCodeException, discrete_power_law_distribution,
-                    handle_timeout)
+from .utils import NoCodeException, discrete_power_law_distribution, handle_timeout
 
 # TODOs:
 # Implement diversity selection mechanisms (none, prefer short code, update population only when (distribution of) results is different, AST / code difference)
@@ -101,7 +100,7 @@ Give an excellent and novel heuristic algorithm to solve this task.
         else:
             self.task_prompt = task_prompt
 
-        if example_prompt == None:        
+        if example_prompt == None:
             self.example_prompt = """
 An example of such code (a simple random search), is as follows:
 ```
@@ -128,7 +127,6 @@ class RandomSearch:
 """
         else:
             self.example_prompt = example_prompt
-
 
         if output_format_prompt is None:
             self.output_format_prompt = """
