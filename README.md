@@ -8,6 +8,8 @@
 
 <h1 align="center">LLaMEA: Large Language Model Evolutionary Algorithm</h1>
 
+> ⭐ If you like this, please give the repo a star – it helps!
+
 <p align="center">
   <a href="https://pypi.org/project/llamea/">
     <img src="https://badge.fury.io/py/llamea.svg" alt="PyPI version" height="18">
@@ -18,10 +20,18 @@
     <img src="https://codecov.io/gh/XAI-liacs/LLaMEA/graph/badge.svg?token=VKCNPWVBNM"/> 
  </a>
   <a href="https://doi.org/10.5281/zenodo.13842144"><img src="https://zenodo.org/badge/DOI/10.5281/zenodo.13842144.svg" alt="DOI"></a>
+  <a target="_blank" href="https://colab.research.google.com/github/XAI-liacs/LLaMEA/blob/main/docs/notebooks/simple_example.ipynb">
+    <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/>
+  </a>
+  <img src="https://github.com/XAI-liacs/LLaMEA/actions/workflows/test.yml/badge.svg" alt="Test"/>
+  <a target="_blank" href="https://xai-liacs.github.io/LLaMEA/">
+    <img src="https://img.shields.io/badge/docs-online-success" alt="Docs"/>
+  </a>
+  <a href="https://xai-liacs.github.io/LLaMEA/" target="_blank">Documentation</a> - <a href="https://colab.research.google.com/github/XAI-liacs/LLaMEA/blob/main/docs/notebooks/simple_example.ipynb" target="_blank">Demo</a>
 </p>
 
-> **The fully-open alternative to Google DeepMind’s AlphaEvolve.  
-> First released 📅 Nov 2024 • MIT License • 100 % reproducible.**
+> **The fully-open successor to Google DeepMind’s AlphaEvolve for automated algorithm discovery.**
+> First released 📅 Nov 2024 • MIT License • 100 % reproducible.
 
 LLaMEA couples large-language-model reasoning with an evolutionary loop to **invent, mutate and benchmark algorithms fully autonomously**.  
 
@@ -98,6 +108,12 @@ You can also install the package from source using Poetry (1.8.5).
    ```
 
 ## 💻 Quick Start
+
+
+> [!TIP]
+> See also the getting started demo: <a target="_blank" href="https://colab.research.google.com/github/XAI-liacs/LLaMEA/blob/main/docs/notebooks/simple_example.ipynb">
+  <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/>
+</a>
 
 1. Set up an OpenAI API key:
    - Obtain an API key from [OpenAI](https://openai.com/).
