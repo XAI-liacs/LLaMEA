@@ -1,0 +1,12 @@
+cff-version: 1.2.0
+message: "If you use LLaMEA, please cite:"
+title: "LLaMEA: Large Language Model Evolutionary Algorithm"
+version: "1.0.4"
+doi: 10.1109/TEVC.2024.3497793
+authors:
+  - family-names: van Stein
+    given-names: Niki
+  - family-names: Bäck
+    given-names: Thomas
+date-released: 2025-03-01
+url: "https://github.com/XAI-liacs/LLaMEA"

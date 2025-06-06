@@ -26,6 +26,11 @@ LLaMEA couples large-language-model reasoning with an evolutionary loop to **inv
 .. image:: https://codecov.io/gh/XAI-liacs/LLaMEA/graph/badge.svg?token=VKCNPWVBNM
    :target: https://codecov.io/gh/XAI-liacs/LLaMEA
    :alt: Codecov
+   :height: 18
+.. image:: https://zenodo.org/badge/DOI/10.5281/zenodo.13842144.svg
+   :target: https://doi.org/10.5281/zenodo.13842144
+   :alt: DOI
+   :height: 18
 
 
 **LLaMEA** (Large Language Model Evolutionary Algorithm) is an innovative framework
