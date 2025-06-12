@@ -1,15 +1,29 @@
 import os
+import argparse
 from datetime import datetime
 
 import jsonlines
 from flask import Flask, render_template, request
 from flask_socketio import SocketIO, emit
 
+parser = argparse.ArgumentParser(description="Conversation log viewer")
+parser.add_argument(
+    "--logfile",
+    "-l",
+    default=None,
+    help="Path to the conversation log (.jsonl) file. Can also be set via CONVERSATION_LOG",
+)
+args, _ = parser.parse_known_args()
+
+# Determine path to the jsonlines file
+MESSAGES_FILE = (
+    args.logfile
+    or os.environ.get("CONVERSATION_LOG")
+    or os.path.join(os.getcwd(), "conversationlog.jsonl")
+)
+
 app = Flask(__name__)
 socketio = SocketIO(app)
-
-# Path to the jsonlines file
-MESSAGES_FILE = "/home/neocortex/repos/LLaMEA/exp-08-09_095316-codellama_7b-ES pop5-8/conversationlog.jsonl"
 
 
 @app.route("/")

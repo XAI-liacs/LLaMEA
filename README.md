@@ -210,6 +210,21 @@ python example_AutoML.py
 > [!Note]
 > Adjust the model name (`ai_model`) or API key as needed in the script.
 
+### Viewing conversation logs
+
+The repository provides a minimal Flask app in `logreader/app.py` to explore
+conversation logs stored as JSON Lines files. Start the server with a log file
+path:
+
+```bash
+python logreader/app.py --logfile path/to/conversationlog.jsonl
+```
+
+You can also set the environment variable `CONVERSATION_LOG` instead of passing
+`--logfile`. If neither is given, the app defaults to `conversationlog.jsonl` in
+the current working directory. Navigate to `http://localhost:5001` to browse the
+messages.
+
 ---
 
 ## 🤖 Contributing
