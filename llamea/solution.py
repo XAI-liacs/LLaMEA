@@ -116,7 +116,7 @@ class Solution:
         try:
             cs = self.configspace
             cs = cs.to_serialized_dict()
-        except Exception as e:
+        except Exception:
             cs = ""
         return {
             "id": self.id,

@@ -308,7 +308,7 @@ With code:
 
         if self._random:  # not advised to use, only for debugging purposes
             session_messages = [
-                {"role": "user", "content": self.role_promp + self.task_prompt},
+                {"role": "user", "content": self.role_prompt + self.task_prompt},
             ]
         # Logic to construct the new prompt based on current evolutionary state.
         return session_messages
