@@ -114,6 +114,7 @@ class Solution:
             dict: A dictionary representation of the individual.
         """
         try:
+            cs = self.configspace
             cs = cs.to_serialized_dict()
         except Exception:
             cs = ""
