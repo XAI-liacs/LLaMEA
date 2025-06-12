@@ -64,8 +64,8 @@ LLaMEA couples large-language-model reasoning with an evolutionary loop to **inv
 </p>
 
 **Example use-cases:**
-- **Problem specific optimization algorithms**: Easily generate and fine-tune optimization algorithms to work on **your specific** problem. By leveraging problem knowledge in the prompt the generated optimzed algorithms can perform even better.
-- **Efficient new Bayesian Optimization algorithms**: Generate optimized and novel Bayesian optimization algorithms, specifically for optimzing very expensive problems such as auto-motive crash worthiness or car shape design optimization tasks.
+- **Problem specific optimization algorithms**: Easily generate and fine-tune optimization algorithms to work on **your specific** problem. By leveraging problem knowledge in the prompt the generated optimized algorithms can perform even better.
+- **Efficient new Bayesian Optimization algorithms**: Generate optimized and novel Bayesian optimization algorithms, specifically for optimizing very expensive problems such as auto-motive crash worthiness or car shape design optimization tasks.
 - **Machine Learning Pipelines**: Without any ML knowledge, you can use LLaMEA to generate optimized machine learning pipelines for any task. Just insert the task description and provide the dataset and evaluation metric and start LLaMEA.
 
 
