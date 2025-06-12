@@ -249,10 +249,10 @@ Space: <configuration_space>"""
         This method handles error reporting and logs the feedback, fitness, and errors encountered.
 
         Args:
-            individual (dict): Including required keys "_solution", "_name", "_description" and optional "_configspace" and others.
+            individual (Solution): The solution instance to evaluate.
 
         Returns:
-            tuple: Updated individual with "_feedback", "_fitness" (float), and "_error" (string) filled.
+            Solution: The updated solution with feedback, fitness and error information filled in.
         """
         with contextlib.redirect_stdout(None):
             updated_individual = self.f(individual, self.logger)
