@@ -16,7 +16,6 @@ import traceback
 
 import numpy as np
 import pandas as pd
-import polars as pl
 import sklearn
 from sklearn.datasets import load_breast_cancer
 from sklearn.metrics import accuracy_score
