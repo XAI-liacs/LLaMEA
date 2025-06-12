@@ -115,8 +115,13 @@ class Solution:
         """
         try:
             cs = self.configspace
-            cs = cs.to_serialized_dict()
-        except Exception as e:
+            if hasattr(cs, "to_dict"):
+                cs = cs.to_dict()
+            elif hasattr(cs, "to_json"):
+                cs = cs.to_json()
+            else:
+                cs = str(cs)
+        except Exception:
             cs = ""
         return {
             "id": self.id,
