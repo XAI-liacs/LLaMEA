@@ -114,13 +114,7 @@ class Solution:
             dict: A dictionary representation of the individual.
         """
         try:
-            cs = self.configspace
-            if hasattr(cs, "to_dict"):
-                cs = cs.to_dict()
-            elif hasattr(cs, "to_json"):
-                cs = cs.to_json()
-            else:
-                cs = str(cs)
+            cs = cs.to_serialized_dict()
         except Exception:
             cs = ""
         return {
