@@ -55,7 +55,6 @@ if __name__ == "__main__":
 
                         auc = correct_aoc(problem, l2, budget)
                         aucs.append(auc)
-                        detail_aucs.append(auc)
                         l2.reset(problem)
                         problem.reset()
         auc_mean = np.mean(aucs)
