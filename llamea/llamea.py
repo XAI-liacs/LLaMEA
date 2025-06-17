@@ -53,6 +53,7 @@ class LLaMEA:
         budget=100,
         eval_timeout=3600,
         max_workers=10,
+        parallel_backend="loky",
         log=True,
         minimization=False,
         _random=False,
@@ -79,6 +80,8 @@ class LLaMEA:
                 This overwrites mutation_prompts.
             budget (int): The number of generations to run the evolutionary algorithm.
             eval_timeout (int): The number of seconds one evaluation can maximum take (to counter infinite loops etc.). Defaults to 1 hour.
+            max_workers (int): The maximum number of parallel workers to use for evaluating individuals.
+            parallel_backend (str): The backend to use for parallel processing (e.g., 'loky', 'threading').
             log (bool): Flag to switch of the logging of experiments.
             minimization (bool): Whether we minimize or maximize the objective function. Defaults to False.
             _random (bool): Flag to switch to random search (purely for debugging).
@@ -88,6 +91,7 @@ class LLaMEA:
         self.eval_timeout = eval_timeout
         self.f = f  # evaluation function, provides an individual as output.
         self.role_prompt = role_prompt
+        self.parallel_backend = parallel_backend
         if role_prompt == "":
             self.role_prompt = "You are a highly skilled computer scientist in the field of natural computing. Your task is to design novel metaheuristic algorithms to solve black box optimization problems."
         if task_prompt == "":
@@ -228,7 +232,7 @@ Space: <configuration_space>"""
             timeout = self.eval_timeout
             population_gen = Parallel(
                 n_jobs=self.max_workers,
-                backend="loky",
+                backend=self.parallel_backend,
                 timeout=timeout + 15,
                 return_as="generator_unordered",
             )(delayed(self.initialize_single)() for _ in range(self.n_parents))
