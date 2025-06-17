@@ -92,7 +92,7 @@ It is the easiest to use LLaMEA from the pypi package.
   pip install llamea
 ```
 > [!Important]
-> The Python version **must** be larger or equal to Python 3.10.
+> The Python version **must** be larger or equal to Python 3.10, 3.11 is advised.
 > You need an OpenAI/Gemini/Ollama API key for using LLM models.
 
 You can also install the package from source using Poetry (1.8.5).
