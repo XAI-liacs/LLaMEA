@@ -14,8 +14,12 @@
   <a href="https://pypi.org/project/llamea/">
     <img src="https://badge.fury.io/py/llamea.svg" alt="PyPI version" height="18">
   </a>
+  <a target="_blank" href="https://pypi.org/project/llamea/">
+    <img src="https://img.shields.io/pypi/dm/llamea" alt="Downloads per month"/>
+  </a>
   <img src="https://img.shields.io/badge/Maintained%3F-yes-brightgreen.svg" alt="Maintenance" height="18">
   <img src="https://img.shields.io/badge/Python-3.10+-blue" alt="Python 3.10+" height="18">
+  <img src="https://github.com/XAI-liacs/LLaMEA/actions/workflows/test.yml/badge.svg" alt="Test"/>
   <a href="https://codecov.io/gh/XAI-liacs/LLaMEA" > 
     <img src="https://codecov.io/gh/XAI-liacs/LLaMEA/graph/badge.svg?token=VKCNPWVBNM"/> 
  </a>
@@ -23,15 +27,17 @@
   <a target="_blank" href="https://colab.research.google.com/github/XAI-liacs/LLaMEA/blob/main/docs/notebooks/simple_example.ipynb">
     <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/>
   </a>
-  <img src="https://github.com/XAI-liacs/LLaMEA/actions/workflows/test.yml/badge.svg" alt="Test"/>
+  
   <a target="_blank" href="https://xai-liacs.github.io/LLaMEA/">
     <img src="https://img.shields.io/badge/docs-online-success" alt="Docs"/>
   </a>
-  <a href="https://xai-liacs.github.io/LLaMEA/" target="_blank">Documentation</a> - <a href="https://colab.research.google.com/github/XAI-liacs/LLaMEA/blob/main/docs/notebooks/simple_example.ipynb" target="_blank">Demo</a>
+   <br/>
+   <a href="https://colab.research.google.com/github/XAI-liacs/LLaMEA/blob/main/docs/notebooks/simple_example.ipynb" target="_blank">Check our demo on Colab</a>
 </p>
 
 > **The fully-open successor to Google DeepMind’s AlphaEvolve for automated algorithm discovery.**
 > First released 📅 Nov 2024 • MIT License • 100 % reproducible.
+> Also read the  <a href="https://xai-liacs.github.io/LLaMEA/" target="_blank">Documentation</a>- 
 
 LLaMEA couples large-language-model reasoning with an evolutionary loop to **invent, mutate and benchmark algorithms fully autonomously**.  
 
