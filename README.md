@@ -37,7 +37,7 @@
 
 > **The fully-open successor to Google DeepMind’s AlphaEvolve for automated algorithm discovery.**
 > First released 📅 Nov 2024 • MIT License • 100 % reproducible.
-> Also read the  <a href="https://xai-liacs.github.io/LLaMEA/" target="_blank">Documentation</a>- 
+> Also read the  <a href="https://xai-liacs.github.io/LLaMEA/" target="_blank">Documentation</a>.
 
 LLaMEA couples large-language-model reasoning with an evolutionary loop to **invent, mutate and benchmark algorithms fully autonomously**.  
 
