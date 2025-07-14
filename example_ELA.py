@@ -61,9 +61,10 @@ def evaluate_function(solution, logger=None):
     algorithm = None
 
     # Final validation
-    algorithm = globals()[algorithm_name]()
-    f = algorithm.f
     DIM = 5 #change to appropriate dimensionality
+    algorithm = globals()[algorithm_name](DIM)
+    f = algorithm.f
+    
     
     model1 = xgb.XGBClassifier(objective="binary:logistic")
     model1.load_model("models/model_5d_basins_scaled.json")
@@ -111,7 +112,7 @@ def evaluate_function(solution, logger=None):
     score = ( result_1[0][1] + result_2[0][1] ) / 2
     solution.set_scores(
         score,
-        f"The optimization landscape {algorithm_name} scored {result_1:.3f} on the basins feature and {result_2:.3f}  on separability (higher is better, 1.0 is the best).",
+        f"The optimization landscape {algorithm_name} scored {result_1[0][1]:.3f} on the basins feature and {result_2[0][1]:.3f}  on separability (higher is better, 1.0 is the best).",
     )
     return solution
 
@@ -130,8 +131,10 @@ class ELAproblem:
 
         self.task_prompt = f"""
 You are a highly skilled computer scientist in the field optimization and benchmarking. Your task is to design novel mathematical functions to be used as black-box optimization benchmark landscapes.
-The code you need to write is a class with a function `f` with one parameter `X` which is a pandas DataFrame of realvalued samples. 
+The code you need to write is a class with a function `f` with one parameter `x` which is a realvalued sample (numpy array). 
 The optimization function should be separable with basins and it should be able to handle different dimensionalities.
+The class should also have a __init__(dim) function, that received the number of dimensions for the function.
+The function will be evaluated between per dimension lower bound of -5.0 and upper bound of 5.0.
 """
         self.example_prompt = """
 An example code structure is as follows:
@@ -139,7 +142,9 @@ An example code structure is as follows:
 import numpy as np
 
 class landscape:
-    # Optional __init__ etc.
+    
+    def __init__(dim=5):
+        self.dim = dim
 
     def test_func(self, x):
         return np.sum(x**2)
@@ -161,30 +166,38 @@ Give a novel Python class with an optimization landscape function and a short de
         """
         return self.task_prompt + self.example_prompt + self.format_prompt
 
-budget = 10
+budget = 200
 if __name__ == "__main__":
     # Execution code starts here
     api_key = os.getenv("OPENAI_API_KEY")
     #api_key = os.getenv("GEMINI_API_KEY")
-    llm = OpenAI_LLM(api_key,"o4-mini-2025-04-16", temperature=1.0) #Done
+    llm = OpenAI_LLM(api_key,"o4-mini-2025-04-16") #Done
     experiment_name = "ELA"
     #llm = Gemini_LLM(api_key, ai_model)
 
     problem = ELAproblem()
 
+    mutation_prompts = []
+    mutation_prompts.append("Create a new landscape class based on the selected code and improve the separability score (make sure the function is separable, meaning independent functions per dimension.)")
+    mutation_prompts.append("Create a new landscape class based on the selected code and improve the basins score.")
+    mutation_prompts.append("Create a new landscape class that is completely different from the selected solution but still be seperable with basins.")
+
 
     for experiment_i in [1]:
         es = LLaMEA(
             evaluate_function,
-            n_parents=1,
-            n_offspring=1,
+            n_parents=8,
+            n_offspring=16,
             llm=llm,
             task_prompt=problem.task_prompt,
             example_prompt=problem.example_prompt,
             output_format_prompt=problem.format_prompt,
+            mutation_prompts=mutation_prompts,
             experiment_name=experiment_name,
             elitism=True,
             HPO=False,
             budget=budget,
+            max_workers=1,
+            parallel_backend="threading",
         )
         print(es.run())

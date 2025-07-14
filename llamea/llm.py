@@ -204,7 +204,7 @@ class OpenAI_LLM(LLM):
         super().__init__(api_key, model, None, **kwargs)
         self.client = openai.OpenAI(api_key=api_key)
 
-    def query(self, session_messages):
+    def query(self, session_messages, temperature=1.0):
         """
         Sends a conversation history to the configured model and returns the response text.
 
@@ -217,7 +217,7 @@ class OpenAI_LLM(LLM):
         """
 
         response = self.client.chat.completions.create(
-            model=self.model, messages=session_messages, temperature=0.8
+            model=self.model, messages=session_messages, temperature=temperature
         )
         return response.choices[0].message.content
 
