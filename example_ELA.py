@@ -105,11 +105,16 @@ def evaluate_function(solution, logger=None):
     all_features_scaled = {k:[v] for k,v in all_features_scaled.items()} 
     all_features_scaled = pd.DataFrame.from_dict(all_features_scaled)
     all_features_scaled = preprocess_data(all_features_scaled)
+
+    solution.add_metadata("ela_features", all_features_scaled.to_numpy())
+    
     
     
     result_1 = model1.predict_proba(all_features_scaled)
     result_2 = model2.predict_proba(all_features_scaled)
     score = ( result_1[0][1] + result_2[0][1] ) / 2
+    solution.add_metadata("score1", float(result_1[0][1]))
+    solution.add_metadata("score2", float(result_2[0][1]))
     solution.set_scores(
         score,
         f"The optimization landscape {algorithm_name} scored {result_1[0][1]:.3f} on the basins feature and {result_2[0][1]:.3f}  on separability (higher is better, 1.0 is the best).",
@@ -166,7 +171,7 @@ Give a novel Python class with an optimization landscape function and a short de
         """
         return self.task_prompt + self.example_prompt + self.format_prompt
 
-budget = 200
+budget = 500
 if __name__ == "__main__":
     # Execution code starts here
     api_key = os.getenv("OPENAI_API_KEY")
@@ -179,8 +184,8 @@ if __name__ == "__main__":
 
     mutation_prompts = []
     mutation_prompts.append("Create a new landscape class based on the selected code and improve the separability score (make sure the function is separable, meaning independent functions per dimension.)")
-    mutation_prompts.append("Create a new landscape class based on the selected code and improve the basins score.")
-    mutation_prompts.append("Create a new landscape class that is completely different from the selected solution but still be seperable with basins.")
+    mutation_prompts.append("Create a new landscape class based on the selected code and improve the basins score (meaning multiple basins of attraction).")
+    mutation_prompts.append("Create a new landscape class that is completely different from the selected solution but still be seperable with multiple basins.")
 
 
     for experiment_i in [1]:
