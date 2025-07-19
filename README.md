@@ -77,11 +77,15 @@ LLaMEA couples large-language-model reasoning with an evolutionary loop to **inv
 
 ## 🔥 News 
 
++ 2025.07 🎉🎉 **"LLaMEA" won the Any-time Performancy on Many-Affine BBOB competition, and the Silver award at the [Humies @GECCO2025](https://www.human-competitive.org/awards)**!  
+
 + 2025.06 🎉🎉 **["LLaMEA-BO: A Large Language Model Evolutionary Algorithm for Automatically Generating Bayesian Optimization Algorithms"](https://arxiv.org/abs/2505.21034) published on Arxiv**!  
 
 + 2025.05 🎉🎉 **["Optimizing Photonic Structures with Large Language Model Driven Algorithm Discovery"](https://arxiv.org/abs/2503.19742) accepted as workshop paper at GECCO 2025**!  
 
 + 2025.05 🎉🎉 **["BLADE: Benchmark Suite for LLM-Driven Automated Design and Evolution of iterative optimisation heuristics"](https://arxiv.org/abs/2504.20183) accepted as workshop paper at GECCO 2025**!  
+
++ 2025.04 🎉🎉 **LLaMEA-HPO paper accepted in ACM TELO** [“In-the-loop Hyper-Parameter Optimization for LLM-Based Automated Design of Heuristics"](https://dl.acm.org/doi/abs/10.1145/3731567)!  
 
 + 2025.04 🎉🎉 **["Code Evolution Graphs"](https://arxiv.org/abs/2503.16668) accepted as full paper at GECCO 2025**!  
 
@@ -98,19 +102,24 @@ It is the easiest to use LLaMEA from the pypi package.
   pip install llamea
 ```
 > [!Important]
-> The Python version **must** be larger or equal to Python 3.10, 3.11 is advised.
+> The Python version **must** be larger or equal to 3.11.
 > You need an OpenAI/Gemini/Ollama API key for using LLM models.
 
-You can also install the package from source using Poetry (1.8.5).
+You can also install the package from source using <a href="https://docs.astral.sh/uv/" target="_blank">uv</a> (0.7.19).
+make sure you have `uv` installed.
 
 1. Clone the repository:
    ```bash
    git clone https://github.com/XAI-liacs/LLaMEA.git
    cd LLaMEA
    ```
-2. Install the required dependencies via Poetry:
+2. Install the required dependencies via uv:
    ```bash
-   poetry install
+   uv sync
+   ```
+3. Optional install dev or/and example dependencies:
+   ```bash
+   uv sync --dev --group examples
    ```
 
 ## 💻 Quick Start
@@ -153,18 +162,18 @@ You can also install the package from source using Poetry (1.8.5).
 
 ## 💻 Examples
 
-Below are two example scripts demonstrating LLaMEA in action for black-box optimization with a BBOB (24 noiseless) function suite. One script (`example.py`) runs basic LLaMEA, while the other (`example_HPO.py`) incorporates a **hyper-parameter optimization** pipeline—known as **LLaMEA-HPO**—that employs SMAC to tune the algorithm’s parameters in the loop.
+Below are two example scripts from the `examples` directory demonstrating LLaMEA in action for black-box optimization with a BBOB (24 noiseless) function suite. One script (`examples/black-box-optimization.py`) runs basic LLaMEA, while the other (`examples/black-box-opt-with-HPO.py`) incorporates a **hyper-parameter optimization** pipeline—known as **LLaMEA-HPO**—that employs SMAC to tune the algorithm’s parameters in the loop.
 
-### Running `example.py`
+### Running `black-box-optimization.py`
 
-**`example.py`** showcases a straightforward use-case of LLaMEA. It:
+**`black-box-optimization.py`** showcases a straightforward use-case of LLaMEA. It:
 - Defines an evaluation function `evaluateBBOB` that runs generated algorithms on a standard set of BBOB problems (24 functions).
 - Initializes LLaMEA with a specific model (e.g., GPT-4, GPT-3.5) and prompts the LLM to generate metaheuristic code.
 - Iterates over a `(1+1)`-style evolutionary loop, refining the code until a certain budget is reached.
 
 **How to run:**
 ```bash
-python example.py
+uv run python examples/black-box-optimization.py
 ```
 
 The script will:
@@ -174,9 +183,9 @@ The script will:
 4. Iteratively refine the best-so-far algorithms.
 
 
-### Running `example_HPO.py` (LLaMEA-HPO)
+### Running `black-box-opt-with-HPO.py` (LLaMEA-HPO)
 
-**`example_HPO.py`** extends LLaMEA with **in-the-loop hyper-parameter optimization**—termed **LLaMEA-HPO**. Instead of having the LLM guess or refine hyper-parameters directly, the code:
+**`black-box-opt-with-HPO.py`** extends LLaMEA with **in-the-loop hyper-parameter optimization**—termed **LLaMEA-HPO**. Instead of having the LLM guess or refine hyper-parameters directly, the code:
 - Allows the LLM to generate a Python class representing the metaheuristic **plus** a ConfigSpace dictionary describing hyper-parameters.
 - Passes these hyper-parameters to SMAC, which then searches for good parameter settings on a BBOB training set.
 - Evaluates the best hyper-parameters found by SMAC on the full BBOB suite.
@@ -187,7 +196,7 @@ Offloading hyper-parameter search to SMAC significantly reduces LLM query overhe
 
 **How to run:**
 ```bash
-python example_HPO.py
+uv run python examples/black-box-opt-with-HPO.py
 ```
 
 **Script outline:**
@@ -201,9 +210,9 @@ python example_HPO.py
 > Changing `budget` or the HPO budget can drastically affect runtime and cost.
 > Additional arguments (e.g., logging directories) can be set if desired.
 
-### Running `example_AutoML.py`
+### Running `automl_example.py`
 
-**`example_AutoML.py`** uses LLaMEA to showcase that it can not only evolve and generate metaheuristics but also all kind of other algorithms, such as Machine Learning pipelines.  
+**`automl_example.py`** uses LLaMEA to showcase that it can not only evolve and generate metaheuristics but also all kind of other algorithms, such as Machine Learning pipelines.  
 In this example, a basic classification task on the breast-cancer dataset from sklearn is solved by generating and evolving open-ended ML pipelines.
 - We define the evaluate function (accuracy score on a hold-out test set)
 - We provide a very basic example code to get the algorithm started.
@@ -211,7 +220,7 @@ In this example, a basic classification task on the breast-cancer dataset from s
   
 **How to run:**
 ```bash
-python example_AutoML.py
+uv run python examples/automl_example.py
 ```
 > [!Note]
 > Adjust the model name (`ai_model`) or API key as needed in the script.
@@ -223,7 +232,7 @@ conversation logs stored as JSON Lines files. Start the server with a log file
 path:
 
 ```bash
-python logreader/app.py --logfile path/to/conversationlog.jsonl
+uv run python logreader/app.py --logfile path/to/conversationlog.jsonl
 ```
 
 You can also set the environment variable `CONVERSATION_LOG` instead of passing

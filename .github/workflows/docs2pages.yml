@@ -25,21 +25,36 @@ jobs:
         fetch-depth: 0
     - uses: actions/setup-python@v5
       with:
-        python-version: '3.10'
-    - name: Install poetry
-      uses: snok/install-poetry@v1
+        python-version: '3.11'
+    #----------------------------------------------
+    #  -----  install & configure uv  -----
+    #----------------------------------------------
+    - name: Install uv
+      uses: astral-sh/setup-uv@v5
       with:
-        version: 1.8.5
-        virtualenvs-create: true
-        virtualenvs-in-project: true
-        installer-parallel: true
+        # Install a specific version of uv.
+        version: "0.7.19"
+    #----------------------------------------------
     - name: Install pandoc
       run: sudo apt install -y pandoc
+    #----------------------------------------------
+    #       load cached venv if cache exists
+    #----------------------------------------------
+    - name: Load cached venv
+      id: cached-uv-dependencies
+      uses: actions/cache@v3
+      with:
+        path: .venv
+        key: venv-${{ runner.os }}-${{ steps.setup-python.outputs.python-version }}-${{ hashFiles('**/uv.lock') }}
+    #----------------------------------------------
+    # install dependencies if cache does not exist
+    #----------------------------------------------
     - name: Install dependencies
-      run: poetry install --with docs
+      if: steps.cached-uv-dependencies.outputs.cache-hit != 'true'
+      run: uv sync --dev --group docs
     - name: Build documentation
       run: |
-        poetry run sphinx-build -b html docs/ ./_site      
+        uv run sphinx-build -b html docs/ ./_site      
     - name: Upload artifact
       uses: actions/upload-pages-artifact@v3
 
