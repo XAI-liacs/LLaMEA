@@ -44,7 +44,7 @@ jobs:
       #              run black
       #----------------------------------------------
       - name: Check black
-        run: uv run black --check --verbose ./iohblade/
+        run: uv run black --check --verbose ./llamea/
       #----------------------------------------------
       #              run test suite
       #----------------------------------------------
