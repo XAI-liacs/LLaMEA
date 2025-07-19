@@ -45,10 +45,21 @@ crucial.
 🔥 News
 ----
 
-- 2025.03 ✨✨ **LLaMEA v1.0.0 released**!
-- 2025.01 ✨✨ **LLaMEA paper accepted in IEEE TEVC**:
-  `Llamea: A large language model evolutionary algorithm for automatically generating metaheuristics <https://ieeexplore.ieee.org/abstract/document/10752628/>`_!
++ 2025.07 🎉🎉 **"LLaMEA" won the Any-time Performancy on Many-Affine BBOB competition, and the Silver award at the [Humies @GECCO2025](https://www.human-competitive.org/awards)**!  
 
++ 2025.06 🎉🎉 **["LLaMEA-BO: A Large Language Model Evolutionary Algorithm for Automatically Generating Bayesian Optimization Algorithms"](https://arxiv.org/abs/2505.21034) published on Arxiv**!  
+
++ 2025.05 🎉🎉 **["Optimizing Photonic Structures with Large Language Model Driven Algorithm Discovery"](https://arxiv.org/abs/2503.19742) accepted as workshop paper at GECCO 2025**!  
+
++ 2025.05 🎉🎉 **["BLADE: Benchmark Suite for LLM-Driven Automated Design and Evolution of iterative optimisation heuristics"](https://arxiv.org/abs/2504.20183) accepted as workshop paper at GECCO 2025**!  
+
++ 2025.04 🎉🎉 **LLaMEA-HPO paper accepted in ACM TELO** [“In-the-loop Hyper-Parameter Optimization for LLM-Based Automated Design of Heuristics"](https://dl.acm.org/doi/abs/10.1145/3731567)!  
+
++ 2025.04 🎉🎉 **["Code Evolution Graphs"](https://arxiv.org/abs/2503.16668) accepted as full paper at GECCO 2025**!  
+
++ 2025.03 🎉🎉 **LLaMEA v1.0.0 released**!  
+
++ 2025.01 🎉🎉 **LLaMEA paper accepted in IEEE TEVC** [“Llamea: A large language model evolutionary algorithm for automatically generating metaheuristics"](https://ieeexplore.ieee.org/abstract/document/10752628/)!  
 
 
 🤖 Contributing

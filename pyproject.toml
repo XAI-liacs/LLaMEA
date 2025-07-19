@@ -51,18 +51,16 @@ examples = [
     "levenshtein>=0.25.1,<0.26",
     "zss>=1.2.0,<2",
     "jellyfish>=1.0.3,<2",
-    "pypop7>=0.0.79,<0.0.80",
     "flask>=3.0.3,<4",
     "flask-socketio>=5.3.6,<6",
     "smac>=2.2.0,<3",
     "google-generativeai>=0.8.1,<0.9",
     "modcma>=1.0.8,<2",
-    "shap>=0.46.0,<0.47",
     "lizard>=1.17.13,<2",
     "networkx>=3.4.2,<4",
     "iohinspector>=0.0.3,<0.0.4",
+    "pymoosh==3.2",
 ]
-benchmarks = ["pymoosh==3.2"]
 llm-extras = [
     "torch>=2.6.0,<3",
     "transformers>=4.49.0,<5",

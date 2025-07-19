@@ -8,10 +8,11 @@ It is easiest to use LLaMEA from the PyPI package:
    pip install llamea
 
 .. important::
-   The Python version **must** be >= 3.10. 3.11 is recommended.
+   The Python version **must** be >= 3.11.
    An OpenAI/Gemini/Ollama API key is needed for using LLM models.
 
-You can also install the package from source using Poetry (1.8.5).
+You can also install the package from source using uv (0.7.19).
+make sure you have **uv** installed.
 
 1. Clone the repository:
 
@@ -20,8 +21,13 @@ You can also install the package from source using Poetry (1.8.5).
       git clone https://github.com/xai-liacs/LLaMEA.git
       cd LLaMEA
 
-2. Install the required dependencies via Poetry:
+2. Install the required dependencies via uv:
 
    .. code-block:: bash
 
-      poetry install
+      uv sync
+
+3. Optionally install dev or/and example dependencies:
+   .. code-block:: bash
+
+      uv sync --dev --group examples

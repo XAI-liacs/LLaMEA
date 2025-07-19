@@ -8,8 +8,8 @@ import os
 import re
 
 import numpy as np
-
 from ioh import get_problem, logger
+
 from llamea import Gemini_LLM, LLaMEA
 from misc import OverBudgetException, aoc_logger, correct_aoc
 

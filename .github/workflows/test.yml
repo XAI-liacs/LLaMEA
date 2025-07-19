@@ -1,9 +1,9 @@
 name: Test
-
-on: [push, pull_request]
-
 permissions:
   contents: read
+  id-token: write
+
+on: [pull_request]
 
 jobs:
   lint:
@@ -15,48 +15,41 @@ jobs:
         id: setup-python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.10'
+          python-version: '3.11'
       #----------------------------------------------
-      #  -----  install & configure poetry  -----
+      #  -----  install & configure uv  -----
       #----------------------------------------------
-      - name: Install Poetry
-        uses: snok/install-poetry@v1
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
         with:
-          version: 1.8.5
-          virtualenvs-create: true
-          virtualenvs-in-project: true
-          installer-parallel: true
+          # Install a specific version of uv.
+          version: "0.7.19"
 
       #----------------------------------------------
       #       load cached venv if cache exists
       #----------------------------------------------
       - name: Load cached venv
-        id: cached-poetry-dependencies
+        id: cached-uv-dependencies
         uses: actions/cache@v3
         with:
           path: .venv
-          key: venv-${{ runner.os }}-${{ steps.setup-python.outputs.python-version }}-${{ hashFiles('**/poetry.lock') }}
+          key: venv-${{ runner.os }}-${{ steps.setup-python.outputs.python-version }}-${{ hashFiles('**/uv.lock') }}
       #----------------------------------------------
       # install dependencies if cache does not exist
       #----------------------------------------------
       - name: Install dependencies
-        if: steps.cached-poetry-dependencies.outputs.cache-hit != 'true'
-        run: poetry install --no-interaction --no-root --with dev
-      #----------------------------------------------
-      # install your root project, if required
-      #----------------------------------------------
-      - name: Install project
-        run: poetry install --no-interaction
+        if: steps.cached-uv-dependencies.outputs.cache-hit != 'true'
+        run: uv sync --dev
       #----------------------------------------------
       #              run black
       #----------------------------------------------
       - name: Check black
-        run: poetry run black --check --verbose ./llamea/
+        run: uv run black --check --verbose ./iohblade/
       #----------------------------------------------
       #              run test suite
       #----------------------------------------------
       - name: Test with pytest
-        run: poetry run pytest --cov=llamea --cov-report=xml tests/
+        run: uv run pytest --cov=llamea --cov-report=xml tests/
       #----------------------------------------------
       #             upload coverage stats
       # (requires CODECOV_TOKEN in repository secrets)
