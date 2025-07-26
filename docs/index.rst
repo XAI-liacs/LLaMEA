@@ -8,8 +8,11 @@ LLaMEA: Large Language Model Evolutionary Algorithm
 ===================================================
 
 .. note::
-   **The fully-open alternative to Google DeepMind's AlphaEvolve.  
+   **The fully-open alternative to Google DeepMind's AlphaEvolve.
    First released 📅 Nov 2024 • MIT License • 100 % reproducible.**
+
+.. note::
+   **🥈 Winner of the Silver `Humies 2025 <https://www.human-competitive.org/awards>`_ at GECCO!**
 
 LLaMEA couples large-language-model reasoning with an evolutionary loop to **invent, mutate and benchmark algorithms fully autonomously**.  
 
