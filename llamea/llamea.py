@@ -2,6 +2,7 @@
 This module integrates OpenAI's language models to generate and evolve
 algorithms to automatically evaluate (for example metaheuristics evaluated on BBOB).
 """
+
 import concurrent.futures
 import contextlib
 import logging
@@ -13,6 +14,8 @@ import traceback
 import numpy as np
 from ConfigSpace import ConfigurationSpace
 from joblib import Parallel, delayed
+
+from benchmarks.planet_wars.evaluate import evaluate_tournament
 
 from .loggers import ExperimentLogger
 from .solution import Solution
@@ -57,6 +60,9 @@ class LLaMEA:
         log=True,
         minimization=False,
         _random=False,
+        selection_strategy="best",
+        tournament_size=3,
+        pw_scenarios=None,
     ):
         """
         Initializes the LLaMEA instance with provided parameters. Note that by default LLaMEA maximizes the objective.
@@ -85,6 +91,9 @@ class LLaMEA:
             log (bool): Flag to switch of the logging of experiments.
             minimization (bool): Whether we minimize or maximize the objective function. Defaults to False.
             _random (bool): Flag to switch to random search (purely for debugging).
+            selection_strategy (str): Selection strategy to use ("best" or "tournament").
+            tournament_size (int): Number of individuals per tournament if tournament selection is used.
+            pw_scenarios (list): Optional list of scenario identifiers for Planet Wars evaluation.
         """
         self.llm = llm
         self.model = llm.model
@@ -187,6 +196,9 @@ Space: <configuration_space>"""
         if max_workers > self.n_offspring:
             max_workers = self.n_offspring
         self.max_workers = max_workers
+        self.selection_strategy = selection_strategy
+        self.tournament_size = tournament_size
+        self.pw_scenarios = pw_scenarios
 
     def logevent(self, event):
         self.textlog.info(event)
@@ -345,21 +357,34 @@ With code:
         """
         reverse = self.minimization == False
 
-        # TODO filter out non-diverse solutions
-        if self.elitism:
-            # Combine parents and offspring
-            combined_population = parents + offspring
-            # Sort by fitness
-            combined_population.sort(key=lambda x: x.fitness, reverse=reverse)
-            # Select the top individuals to form the new population
-            new_population = combined_population[: self.n_parents]
+        if self.selection_strategy == "tournament":
+            population = parents + offspring if self.elitism else offspring
+            new_population = self.tournament_selection(population, self.tournament_size)
         else:
-            # Sort offspring by fitness
-            offspring.sort(key=lambda x: x.fitness, reverse=reverse)
-            # Select the top individuals from offspring to form the new population
-            new_population = offspring[: self.n_parents]
+            # TODO filter out non-diverse solutions
+            if self.elitism:
+                combined_population = parents + offspring
+                combined_population.sort(key=lambda x: x.fitness, reverse=reverse)
+                new_population = combined_population[: self.n_parents]
+            else:
+                offspring.sort(key=lambda x: x.fitness, reverse=reverse)
+                new_population = offspring[: self.n_parents]
 
         return new_population
+
+    def tournament_selection(self, population, size):
+        selected = []
+        reverse = self.minimization == False
+        while len(selected) < self.n_parents:
+            contenders = random.sample(population, size)
+            evaluate_tournament(contenders, scenarios=self.pw_scenarios)
+            winner = (
+                max(contenders, key=lambda x: x.fitness)
+                if reverse
+                else min(contenders, key=lambda x: x.fitness)
+            )
+            selected.append(winner)
+        return selected
 
     def evolve_solution(self, individual):
         """
