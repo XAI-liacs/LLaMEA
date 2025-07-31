@@ -126,7 +126,7 @@ def evaluate_function(solution, logger=None):
     solution.add_metadata("score2", float(result_2[0][1]))
     solution.set_scores(
         score,
-        f"The optimization landscape {algorithm_name} scored {result_1[0][1]:.3f} on the basins feature and {result_2[0][1]:.3f}  on separability (higher is better, 1.0 is the best).",
+        f"The optimization landscape {algorithm_name} scored {result_1[0][1]:.3f} on the multimodal feature and {result_2[0][1]:.3f}  on the global vs local optima feature (higher is better, 1.0 is the best).",
     )
     return solution
 
@@ -143,7 +143,7 @@ class ELAproblem:
     ):
         
         feature1 = "multimodal"
-        feature2 = "global local structure"
+        feature2 = "global-local optima (large fitness distance between local and global optima)"
         self.task_prompt = f"""
 You are a highly skilled computer scientist in the field optimization and benchmarking. Your task is to design novel mathematical functions to be used as black-box optimization benchmark landscapes.
 The code you need to write is a class with a function `f` with one parameter `x` which is a realvalued sample (numpy array). 
@@ -194,7 +194,7 @@ if __name__ == "__main__":
 
     mutation_prompts = []
     mutation_prompts.append("Create a new landscape class based on the selected code and improve the multimodality score (make sure the function is multimodal, meaning multiple local and global optima.)")
-    mutation_prompts.append("Create a new landscape class based on the selected code and improve the global-local score.")
+    mutation_prompts.append("Create a new landscape class based on the selected code and improve the global-local (large fitness distance between local and global optima) score.")
     mutation_prompts.append("Create a new landscape class that is completely different from the selected solution but still be multimodal with global-local structure.")
 
 

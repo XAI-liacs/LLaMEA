@@ -126,7 +126,7 @@ def evaluate_function(solution, logger=None):
     solution.add_metadata("score2", float(result_2[0][1]))
     solution.set_scores(
         score,
-        f"The optimization landscape {algorithm_name} scored {result_1[0][1]:.3f} on the basins feature and {result_2[0][1]:.3f}  on separability (higher is better, 1.0 is the best).",
+        f"The optimization landscape {algorithm_name} scored {result_1[0][1]:.3f} on the global structure feature and {result_2[0][1]:.3f}  on separability (higher is better, 1.0 is the best).",
     )
     return solution
 
