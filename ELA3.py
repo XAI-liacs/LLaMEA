@@ -67,11 +67,20 @@ def evaluate_function(solution, logger=None):
     
     
     model1 = xgb.XGBClassifier(objective="binary:logistic")
-    model1.load_model("models/model_5d_basins_scaled.json")
+    model1.load_model("models/model_5d_multimodal_scaled.json")
     
     model2 = xgb.XGBClassifier(objective="binary:logistic")
     model2.load_model("models/model_5d_separable_scaled.json")
+
+    # model3 = xgb.XGBClassifier(objective="binary:logistic")
+    # model3.load_model("models/model_5d_globallocal_scaled.json")
     
+    # model4 = xgb.XGBClassifier(objective="binary:logistic")
+    # model4.load_model("models/model_5d_multimodal_scaled.json")   
+    
+    # model5 = xgb.XGBClassifier(objective="binary:logistic")
+    # model5.load_model("models/model_5d_structure_scaled.json")   
+
     problem = f
     X = create_initial_sample(DIM,n=250*DIM, lower_bound = -5, upper_bound = 5)
     y = X.apply(problem, axis = 1)
@@ -134,10 +143,12 @@ class ELAproblem:
     ):
         
 
+        feature1 = "multimodal"
+        feature2 = "separable"
         self.task_prompt = f"""
 You are a highly skilled computer scientist in the field optimization and benchmarking. Your task is to design novel mathematical functions to be used as black-box optimization benchmark landscapes.
 The code you need to write is a class with a function `f` with one parameter `x` which is a realvalued sample (numpy array). 
-The optimization function should be separable with basins and it should be able to handle different dimensionalities.
+The optimization function should be {feature1} and {feature2} and it should be able to handle different dimensionalities.
 The class should also have a __init__(dim) function, that received the number of dimensions for the function.
 The function will be evaluated between per dimension lower bound of -5.0 and upper bound of 5.0.
 """
@@ -183,9 +194,9 @@ if __name__ == "__main__":
     problem = ELAproblem()
 
     mutation_prompts = []
-    mutation_prompts.append("Create a new landscape class based on the selected code and improve the separability score (make sure the function is separable, meaning independent functions per dimension.)")
-    mutation_prompts.append("Create a new landscape class based on the selected code and improve the basins score (meaning multiple basins of attraction).")
-    mutation_prompts.append("Create a new landscape class that is completely different from the selected solution but still be seperable with multiple basins.")
+    mutation_prompts.append("Create a new landscape class based on the selected code and improve the multimodality score (make sure the function is multimodal, meaning multiple local and global optima.)")
+    mutation_prompts.append("Create a new landscape class based on the selected code and improve the separability score (meaning each dimension is an independent function).")
+    mutation_prompts.append("Create a new landscape class that is completely different from the selected solution but still be seperable and multimodal.")
 
 
     for experiment_i in [1]:

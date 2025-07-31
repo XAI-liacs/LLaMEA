@@ -419,7 +419,7 @@ With code:
                 new_population_gen = Parallel(
                     n_jobs=self.max_workers,
                     timeout=timeout + 15,
-                    backend="loky",
+                    backend=self.parallel_backend,
                     return_as="generator_unordered",
                 )(
                     delayed(self.evolve_solution)(individual)
