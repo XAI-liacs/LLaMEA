@@ -51,6 +51,7 @@ class LLaMEA:
         HPO=False,
         mutation_prompts=None,
         adaptive_mutation=False,
+        adaptive_prompt=False,
         budget=100,
         eval_timeout=3600,
         max_workers=10,
@@ -80,6 +81,7 @@ class LLaMEA:
             mutation_prompts (list): A list of prompts to specify mutation operators to the LLM model. Each mutation, a random choice from this list is made.
             adaptive_mutation (bool): If set to True, the mutation prompt 'Change X% of the lines of code' will be used in an adaptive control setting.
                 This overwrites mutation_prompts.
+            adaptive_prompt (bool): If True, the task prompt is optimized before each mutation, allowing it to co-evolve with the individuals.
             budget (int): The number of generations to run the evolutionary algorithm.
             eval_timeout (int): The number of seconds one evaluation can maximum take (to counter infinite loops etc.). Defaults to 1 hour.
             max_workers (int): The maximum number of parallel workers to use for evaluating individuals.
@@ -176,6 +178,7 @@ Space: <configuration_space>"""
         self.HPO = HPO
         self.minimization = minimization
         self.evaluate_population = evaluate_population
+        self.adaptive_prompt = adaptive_prompt
         self.worst_value = -np.inf
         if minimization:
             self.worst_value = np.inf
@@ -214,6 +217,7 @@ Space: <configuration_space>"""
         try:
             new_individual = self.llm.sample_solution(session_messages, HPO=self.HPO)
             new_individual.generation = self.generation
+            new_individual.task_prompt = self.task_prompt
             if not self.evaluate_population:
                 new_individual = self.evaluate_fitness(new_individual)
         except Exception as e:
@@ -281,6 +285,26 @@ Space: <configuration_space>"""
             evaluated = self.f(population, self.logger)
         return evaluated
 
+    def optimize_task_prompt(self, individual):
+        """Use the LLM to improve the task prompt for a given individual."""
+        prompt = f"""{self.role_prompt}
+You are tasked with refining the instruction that guides algorithm generation.
+Current task prompt:
+{individual.task_prompt}
+
+Feedback from the last evaluation:
+{individual.feedback}
+
+Provide an improved task prompt only.
+"""
+        session_messages = [{"role": "user", "content": prompt}]
+        try:
+            new_prompt = self.llm.query(session_messages)
+            return new_prompt.strip()
+        except Exception as e:
+            self.logevent(f"Prompt optimization failed: {e}")
+            return individual.task_prompt
+
     def construct_prompt(self, individual):
         """
         Constructs a new session prompt for the language model based on a selected individual.
@@ -309,7 +333,10 @@ This changing rate {(prob*100):.1f}% is a mandatory requirement, you cannot chan
         mutation_operator = random.choice(self.mutation_prompts)
         individual.set_operator(mutation_operator)
 
-        final_prompt = f"""{self.task_prompt}
+        task_prompt = (
+            individual.task_prompt if self.adaptive_prompt else self.task_prompt
+        )
+        final_prompt = f"""{task_prompt}
 The current population of algorithms already evaluated (name, description, score) is:
 {population_summary}
 
@@ -384,14 +411,20 @@ With code:
         Evolves a single solution by constructing a new prompt,
         querying the LLM, and evaluating the fitness.
         """
-        new_prompt = self.construct_prompt(individual)
         evolved_individual = individual.copy()
+        if self.adaptive_prompt:
+            evolved_individual.task_prompt = self.optimize_task_prompt(
+                evolved_individual
+            )
+        new_prompt = self.construct_prompt(evolved_individual)
 
         try:
+            task_prompt = evolved_individual.task_prompt
             evolved_individual = self.llm.sample_solution(
                 new_prompt, evolved_individual.parent_ids, HPO=self.HPO
             )
             evolved_individual.generation = self.generation
+            evolved_individual.task_prompt = task_prompt
             if not self.evaluate_population:
                 evolved_individual = self.evaluate_fitness(evolved_individual)
         except Exception as e:
