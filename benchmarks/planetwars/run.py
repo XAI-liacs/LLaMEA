@@ -91,6 +91,10 @@ enemy_planets = [p for p in game_state.planets
 Distances can be computed with `p1.position.distance(p2.position)`.
 
 Be aware that Action (and some other classes) are pydantic models, so pass everything by keyword and not positional arguments.
+In addition, the agent should react fast, so avoid too many complex computations.
+The following Python libraries are available in the environment:
+- numpy version 2.2.6 for numerical computations
+- scipy version 1.15.3 for scientific computing
 """
 
 # Task prompt that combines the detailed game description with the actual
