@@ -277,8 +277,8 @@ Space: <configuration_space>"""
 
     def evaluate_population_fitness(self, population):
         """Evaluate a full population of solutions."""
-        with contextlib.redirect_stdout(None):
-            evaluated = self.f(population, self.logger)
+        #with contextlib.redirect_stdout(None):
+        evaluated = self.f(population, self.logger)
         return evaluated
 
     def construct_prompt(self, individual):

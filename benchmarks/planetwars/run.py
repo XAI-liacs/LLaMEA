@@ -4,10 +4,11 @@ from llamea import Gemini_LLM, OpenAI_LLM, LLaMEA
 from pathlib import Path
 import subprocess, json, os
 
-PLANETWARS_DIR="/home/neocortex/repos/planet-wars-rts-python"
+PLANETWARS_DIR = "/home/neocortex/repos/planet-wars-rts-python"
 
-GAME_DIR   = Path(PLANETWARS_DIR) / "app" / "src" / "main" / "python"
-VENV_PY    = Path(PLANETWARS_DIR) / ".venv" / "bin" / "python"
+GAME_DIR = Path(PLANETWARS_DIR) / "app" / "src" / "main" / "python"
+VENV_PY = Path(PLANETWARS_DIR) / ".venv" / "bin" / "python"
+
 
 def evaluate_tournament(solutions, logger=None, timeout=600):
     """Evaluate a group of solutions in a Planet Wars tournament.
@@ -18,7 +19,6 @@ def evaluate_tournament(solutions, logger=None, timeout=600):
     stored in the solution's fitness attribute. If the environment is not
     available, a random tournament is used as fallback.
     """
-
     tmp = GAME_DIR / "llamea"
     tmp.mkdir(exist_ok=True)
     agent_paths = []
@@ -29,9 +29,10 @@ def evaluate_tournament(solutions, logger=None, timeout=600):
         agent_paths.append(f"llamea.{sol.id}.{sol.name}")
         agent_files.append(agent_file)
 
-    cmd = [str(VENV_PY), "-m", "runner_utils.fast_agent_eval"]
+    cmd = [str(VENV_PY), "-m", "runner_utils.fast_agent_eval", "--agent"]
     for a in agent_paths:
-        cmd += ["--agent", a]
+        cmd += [a]
+
     try:
         # ensure modules in app/src/main/python are importable
         env = dict(os.environ, PYTHONPATH=str(GAME_DIR))
@@ -46,12 +47,15 @@ def evaluate_tournament(solutions, logger=None, timeout=600):
 
     except Exception as e:
         for sol in solutions:
-            sol.set_scores(0, feedback="Tournament failed or timed out with exception: " + str(e))
+            sol.set_scores(
+                0, feedback="Tournament failed or timed out with exception: " + str(e)
+            )
     finally:
         for p in agent_files:
             p.unlink(missing_ok=True)
 
     return solutions
+
 
 role_prompt = (
     "You are an expert game AI developer specialised in real-time strategy games."
@@ -100,8 +104,7 @@ feedback_prompts = [
     "Either refine or redesign to improve the solution (and give it a distinct one-line description)."
 ]
 
-example_prompt = 
-""""An example of an AI agent, is as follows:
+example_prompt = """"An example of an AI agent, is as follows:
 
 ```python
 import random
@@ -116,7 +119,7 @@ class GreedyHeuristicAgent(PlanetWarsPlayer):
     def get_action(self, game_state: GameState) -> Action:
         # Filter own planets that are not busy and have enough ships
         my_planets = [p for p in game_state.planets
-                      if p.owner == self.player and p.transporter is None and p.n_ships > 10]
+                    if p.owner == self.player and p.transporter is None and p.n_ships > 10]
         if not my_planets:
             return Action.do_nothing()
 
@@ -163,26 +166,30 @@ if __name__ == "__main__":
     action = agent.get_action(game_state)
     print(action)
 ```
-""""
+"""
 
 
 if __name__ == "__main__":
     api_key = os.getenv("GEMINI_API_KEY")
-    ai_model = "gemini-2.0-flash"
-    llm = Gemini_LLM(api_key, ai_model)
+    openai_api_key = os.getenv("OPENAI_API_KEY")
+
+    ai_model = "o4-mini-2025-04-16"
+    #llm = Gemini_LLM(api_key, ai_model)
+    llm = OpenAI_LLM(openai_api_key, ai_model, temperature=1.0)
 
     es = LLaMEA(
         evaluate_tournament,
         llm=llm,
         n_parents=4,
         n_offspring=8,
-        budget=20,
+        budget=500,
         experiment_name="planet_wars_openended",
         role_prompt=role_prompt,
         task_prompt=task_prompt,
         example_prompt=example_prompt,
         mutation_prompts=feedback_prompts,
         evaluate_population=True,
+        elitism=False,
     )
 
     print(es.run())

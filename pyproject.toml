@@ -9,7 +9,7 @@ license = "MIT"
 dependencies = [
     "numpy>=1.26.3,<2",
     "pandas==2.0.3",
-    "openai>=1.25.2,<2",
+    "openai>=1.99.1,<2",
     "tqdm>=4.66.4,<5",
     "ollama>=0.2.1,<0.3",
     "jsonlines>=4.0.0,<5",
