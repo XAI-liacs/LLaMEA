@@ -10,7 +10,7 @@ GAME_DIR = Path(PLANETWARS_DIR) / "app" / "src" / "main" / "python"
 VENV_PY = Path(PLANETWARS_DIR) / ".venv" / "bin" / "python"
 
 
-def evaluate_tournament(solutions, logger=None, timeout=600):
+def evaluate_tournament(solutions, logger=None, timeout=1200):
     """Evaluate a group of solutions in a Planet Wars tournament.
 
     This function expects the Planet Wars RTS environment to be available.
@@ -43,7 +43,8 @@ def evaluate_tournament(solutions, logger=None, timeout=600):
         if result_file.exists():
             json_data = json.loads(result_file.read_text())
             for sol in solutions:
-                sol.set_scores(json_data.get(f"llamea.{sol.id}.{sol.name}", 0))
+                score = json_data.get(sol.id, [0, "No data"])
+                sol.set_scores(score[0], feedback=score[1])
 
     except Exception as e:
         for sol in solutions:
@@ -88,6 +89,8 @@ enemy_planets = [p for p in game_state.planets
                  if p.owner == self.player.opponent()]
 ```
 Distances can be computed with `p1.position.distance(p2.position)`.
+
+Be aware that Action (and some other classes) are pydantic models, so pass everything by keyword and not positional arguments.
 """
 
 # Task prompt that combines the detailed game description with the actual
@@ -101,7 +104,9 @@ task_prompt = (
 )
 
 feedback_prompts = [
-    "Either refine or redesign to improve the solution (and give it a distinct one-line description)."
+    "Either refine or redesign to improve the solution (and give it a distinct one-line description and distinct name).",
+    "Improve the solution by addressing its weaknesses and enhancing its performance. Give it a distinct one-line description and distinct name.",
+    "Given the list of already implemented agents, generate a new agent that is completely different from the existing ones. Give it a distinct one-line description and distinct name.",
 ]
 
 example_prompt = """"An example of an AI agent, is as follows:
@@ -119,7 +124,7 @@ class GreedyHeuristicAgent(PlanetWarsPlayer):
     def get_action(self, game_state: GameState) -> Action:
         # Filter own planets that are not busy and have enough ships
         my_planets = [p for p in game_state.planets
-                    if p.owner == self.player and p.transporter is None and p.n_ships > 10]
+                      if p.owner == self.player and p.transporter is None and p.n_ships > 10]
         if not my_planets:
             return Action.do_nothing()
 
@@ -173,15 +178,15 @@ if __name__ == "__main__":
     api_key = os.getenv("GEMINI_API_KEY")
     openai_api_key = os.getenv("OPENAI_API_KEY")
 
-    ai_model = "o4-mini-2025-04-16"
-    #llm = Gemini_LLM(api_key, ai_model)
-    llm = OpenAI_LLM(openai_api_key, ai_model, temperature=1.0)
+    ai_model = "gemini-2.0-flash" #"o4-mini-2025-04-16" #"o3-mini-2025-01-31"
+    llm = Gemini_LLM(api_key, ai_model)
+    llm2 = OpenAI_LLM(openai_api_key, "o3-mini-2025-01-31", temperature=1.0)
 
     es = LLaMEA(
         evaluate_tournament,
-        llm=llm,
+        llm=llm2,
         n_parents=4,
-        n_offspring=8,
+        n_offspring=12,
         budget=500,
         experiment_name="planet_wars_openended",
         role_prompt=role_prompt,
