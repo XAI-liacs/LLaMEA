@@ -1,3 +1,6 @@
+import ast
+from difflib import SequenceMatcher
+
 import numpy as np
 
 
@@ -38,3 +41,30 @@ def discrete_power_law_distribution(n, beta):
     else:
         sample = np.random.choice(elements, p=probabilities)
         return sample / n
+
+
+def code_distance(a, b):
+    """Return a rough distance between two solutions based on their ASTs.
+
+    The function accepts either :class:`Solution` objects or raw code strings
+    and computes ``1 - similarity`` of their abstract syntax trees using
+    :class:`difflib.SequenceMatcher` on the dumped AST representations.
+    ``1.0`` is returned on parsing errors or when the inputs cannot be
+    processed.
+
+    Args:
+        a: The first solution or Python source code.
+        b: The second solution or Python source code.
+
+    Returns:
+        float: A value in ``[0, 1]`` indicating dissimilarity of the code.
+    """
+
+    code_a = getattr(a, "code", a)
+    code_b = getattr(b, "code", b)
+    try:
+        tree_a = ast.parse(code_a)
+        tree_b = ast.parse(code_b)
+        return 1 - SequenceMatcher(None, ast.dump(tree_a), ast.dump(tree_b)).ratio()
+    except Exception:
+        return 1.0

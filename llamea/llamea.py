@@ -2,6 +2,7 @@
 This module integrates OpenAI's language models to generate and evolve
 algorithms to automatically evaluate (for example metaheuristics evaluated on BBOB).
 """
+
 import concurrent.futures
 import contextlib
 import logging
@@ -9,6 +10,7 @@ import os
 import random
 import re
 import traceback
+from typing import Callable, Optional
 
 import numpy as np
 from ConfigSpace import ConfigurationSpace
@@ -16,7 +18,12 @@ from joblib import Parallel, delayed
 
 from .loggers import ExperimentLogger
 from .solution import Solution
-from .utils import NoCodeException, discrete_power_law_distribution, handle_timeout
+from .utils import (
+    NoCodeException,
+    code_distance,
+    discrete_power_law_distribution,
+    handle_timeout,
+)
 
 # TODOs:
 # Implement diversity selection mechanisms (none, prefer short code, update population only when (distribution of) results is different, AST / code difference)
@@ -40,13 +47,13 @@ class LLaMEA:
         f,
         llm,
         n_parents=5,
-        n_offspring=10,
+        n_offspring=5,
         role_prompt="",
         task_prompt="",
         example_prompt=None,
         output_format_prompt=None,
         experiment_name="",
-        elitism=False,
+        elitism=True,
         HPO=False,
         mutation_prompts=None,
         adaptive_mutation=False,
@@ -57,6 +64,12 @@ class LLaMEA:
         log=True,
         minimization=False,
         _random=False,
+        niching: Optional[str] = None,
+        distance_metric: Optional[Callable[[Solution, Solution], float]] = None,
+        niche_radius: Optional[float] = None,
+        adaptive_niche_radius: bool = False,
+        clearing_interval: Optional[int] = None,
+        evaluate_population=False,
     ):
         """
         Initializes the LLaMEA instance with provided parameters. Note that by default LLaMEA maximizes the objective.
@@ -85,6 +98,21 @@ class LLaMEA:
             log (bool): Flag to switch of the logging of experiments.
             minimization (bool): Whether we minimize or maximize the objective function. Defaults to False.
             _random (bool): Flag to switch to random search (purely for debugging).
+            niching (str | None): Niching strategy to use. Supports "sharing" and
+                "clearing". If ``None``, niching is disabled.
+            distance_metric (callable | None): Function that computes a distance
+                between two :class:`Solution` objects. Defaults to a simple AST
+                based distance if not supplied.
+            niche_radius (float | None): Radius for niche determination when
+                using fitness sharing or clearing. If ``None`` a default of ``0.5``
+                is used when a niching method is active.
+            adaptive_niche_radius (bool): If ``True`` the niche radius adapts to
+                the population each generation.
+            clearing_interval (int | None): Interval (in generations) at which
+                clearing is applied when ``niching`` is set to ``"clearing"``.
+            evaluate_population (bool): If True, the evaluation function `f` should
+                accept and return a list of solutions representing a full population
+                instead of a single solution.
         """
         self.llm = llm
         self.model = llm.model
@@ -114,7 +142,7 @@ class RandomSearch:
     def __init__(self, budget=10000, dim=10):
         self.budget = budget
         self.dim = dim
-        self.f_opt = np.Inf
+        self.f_opt = np.inf
         self.x_opt = None
 
     def __call__(self, func):
@@ -170,9 +198,15 @@ Space: <configuration_space>"""
         self._random = _random
         self.HPO = HPO
         self.minimization = minimization
-        self.worst_value = -np.Inf
+        self.evaluate_population = evaluate_population
+        self.worst_value = -np.inf
         if minimization:
-            self.worst_value = np.Inf
+            self.worst_value = np.inf
+        self.niching = niching
+        self.distance_metric = distance_metric or code_distance
+        self.niche_radius = niche_radius if niche_radius is not None else 0.5
+        self.adaptive_niche_radius = adaptive_niche_radius
+        self.clearing_interval = clearing_interval
         self.best_so_far = Solution(name="", code="")
         self.best_so_far.set_scores(self.worst_value, "", "")
         self.experiment_name = experiment_name
@@ -208,7 +242,8 @@ Space: <configuration_space>"""
         try:
             new_individual = self.llm.sample_solution(session_messages, HPO=self.HPO)
             new_individual.generation = self.generation
-            new_individual = self.evaluate_fitness(new_individual)
+            if not self.evaluate_population:
+                new_individual = self.evaluate_fitness(new_individual)
         except Exception as e:
             new_individual.set_scores(
                 self.worst_value,
@@ -240,8 +275,13 @@ Space: <configuration_space>"""
             print(f"Parallel time out in initialization {e}, retrying.")
 
         for p in population_gen:
-            self.run_history.append(p)  # update the history
             population.append(p)
+
+        if self.evaluate_population:
+            population = self.evaluate_population_fitness(population)
+
+        for p in population:
+            self.run_history.append(p)
 
         self.generation += 1
         self.population = population  # Save the entire population
@@ -262,6 +302,12 @@ Space: <configuration_space>"""
             updated_individual = self.f(individual, self.logger)
 
         return updated_individual
+
+    def evaluate_population_fitness(self, population):
+        """Evaluate a full population of solutions."""
+        with contextlib.redirect_stdout(None):
+            evaluated = self.f(population, self.logger)
+        return evaluated
 
     def construct_prompt(self, individual):
         """
@@ -332,6 +378,53 @@ With code:
             if best_individual.fitness < self.best_so_far.fitness:
                 self.best_so_far = best_individual
 
+    def adapt_niche_radius(self, population):
+        """Adapt the niche radius based on the current population."""
+        if not self.adaptive_niche_radius or len(population) < 2:
+            return
+        dists = []
+        for i in range(len(population)):
+            for j in range(i + 1, len(population)):
+                dists.append(self.distance_metric(population[i], population[j]))
+        if dists:
+            self.niche_radius = float(np.mean(dists))
+
+    def apply_niching(self, population):
+        """Apply the configured niching strategy to ``population``."""
+        if self.niching not in {"sharing", "clearing"}:
+            return population
+
+        self.adapt_niche_radius(population)
+
+        if self.niching == "sharing":
+            for i, ind in enumerate(population):
+                niche_count = 1.0
+                for j, other in enumerate(population):
+                    if i == j:
+                        continue
+                    d = self.distance_metric(ind, other)
+                    if d < self.niche_radius and self.niche_radius > 0:
+                        niche_count += 1 - d / self.niche_radius
+                if self.minimization:
+                    ind.fitness *= niche_count
+                else:
+                    ind.fitness /= niche_count
+        elif self.niching == "clearing":
+            if self.clearing_interval and self.generation % self.clearing_interval != 0:
+                return population
+            reverse = self.minimization == False
+            population.sort(key=lambda x: x.fitness, reverse=reverse)
+            niches = []
+            for ind in population:
+                if all(
+                    self.distance_metric(ind, winner) >= self.niche_radius
+                    for winner in niches
+                ):
+                    niches.append(ind)
+                else:
+                    ind.fitness = self.worst_value
+        return population
+
     def selection(self, parents, offspring):
         """
         Select the new population based on the parents and the offspring and the current strategy.
@@ -344,19 +437,15 @@ With code:
             list: List of new selected population.
         """
         reverse = self.minimization == False
-
         # TODO filter out non-diverse solutions
         if self.elitism:
-            # Combine parents and offspring
             combined_population = parents + offspring
-            # Sort by fitness
+            combined_population = self.apply_niching(combined_population)
             combined_population.sort(key=lambda x: x.fitness, reverse=reverse)
-            # Select the top individuals to form the new population
             new_population = combined_population[: self.n_parents]
         else:
-            # Sort offspring by fitness
+            offspring = self.apply_niching(list(offspring))
             offspring.sort(key=lambda x: x.fitness, reverse=reverse)
-            # Select the top individuals from offspring to form the new population
             new_population = offspring[: self.n_parents]
 
         return new_population
@@ -374,7 +463,8 @@ With code:
                 new_prompt, evolved_individual.parent_ids, HPO=self.HPO
             )
             evolved_individual.generation = self.generation
-            evolved_individual = self.evaluate_fitness(evolved_individual)
+            if not self.evaluate_population:
+                evolved_individual = self.evaluate_fitness(evolved_individual)
         except Exception as e:
             error = repr(e)
             evolved_individual.set_scores(
@@ -429,8 +519,14 @@ With code:
                 print("Parallel time out .")
 
             for p in new_population_gen:
-                self.run_history.append(p)
                 new_population.append(p)
+
+            if self.evaluate_population:
+                new_population = self.evaluate_population_fitness(new_population)
+
+            for p in new_population:
+                self.run_history.append(p)
+
             self.generation += 1
 
             if self.log:
