@@ -202,3 +202,6 @@ if __name__ == "__main__":
     )
 
     print(es.run())
+
+#Todo in the end, run a large tournament with all the best agents per generation
+# and save the results to a file.
