@@ -172,6 +172,35 @@ Give a novel Python class with an optimization landscape function and a short de
 
 budget = 200
 if __name__ == "__main__":
+    # use argparse to select the LLM.
+    import os
+    import argparse
+    parser = argparse.ArgumentParser(description="Run ELA problem with LLaMEA.")
+    parser.add_argument(
+        "--llm",
+        type=str,
+        choices=["openai", "gemini", "ollama"],
+        default="ollama",
+        help="Select the LLM to use for code generation.",
+
+    )
+    parser.add_argument(
+        "--ai_model",
+        type=str,
+        default="gemma3:12b",
+        help="Select the AI model to use for code generation.",
+    )
+    
+    args = parser.parse_args()
+    ai_model = args.ai_model
+    if args.llm == "openai":
+        api_key = os.getenv("OPENAI_API_KEY")
+        llm = OpenAI_LLM(api_key, "o4-mini-2025-04-16")
+    elif args.llm == "gemini":
+        api_key = os.getenv("GEMINI_API_KEY")
+        llm = Gemini_LLM(api_key, ai_model)
+    elif args.llm == "ollama": 
+        llm = Ollama_LLM(ai_model)
     # Execution code starts here
     api_key = os.getenv("OPENAI_API_KEY")
     #api_key = os.getenv("GEMINI_API_KEY")
@@ -186,8 +215,8 @@ if __name__ == "__main__":
         ["multimodal_scaled", "globallocal_scaled"],
         ["structure_scaled", "separable_scaled"],
     ]
-    llm = Ollama_LLM("gemma3:12b") #Done
-    experiment_name = "ELA-gemma3"
+
+    experiment_name = f"ELA-{ai_model}"
     for combi in feature_combinations:
         problem = ELAproblem(name=f"ELA_{'_'.join(combi)}", features=combi, eval_timeout=360)
 
@@ -210,7 +239,7 @@ if __name__ == "__main__":
                 elitism=True,
                 HPO=False,
                 budget=budget,
-                max_workers=8,
+                max_workers=4,
                 parallel_backend="threading",
             )
             print(es.run())
