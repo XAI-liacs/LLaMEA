@@ -10,7 +10,7 @@ GAME_DIR = Path(PLANETWARS_DIR) / "app" / "src" / "main" / "python"
 VENV_PY = Path(PLANETWARS_DIR) / ".venv" / "bin" / "python"
 
 
-def evaluate_tournament(solutions, logger=None, timeout=1200):
+def evaluate_tournament(solutions, logger=None, timeout=3600):
     """Evaluate a group of solutions in a Planet Wars tournament.
 
     This function expects the Planet Wars RTS environment to be available.
@@ -43,7 +43,7 @@ def evaluate_tournament(solutions, logger=None, timeout=1200):
         if result_file.exists():
             json_data = json.loads(result_file.read_text())
             for sol in solutions:
-                score = json_data.get(sol.id, [0, "No data"])
+                score = json_data.get(f"llamea.{sol.id}.{sol.name}", [0, f"No data for llamea.{sol.id}.{sol.name}"])
                 sol.set_scores(score[0], feedback=score[1])
 
     except Exception as e:
@@ -184,10 +184,10 @@ if __name__ == "__main__":
 
     es = LLaMEA(
         evaluate_tournament,
-        llm=llm2,
-        n_parents=4,
-        n_offspring=12,
-        budget=500,
+        llm=llm,
+        n_parents=3,
+        n_offspring=9,
+        budget=200,
         experiment_name="planet_wars_openended",
         role_prompt=role_prompt,
         task_prompt=task_prompt,
