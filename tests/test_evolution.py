@@ -1,7 +1,9 @@
-import pytest
 from unittest.mock import MagicMock
-from llamea import LLaMEA, Ollama_LLM
+
 import numpy as np
+import pytest
+
+from llamea import LLaMEA, Ollama_LLM
 
 
 # Helper
@@ -71,6 +73,33 @@ def test_evolutionary_process_with_errors():
     optimizer.llm.query = MagicMock(return_value=response)
     best_so_far = optimizer.run()  # Assuming run has a very simple loop for testing
     assert (
-        best_so_far.fitness == -np.Inf
+        best_so_far.fitness == -np.inf
     ), f"Fitness should be 0.0 is {best_so_far.fitness}"
     assert optimizer.generation == 10, "Generation should increment correctly"
+
+
+def test_population_evaluation_mode():
+    """Ensure evaluation function can process a population at once."""
+
+    def f_pop(population, logger=None):
+        for i, ind in enumerate(population):
+            ind.set_scores(float(i), f"feedback {i}")
+        return population
+
+    response = "# Description: Algo\n# Code:\n```python\nclass Algo:\n    pass\n```"
+
+    optimizer = LLaMEA(
+        f_pop,
+        n_parents=2,
+        n_offspring=2,
+        llm=Ollama_LLM("model"),
+        experiment_name="population mode",
+        budget=4,
+        evaluate_population=True,
+        log=False,
+    )
+    optimizer.llm.query = MagicMock(return_value=response)
+    best = optimizer.run()
+
+    assert len(optimizer.run_history) == 4
+    assert best.fitness in [0.0, 1.0]

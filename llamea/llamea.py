@@ -2,6 +2,7 @@
 This module integrates OpenAI's language models to generate and evolve
 algorithms to automatically evaluate (for example metaheuristics evaluated on BBOB).
 """
+
 import concurrent.futures
 import contextlib
 import logging
@@ -68,6 +69,7 @@ class LLaMEA:
         niche_radius: Optional[float] = None,
         adaptive_niche_radius: bool = False,
         clearing_interval: Optional[int] = None,
+        evaluate_population=False,
     ):
         """
         Initializes the LLaMEA instance with provided parameters. Note that by default LLaMEA maximizes the objective.
@@ -108,6 +110,9 @@ class LLaMEA:
                 the population each generation.
             clearing_interval (int | None): Interval (in generations) at which
                 clearing is applied when ``niching`` is set to ``"clearing"``.
+            evaluate_population (bool): If True, the evaluation function `f` should
+                accept and return a list of solutions representing a full population
+                instead of a single solution.
         """
         self.llm = llm
         self.model = llm.model
@@ -137,7 +142,7 @@ class RandomSearch:
     def __init__(self, budget=10000, dim=10):
         self.budget = budget
         self.dim = dim
-        self.f_opt = np.Inf
+        self.f_opt = np.inf
         self.x_opt = None
 
     def __call__(self, func):
@@ -193,9 +198,10 @@ Space: <configuration_space>"""
         self._random = _random
         self.HPO = HPO
         self.minimization = minimization
-        self.worst_value = -np.Inf
+        self.evaluate_population = evaluate_population
+        self.worst_value = -np.inf
         if minimization:
-            self.worst_value = np.Inf
+            self.worst_value = np.inf
         self.niching = niching
         self.distance_metric = distance_metric or code_distance
         self.niche_radius = niche_radius if niche_radius is not None else 0.5
@@ -236,7 +242,8 @@ Space: <configuration_space>"""
         try:
             new_individual = self.llm.sample_solution(session_messages, HPO=self.HPO)
             new_individual.generation = self.generation
-            new_individual = self.evaluate_fitness(new_individual)
+            if not self.evaluate_population:
+                new_individual = self.evaluate_fitness(new_individual)
         except Exception as e:
             new_individual.set_scores(
                 self.worst_value,
@@ -268,8 +275,13 @@ Space: <configuration_space>"""
             print(f"Parallel time out in initialization {e}, retrying.")
 
         for p in population_gen:
-            self.run_history.append(p)  # update the history
             population.append(p)
+
+        if self.evaluate_population:
+            population = self.evaluate_population_fitness(population)
+
+        for p in population:
+            self.run_history.append(p)
 
         self.generation += 1
         self.population = population  # Save the entire population
@@ -290,6 +302,12 @@ Space: <configuration_space>"""
             updated_individual = self.f(individual, self.logger)
 
         return updated_individual
+
+    def evaluate_population_fitness(self, population):
+        """Evaluate a full population of solutions."""
+        with contextlib.redirect_stdout(None):
+            evaluated = self.f(population, self.logger)
+        return evaluated
 
     def construct_prompt(self, individual):
         """
@@ -445,7 +463,8 @@ With code:
                 new_prompt, evolved_individual.parent_ids, HPO=self.HPO
             )
             evolved_individual.generation = self.generation
-            evolved_individual = self.evaluate_fitness(evolved_individual)
+            if not self.evaluate_population:
+                evolved_individual = self.evaluate_fitness(evolved_individual)
         except Exception as e:
             error = repr(e)
             evolved_individual.set_scores(
@@ -500,8 +519,14 @@ With code:
                 print("Parallel time out .")
 
             for p in new_population_gen:
-                self.run_history.append(p)
                 new_population.append(p)
+
+            if self.evaluate_population:
+                new_population = self.evaluate_population_fitness(new_population)
+
+            for p in new_population:
+                self.run_history.append(p)
+
             self.generation += 1
 
             if self.log:
