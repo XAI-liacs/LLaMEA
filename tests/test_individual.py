@@ -1,8 +1,11 @@
-import pytest
-import uuid
 import json
-from llamea import Solution
+import uuid
+
 import numpy as np
+import pytest
+
+from llamea import Solution
+
 
 def test_individual_initialization():
     # Test initialization of an individual
@@ -19,7 +22,7 @@ def test_individual_initialization():
     assert individual.name == "MySolution"
     assert individual.description == "This is a test solution."
     assert individual.generation == 1
-    assert individual.fitness == -np.Inf  # Default should be -Inf
+    assert individual.fitness == -np.inf  # Default should be -Inf
     assert individual.feedback == ""  # Default should be empty string
     assert individual.error == ""  # Default should be empty string
 
@@ -50,9 +53,9 @@ def test_copy_individual():
 
     # Check if new_individual is a copy and has a new unique ID
     assert new_individual.id != individual.id
-    assert (
-        new_individual.parent_ids == [individual.id]
-    )  # The parent_id of the new individual should be the original individual's ID
+    assert new_individual.parent_ids == [
+        individual.id
+    ]  # The parent_id of the new individual should be the original individual's ID
     assert new_individual.code == individual.code
     assert new_individual.name == individual.name
     assert new_individual.description == individual.description
@@ -121,7 +124,7 @@ def test_default_values():
     assert individual.name == ""
     assert individual.description == ""
     assert individual.configspace is None
-    assert individual.fitness == -np.Inf
+    assert individual.fitness == -np.inf
     assert individual.feedback == ""
     assert individual.error == ""
     assert individual.parent_ids == []
