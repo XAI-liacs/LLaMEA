@@ -38,13 +38,31 @@ def evaluate_tournament(solutions, logger=None, timeout=3600):
                 # If the result file does not exist, the agent is too slow.
                 sol.set_scores(0, feedback=f"Agent {sol.name} is too slow to run in the tournament. Please speed it up.")
                 continue
+            # (optional) verify the result actually mentions this agent
+            data = json.loads(result_file.read_text())
+            key = f"llamea.{sol.id}.{sol.name}"
+            if key not in data:
+                sol.set_scores(0, feedback=f"Agent {sol.name} failed the speed check.")
+                continue
+            else:
+                # check if the agent has a 0 score, which means there was an error loading it.
+                if data[key][0] == -1:
+                    sol.set_scores(0, feedback=data[key][1])
+                    continue
             agent_paths.append(f"llamea.{sol.id}.{sol.name}")
-        except Exception as e:
-            sol.set_scores(0, feedback=f"Agent {sol.name} is too slow to run in the tournament. Please speed it up.")
+        except subprocess.TimeoutExpired:
+            sol.set_scores(0, feedback=f"Agent {sol.name} exceeded the 15s pre-check timeout. Please speed it up.")
             continue
+        except Exception as e:
+            sol.set_scores(0, feedback=f"Agent {sol.name} failed pre-check: {e}")
+            continue
+        finally:
+            # do not let this file pollute the next iteration
+            if result_file.exists():
+                result_file.unlink()
 
     # Now run the tournament with the fast agents.
-    cmd = [str(VENV_PY), "-m", "runner_utils.fast_agent_eval", "--agent"]
+    cmd = [str(VENV_PY), "-m", "runner_utils.fast_agent_eval_2", "--agent"]
     for a in agent_paths:
         cmd += [a]
 
@@ -65,9 +83,10 @@ def evaluate_tournament(solutions, logger=None, timeout=3600):
 
     except Exception as e:
         for sol in solutions:
-            sol.set_scores(
-                0, feedback="Tournament failed or timed out with exception: " + str(e)
-            )
+            if sol.feedback == "":
+                sol.set_scores(
+                    0, feedback="Tournament failed or timed out with exception: " + str(e)
+                )
     finally:
         for p in agent_files:
             p.unlink(missing_ok=True)
