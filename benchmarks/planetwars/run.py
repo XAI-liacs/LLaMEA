@@ -362,10 +362,10 @@ if __name__ == "__main__":
     es = LLaMEA(
         evaluate_tournament,
         llm=llm2,
-        n_parents=2,
-        n_offspring=4,
-        budget= 6,
-        diff_mode=True,
+        n_parents=4,
+        n_offspring=12,
+        budget= 200,
+        diff_mode=False,
         experiment_name="planetwars",
         role_prompt=role_prompt,
         task_prompt=task_prompt,
@@ -373,7 +373,7 @@ if __name__ == "__main__":
         mutation_prompts=feedback_prompts,
         evaluate_population=True,
         elitism=False,
-        max_workers=2
+        max_workers=4
     )
 
     print(es.run())
