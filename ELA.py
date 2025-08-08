@@ -211,13 +211,14 @@ if __name__ == "__main__":
     feature_combinations = [
         ["basins_scaled", "separable_scaled"],
         ["multimodal_scaled", "structure_scaled"],
-        ["multimodal_scaled", "separable_scaled"],
-        ["multimodal_scaled", "globallocal_scaled"],
-        ["structure_scaled", "separable_scaled"],
+        #["multimodal_scaled", "separable_scaled"],
+        #["multimodal_scaled", "globallocal_scaled"],
+        #["structure_scaled", "separable_scaled"],
     ]
 
-    experiment_name = f"ELA-{ai_model}"
+    
     for combi in feature_combinations:
+        experiment_name = f"ELA-{'_'.join([f for f in combi])}"
         problem = ELAproblem(name=f"ELA_{'_'.join(combi)}", features=combi, eval_timeout=360)
 
         mutation_prompts = []
