@@ -16,7 +16,7 @@ def handle_timeout(signum, frame):
     raise TimeoutError
 
 
-def apply_unified_patch(text: str, diff: str):
+def apply_unified_diff(text: str, diff: str):
     :
     """
     Apply a unified diff to the given text using the system `patch` command.
