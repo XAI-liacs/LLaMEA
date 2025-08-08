@@ -14,7 +14,7 @@ import openai
 from ConfigSpace import ConfigurationSpace
 
 from .solution import Solution
-from .utils import NoCodeException
+from .utils import NoCodeException, apply_unified_diff
 
 
 class LLM(ABC):
@@ -48,7 +48,9 @@ class LLM(ABC):
         self.logger = logger
         self.log = self.logger != None
         self.code_pattern = (
-            code_pattern if code_pattern != None else r"```(?:python)?\n(.*?)\n```"
+            code_pattern
+            if code_pattern is not None
+            else r"```(?:python|diff)?\n(.*?)\n```"
         )
         self.name_pattern = (
             name_pattern
@@ -88,14 +90,24 @@ class LLM(ABC):
         self.logger = logger
         self.log = True
 
-    def sample_solution(self, session_messages: list, parent_ids=[], HPO=False):
-        """
-        Interacts with a language model to generate or mutate solutions based on the provided session messages.
+    def sample_solution(
+        self,
+        session_messages: list,
+        parent_ids: list | None = None,
+        HPO: bool = False,
+        base_code: str | None = None,
+        diff_mode: bool = False,
+    ):
+        """Generate or mutate a solution using the language model.
 
         Args:
-            session_messages (list): A list of dictionaries with keys 'role' and 'content' to simulate a conversation with the language model.
-            parent_ids (list, optional): The id of the parent the next sample will be generated from (if any).
-            HPO (boolean, optional): If HPO is enabled, a configuration space will also be extracted (if possible).
+            session_messages: Conversation history for the LLM.
+            parent_ids: Identifier(s) of parent solutions.
+            HPO: If ``True``, attempt to extract a configuration space.
+            base_code: Existing code to patch when ``diff_mode`` is ``True``.
+            diff_mode: When ``True``, interpret the LLM response as a unified
+                diff patch to apply to ``base_code`` rather than full source
+                code.
 
         Returns:
             tuple: A tuple containing the new algorithm code, its class name, its full descriptive name and an optional configuration space object.
@@ -104,6 +116,9 @@ class LLM(ABC):
             NoCodeException: If the language model fails to return any code.
             Exception: Captures and logs any other exceptions that occur during the interaction.
         """
+        if parent_ids is None:
+            parent_ids = []
+
         if self.log:
             self.logger.log_conversation(
                 "client", "\n".join([d["content"] for d in session_messages])
@@ -114,7 +129,14 @@ class LLM(ABC):
         if self.log:
             self.logger.log_conversation(self.model, message)
 
-        code = self.extract_algorithm_code(message)
+        code_block = self.extract_algorithm_code(message)
+        if diff_mode:
+            if base_code is None:
+                base_code = ""
+            code = apply_unified_diff(base_code, code_block)
+        else:
+            code = code_block
+
         name = re.findall(
             "class\\s*(\\w*)(?:\\(\\w*\\))?\\:",
             code,
@@ -166,8 +188,7 @@ class LLM(ABC):
         Raises:
             NoCodeException: If no code block is found within the message.
         """
-        pattern = r"```(?:python)?\n(.*?)\n```"
-        match = re.search(pattern, message, re.DOTALL | re.IGNORECASE)
+        match = re.search(self.code_pattern, message, re.DOTALL | re.IGNORECASE)
         if match:
             return match.group(1)
         else:

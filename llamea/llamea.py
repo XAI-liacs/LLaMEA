@@ -71,6 +71,7 @@ class LLaMEA:
         adaptive_niche_radius: bool = False,
         clearing_interval: Optional[int] = None,
         evaluate_population=False,
+        diff_mode: bool = False,
     ):
         """
         Initializes the LLaMEA instance with provided parameters. Note that by default LLaMEA maximizes the objective.
@@ -115,9 +116,12 @@ class LLaMEA:
             evaluate_population (bool): If True, the evaluation function `f` should
                 accept and return a list of solutions representing a full population
                 instead of a single solution.
+            diff_mode (bool): If ``True``, the LLM is asked to generate unified diff
+                patches instead of complete code when evolving solutions.
         """
         self.llm = llm
         self.model = llm.model
+        self.diff_mode = diff_mode
         self.eval_timeout = eval_timeout
         self.f = f  # evaluation function, provides an individual as output.
         self.role_prompt = role_prompt
@@ -166,7 +170,7 @@ class RandomSearch:
             self.output_format_prompt = """
 Provide the Python code and a one-line description with the main idea (without enters). Give the response in the format:
 # Description: <short-description>
-# Code: 
+# Code:
 ```python
 <code>
 ```
@@ -175,13 +179,25 @@ Provide the Python code and a one-line description with the main idea (without e
                 self.output_format_prompt = """
 Provide the Python code, a one-line description with the main idea (without enters) and the SMAC3 Configuration space to optimize the code (in Python dictionary format). Give the response in the format:
 # Description: <short-description>
-# Code: 
+# Code:
 ```python
 <code>
 ```
 Space: <configuration_space>"""
         else:
             self.output_format_prompt = output_format_prompt
+        self.diff_output_format_prompt = """
+Provide only the unified diff patch for the requested changes. Begin with
+`--- original.py` and `+++ updated.py` headers and enclose the patch in a
+markdown code block labelled as diff:
+# Description: <short-description>
+```diff
+--- original.py
++++ updated.py
+@@
+<patch>
+```
+"""
         self.mutation_prompts = mutation_prompts
         self.adaptive_mutation = adaptive_mutation
         if mutation_prompts == None:
@@ -377,7 +393,7 @@ With code:
 {feedback}
 
 {mutation_operator}
-{self.output_format_prompt}
+{self.diff_output_format_prompt if self.diff_mode else self.output_format_prompt}
 """
         session_messages = [
             {"role": "user", "content": self.role_prompt + final_prompt},
@@ -492,7 +508,11 @@ With code:
         try:
             task_prompt = evolved_individual.task_prompt
             evolved_individual = self.llm.sample_solution(
-                new_prompt, evolved_individual.parent_ids, HPO=self.HPO
+                new_prompt,
+                evolved_individual.parent_ids,
+                HPO=self.HPO,
+                base_code=individual.code,
+                diff_mode=self.diff_mode,
             )
             evolved_individual.generation = self.generation
             evolved_individual.task_prompt = task_prompt
