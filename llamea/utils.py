@@ -5,6 +5,7 @@ from typing import List
 import numpy as np
 import subprocess
 
+
 class NoCodeException(Exception):
     """Could not extract generated code."""
 
@@ -16,53 +17,9 @@ def handle_timeout(signum, frame):
     raise TimeoutError
 
 
-def apply_unified_diff(text: str, diff: str):
-    :
-    """
-    Apply a unified diff to the given text using the system `patch` command.
-
-    This delegates all parsing and application logic to the external `patch`
-    utility, which is far more robust than a hand-rolled parser. It handles
-    context mismatches, fuzz factors, and edge cases like missing EOF newlines.
-
-    ```text
-    ┌─────────────┐
-    │   INPUT     │
-    │  text:str   │──┐
-    └─────────────┘  │
-                     ▼
-               ┌───────────┐
-               │ tempfile  │  → holds original text
-               └───────────┘
-                     │
-                     ▼
-              ┌──────────────┐
-              │  patch cmd   │ ← receives unified diff on stdin
-              └──────────────┘
-                     │
-                     ▼
-               ┌───────────┐
-               │ tempfile  │ → now contains patched text
-               └───────────┘
-                     │
-                     ▼
-                patched:str
-    ```
-
-    Args:
-        text: The original text to patch.
-        diff: The unified diff (as produced by `git diff`, `difflib.unified_diff`, etc.).
-        strip: Optional `-p` value to pass to `patch` (number of path segments to strip).
-               Useful if the diff contains file paths you want ignored.
-
-    Returns:
-        The patched text as a string.
-
-    Raises:
-        subprocess.CalledProcessError: If `patch` fails and returns a nonzero exit code.
-        FileNotFoundError: If `patch` is not installed.
-    """
+def apply_unified_diff(text: str, diff: str) -> str:
     import tempfile
+
     with tempfile.NamedTemporaryFile("w+", delete=False) as tf:
         tf.write(text)
         tf.flush()
