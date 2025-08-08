@@ -1,13 +1,13 @@
+import copy
 import datetime as _dt
+import pickle
 from unittest.mock import MagicMock, patch
 
+import httpx
 import pytest
-import copy
-import pickle
 
 import llamea.llm as llm_mod  # the module that defines query
-import httpx
-from llamea import LLM, Gemini_LLM, Ollama_LLM, OpenAI_LLM, Dummy_LLM
+from llamea import LLM, Dummy_LLM, Gemini_LLM, Ollama_LLM, OpenAI_LLM
 
 
 class _DummyOpenAI:
@@ -16,12 +16,14 @@ class _DummyOpenAI:
     def __init__(self, **kwargs):
         self.kwargs = kwargs
 
+
 def _patch_openai(monkeypatch):
     """
     Helper that swaps out openai.OpenAI with _DummyOpenAI inside the
     already-imported iohblade.llm module.
     """
     monkeypatch.setattr(llm_mod.openai, "OpenAI", _DummyOpenAI)
+
 
 def test_openai_llm_getstate_strips_client(monkeypatch):
     _patch_openai(monkeypatch)
@@ -67,6 +69,7 @@ def test_openai_llm_pickle_roundtrip(monkeypatch):
     assert isinstance(revived.client, _DummyOpenAI)
     assert revived.client.kwargs["api_key"] == "sk-test"
 
+
 def test_llm_instantiation():
     # Since LLM is abstract, we'll instantiate a child class
     class DummyLLM(LLM):
@@ -99,6 +102,33 @@ def test_llm_sample_solution_good_code():
     sol = llm.sample_solution([{"role": "client", "content": "test"}])
     assert sol.name == "MyAlgo"
     assert "class MyAlgo" in sol.code
+
+
+def test_llm_sample_solution_diff_patch():
+    class DummyLLM(LLM):
+        def query(self, session: list):
+            return (
+                "# Description: Modified\n"
+                "```diff\n"
+                "--- original.py\n"
+                "+++ updated.py\n"
+                "@@ -1,2 +1,3 @@\n"
+                " class MyAlgo:\n"
+                "-    pass\n"
+                "+    def run(self):\n"
+                "+        return 42\n"
+                "```"
+            )
+
+    base = "class MyAlgo:\n    pass\n"
+    llm = DummyLLM(api_key="x", model="y")
+    sol = llm.sample_solution(
+        [{"role": "client", "content": "test"}],
+        base_code=base,
+        diff_mode=True,
+    )
+    assert "return 42" in sol.code
+    assert sol.name == "MyAlgo"
 
 
 def test_openai_llm_init():
@@ -253,8 +283,13 @@ def test_ollama_llm_gives_up(monkeypatch):
         llm.query([{"role": "u", "content": "boom"}], max_retries=1)
     slept.assert_called_once_with(10)
 
+
 def test_dummy_llm():
     llm = Dummy_LLM(model="dummy-model")
     assert llm.model == "dummy-model"
     response = llm.query([{"role": "user", "content": "test"}])
-    assert len(response) == 946, "Dummy_LLM should return a 946-character string, returned length: {}".format(len(response))
+    assert (
+        len(response) == 946
+    ), "Dummy_LLM should return a 946-character string, returned length: {}".format(
+        len(response)
+    )

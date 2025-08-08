@@ -47,6 +47,7 @@ LLaMEA couples large-language-model reasoning with an evolutionary loop to **inv
 - [News](#-news)
 - [Installation](#-installation)
 - [Quick Start](#-quick-start)
+- [Configuration](#-configuration)
 - [Examples](#-examples)
   - [Running `black-box-optimization.py`](#running-black-box-optimizationpy)
   - [Running `black-box-opt-with-HPO.py` (LLaMEA-HPO)](#running-black-box-opt-with-hpopy-llamea-hpo)
@@ -60,11 +61,14 @@ LLaMEA couples large-language-model reasoning with an evolutionary loop to **inv
 
 **LLaMEA** (Large Language Model Evolutionary Algorithm) is an innovative framework that leverages the power of large language models (LLMs) such as GPT-4 for the automated generation and refinement of metaheuristic optimization algorithms. The framework utilizes a novel approach to evolve and optimize algorithms iteratively based on performance metrics and runtime evaluations without requiring extensive prior algorithmic knowledge. This makes LLaMEA an ideal tool for both research and practical applications in fields where optimization is crucial.
 
-**Key Features:**  
+**Key Features:**
 - **Automated Algorithm Generation**: Automatically generates and refines algorithms using GPT-based or similar LLM models.
 - **Performance Evaluation**: Integrates seamlessly with the IOHexperimenter for real-time performance feedback, guiding the evolutionary process.
 - **LLaMEA-HPO**: Provides an in-the-loop hyper-parameter optimization mechanism (via SMAC) to offload numerical tuning, so that LLM queries focus on novel structural improvements.
 - **Extensible & Modular**: You can easily integrate additional models and evaluation tools.
+- **Niching for Diversity**: Fitness sharing and clearing strategies maintain a diverse set of solutions.
+- **Unified Diff Mode**: Evolve code through patch-based edits for efficient token usage.
+- **Population Evaluation Mode**: Optionally evaluate whole populations in a single call to speed up expensive fitness functions.
 
 <p align="center">
   <img src="framework.png" alt="LLaMEA framework" style="width:100%;"/>
@@ -158,6 +162,23 @@ make sure you have `uv` installed.
     best_solution, best_fitness = optimizer.run()
     print(f"Best Solution: {best_solution}, Fitness: {best_fitness}")
     ```
+
+## ⚙️ Configuration
+
+Key hyper-parameters of `LLaMEA`:
+
+| Parameter | Description |
+| --- | --- |
+| `n_parents`, `n_offspring` | Population sizes controlling selection and mutation |
+| `budget` | Number of generations to run |
+| `niching` | Diversity management strategy (`None`, `"sharing"`, `"clearing"`) with `niche_radius` and related options |
+| `evaluate_population` | If `True`, the evaluation function `f` operates on a list of solutions |
+| `diff_mode` | Requests unified diff patches instead of full code for mutations |
+| `HPO` | Enable in-the-loop hyper-parameter optimization |
+| `eval_timeout`, `max_workers`, `parallel_backend` | Control evaluation time and parallelism |
+| `adaptive_mutation`, `adaptive_prompt` | Adaptive control of mutation strength and task prompt |
+
+See the [Documentation](https://xai-liacs.github.io/LLaMEA/) for a complete description of all parameters.
 
 ---
 
