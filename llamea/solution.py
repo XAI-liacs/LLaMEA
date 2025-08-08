@@ -110,6 +110,24 @@ class Solution:
         new_solution.metadata = self.metadata.copy()  # Copy the metadata as well
         return new_solution
 
+    def empty_copy(self):
+        """
+        Returns a copy of this solution, with a new unique ID and a reference to the current solution as its parent but without other fields.
+
+        Returns:
+            Individual: A new instance of Individual with the same attributes but a different ID.
+        """
+        new_solution = Solution(
+            code="",
+            name="",
+            description="",
+            configspace=None,
+            generation=self.generation + 1,
+            parent_ids=[self.id],  # Link this solution as the parent
+            operator=self.operator,
+        )
+        return new_solution
+
     def to_dict(self):
         """
         Converts the individual to a dictionary.
