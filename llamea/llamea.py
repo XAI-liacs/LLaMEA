@@ -325,7 +325,7 @@ markdown code block labelled as diff:
 
     def evaluate_population_fitness(self, population):
         """Evaluate a full population of solutions."""
-        #with contextlib.redirect_stdout(None):
+        # with contextlib.redirect_stdout(None):
         evaluated = self.f(population, self.logger)
         return evaluated
 

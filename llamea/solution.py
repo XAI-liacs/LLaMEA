@@ -110,10 +110,9 @@ class Solution:
         new_solution.metadata = self.metadata.copy()  # Copy the metadata as well
         return new_solution
 
-
     def from_dict(data: dict):
         """
-        Creates an individual from a dictionary representation. 
+        Creates an individual from a dictionary representation.
         Args:
             data (dict): A dictionary containing the individual's attributes.
         Returns:
