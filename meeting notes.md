@@ -4,4 +4,11 @@ meeting notes.md
 - diversity
 - 5 llms, 5 runs * 2
 - 1 llm. 36 combinations, 5 runs. 500 landscapes.
-- deepseek-r1:14b, qwen3:14b, qwen2.5-coder:14b, gpt-oss:20b, gemma3:12b
+- deepseek-r1:14b -- Did not work, took too long and was lost in reasoning.
+- qwen3:14b, -- does not work, lost in reasoning, invalid code.
+- qwen2.5-coder:14b, -- Finished, good results
+- gemma3:12b, --
+- gpt-oss:20b
+- qwen2.5-coder:7b
+- devstral:24b
+- deepcoder:14b

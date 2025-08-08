@@ -92,7 +92,7 @@ class landscape:
     def __init__(dim=5):
         self.dim = dim
 
-    def test_func(self, x):
+    def f(self, x):
         return np.sum(x**2)
 ```
 """
@@ -240,7 +240,7 @@ if __name__ == "__main__":
                 elitism=True,
                 HPO=False,
                 budget=budget,
-                max_workers=4,
+                max_workers=1,
                 parallel_backend="threading",
             )
             print(es.run())
