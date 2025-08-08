@@ -1,10 +1,15 @@
 
 from __future__ import annotations
-import json
 from dataclasses import dataclass
 from typing import Any, Callable, Dict, Iterable, List, Optional, Union
 from llamea import Solution
+from pathlib import Path
+import subprocess, json, os
 
+PLANETWARS_DIR = "/home/neocortex/repos/planet-wars-rts-python"
+
+GAME_DIR = Path(PLANETWARS_DIR) / "app" / "src" / "main" / "python"
+VENV_PY = Path(PLANETWARS_DIR) / ".venv" / "bin" / "python"
 
 
 def evaluate_tournament(solutions, logger=None, timeout=7200):
