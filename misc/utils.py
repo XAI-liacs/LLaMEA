@@ -1,5 +1,11 @@
 import numpy as np
-from ioh import LogInfo, logger
+
+try:
+    from ioh import LogInfo
+    from ioh.logger import AbstractLogger
+except ImportError:
+    LogInfo = None
+    AbstractLogger = object
 
 class ThresholdReachedException(Exception):
     """The algorithm reached the lower threshold."""
@@ -38,7 +44,7 @@ def correct_aoc(ioh_function, logger, budget):
     return 1 - aoc
 
 
-class aoc_logger(logger.AbstractLogger):
+class aoc_logger(AbstractLogger):
     """aoc_logger class implementing the logging module for ioh."""
 
     def __init__(
@@ -86,7 +92,7 @@ class aoc_logger(logger.AbstractLogger):
         self.aoc = 0
 
 
-class budget_logger(logger.AbstractLogger):
+class budget_logger(AbstractLogger):
     """budget_logger class implementing the logging module for ioh."""
 
     def __init__(
