@@ -373,7 +373,7 @@ if __name__ == "__main__":
 
     feature_combinations = [
         #["basins_scaled", "separable_scaled"],
-        #["multimodal_scaled", "structure_scaled"],
+        ["multimodal_scaled", "structure_scaled"],
         #["multimodal_scaled", "separable_scaled"],
         #["multimodal_scaled", "globallocal_scaled"],
         #["structure_scaled", "separable_scaled"],
