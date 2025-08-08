@@ -1,8 +1,10 @@
 import ast
 import re
 from difflib import SequenceMatcher
-
+from typing import List
 import numpy as np
+import subprocess
+import os
 
 
 class NoCodeException(Exception):
@@ -17,49 +19,91 @@ def handle_timeout(signum, frame):
 
 
 def apply_unified_diff(text: str, diff: str) -> str:
-    """Apply a unified diff patch to ``text`` and return the modified text.
+    """
+    Apply a unified diff to the given text using the system `patch` command.
 
-    This utility parses a unified diff (as produced by ``difflib.unified_diff``)
-    and applies the described changes to the given ``text``.
+    This delegates all parsing and application logic to the external `patch`
+    utility, which is far more robust than a hand-rolled parser. It handles
+    context mismatches, fuzz factors, and edge cases like missing EOF newlines.
+
+    ```text
+    ┌─────────────┐
+    │   INPUT     │
+    │  text:str   │──┐
+    └─────────────┘  │
+                     ▼
+               ┌───────────┐
+               │ tempfile  │  → holds original text
+               └───────────┘
+                     │
+                     ▼
+              ┌──────────────┐
+              │  patch cmd   │ ← receives unified diff on stdin
+              └──────────────┘
+                     │
+                     ▼
+               ┌───────────┐
+               │ tempfile  │ → now contains patched text
+               └───────────┘
+                     │
+                     ▼
+                patched:str
+    ```
 
     Args:
-        text: The original string to patch.
-        diff: The unified diff describing the modifications.
+        text: The original text to patch.
+        diff: The unified diff (as produced by `git diff`, `difflib.unified_diff`, etc.).
+        strip: Optional `-p` value to pass to `patch` (number of path segments to strip).
+               Useful if the diff contains file paths you want ignored.
 
     Returns:
-        str: The patched text.
+        The patched text as a string.
+
+    Raises:
+        subprocess.CalledProcessError: If `patch` fails and returns a nonzero exit code.
+        FileNotFoundError: If `patch` is not installed.
     """
+    import tempfile
 
-    text_lines = text.splitlines(keepends=True)
-    result: list[str] = []
-    line_no = 0
-    diff_lines = diff.splitlines()
-    i = 0
-    hunk_re = re.compile(r"@@ -(\d+)(?:,(\d+))? \+(\d+)(?:,(\d+))? @@")
+    # check that the text ends in a newline
 
-    while i < len(diff_lines):
-        line = diff_lines[i]
-        match = hunk_re.match(line)
-        if match:
-            start = int(match.group(1)) - 1
-            result.extend(text_lines[line_no:start])
-            line_no = start
-            i += 1
-            while i < len(diff_lines) and not diff_lines[i].startswith("@@"):
-                diff_line = diff_lines[i]
-                if diff_line.startswith("+"):
-                    result.append(diff_line[1:] + "\n")
-                elif diff_line.startswith("-"):
-                    line_no += 1
-                elif diff_line.startswith(" "):
-                    result.append(text_lines[line_no])
-                    line_no += 1
-                i += 1
-        else:
-            i += 1
+    if not text.endswith("\n"):
+        text += "\n"
 
-    result.extend(text_lines[line_no:])
-    return "".join(result)
+    d = diff.lstrip()
+    if not d.startswith("--- "):
+        diff = f"--- a\n+++ a\n{diff}"
+
+    # Ensure diff ends with a newline too
+    if not diff.endswith("\n"):
+        diff += "\n"
+
+    tf = tempfile.NamedTemporaryFile("w+", delete=False)
+    try:
+        tf.write(text)
+        tf.flush()
+        path = tf.name
+    finally:
+        tf.close()  # critical: allow patch to replace the file
+
+    try:
+        proc = subprocess.run(
+            ["patch", "-u", path],
+            input=diff.encode("utf-8"),
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+        )
+        # Now read the (possibly replaced) file from disk
+        with open(path, "r", encoding="utf-8") as f:
+            newcode = f.read()
+            # finally, remove the temporary file
+    finally:
+        # Clean up even if patch failed
+        try:
+            os.unlink(path)
+        except FileNotFoundError:
+            pass
+    return newcode
 
 
 def discrete_power_law_distribution(n, beta):
