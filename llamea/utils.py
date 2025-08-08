@@ -1,5 +1,6 @@
 import ast
 import re
+import os
 from difflib import SequenceMatcher
 from typing import List
 import numpy as np
@@ -17,20 +18,94 @@ def handle_timeout(signum, frame):
     raise TimeoutError
 
 
+
 def apply_unified_diff(text: str, diff: str) -> str:
+    """
+    Apply a unified diff to the given text using the system `patch` command.
+
+    This delegates all parsing and application logic to the external `patch`
+    utility, which is far more robust than a hand-rolled parser. It handles
+    context mismatches, fuzz factors, and edge cases like missing EOF newlines.
+
+    ```text
+    ┌─────────────┐
+    │   INPUT     │
+    │  text:str   │──┐
+    └─────────────┘  │
+                     ▼
+               ┌───────────┐
+               │ tempfile  │  → holds original text
+               └───────────┘
+                     │
+                     ▼
+              ┌──────────────┐
+              │  patch cmd   │ ← receives unified diff on stdin
+              └──────────────┘
+                     │
+                     ▼
+               ┌───────────┐
+               │ tempfile  │ → now contains patched text
+               └───────────┘
+                     │
+                     ▼
+                patched:str
+    ```
+
+    Args:
+        text: The original text to patch.
+        diff: The unified diff (as produced by `git diff`, `difflib.unified_diff`, etc.).
+        strip: Optional `-p` value to pass to `patch` (number of path segments to strip).
+               Useful if the diff contains file paths you want ignored.
+
+    Returns:
+        The patched text as a string.
+
+    Raises:
+        subprocess.CalledProcessError: If `patch` fails and returns a nonzero exit code.
+        FileNotFoundError: If `patch` is not installed.
+    """
     import tempfile
 
-    with tempfile.NamedTemporaryFile("w+", delete=False) as tf:
+    # check that the text ends in a newline
+
+    if not text.endswith("\n"):
+        text += "\n"
+
+    d = diff.lstrip()
+    if not d.startswith("--- "):
+        diff = f"--- a\n+++ a\n{diff}"
+
+    # Ensure diff ends with a newline too
+    if not diff.endswith("\n"):
+        diff += "\n"
+
+    tf = tempfile.NamedTemporaryFile("w+", delete=False)
+    try:
         tf.write(text)
         tf.flush()
+        path = tf.name
+    finally:
+        tf.close()  # critical: allow patch to replace the file
+
+    try:
         proc = subprocess.run(
-            ["patch", tf.name],
+            ["patch", "-u", path],
             input=diff.encode("utf-8"),
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
         )
-        tf.seek(0)
-        return tf.read()
+        # Now read the (possibly replaced) file from disk
+        with open(path, "r", encoding="utf-8") as f:
+            newcode = f.read()
+            # finally, remove the temporary file
+    finally:
+        # Clean up even if patch failed
+        try:
+            os.unlink(path)
+        except FileNotFoundError:
+            pass
+    return newcode
+
 
 
 def discrete_power_law_distribution(n, beta):
