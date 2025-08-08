@@ -314,7 +314,7 @@ Give a novel Python class with an optimization landscape function and a short de
         for feature in self.features:
             if feature == "separable_scaled":
                 bounds = (-5.0, 5.0)
-                report = evaluate_separability(problem, dim, bounds=bounds, samples=1024)
+                report = evaluate_separability(problem, 5, bounds=bounds, samples=1024)
                 feature_results[feature] = 1 - report.percent_noncompliance
             else:
                 model = xgb.XGBClassifier(objective="binary:logistic")
@@ -373,7 +373,7 @@ if __name__ == "__main__":
 
     feature_combinations = [
         ["basins_scaled", "separable_scaled"],
-        ["multimodal_scaled", "structure_scaled"],
+        #["multimodal_scaled", "structure_scaled"],
         #["multimodal_scaled", "separable_scaled"],
         #["multimodal_scaled", "globallocal_scaled"],
         #["structure_scaled", "separable_scaled"],
@@ -403,7 +403,7 @@ if __name__ == "__main__":
                 elitism=True,
                 HPO=False,
                 budget=budget,
-                max_workers=1,
+                max_workers=8,
                 parallel_backend="threading",
             )
             print(es.run())
