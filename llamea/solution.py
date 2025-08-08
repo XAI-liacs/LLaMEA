@@ -106,6 +106,31 @@ class Solution:
         new_solution.metadata = self.metadata.copy()  # Copy the metadata as well
         return new_solution
 
+
+    def from_dict(data: dict):
+        """
+        Creates an individual from a dictionary representation. 
+        Args:
+            data (dict): A dictionary containing the individual's attributes.
+        Returns:
+            Individual: An instance of the Individual class created from the dictionary.
+        """
+        instance = Solution(
+            code=data.get("code", ""),
+            name=data.get("name", ""),
+            description=data.get("description", ""),
+            configspace=data.get("configspace", None),
+            generation=data.get("generation", 0),
+            parent_ids=data.get("parent_ids", []),
+            operator=data.get("operator", None),
+        )
+        instance.id = data.get("id", str(uuid.uuid4()))  # Ensure a unique ID
+        instance.fitness = data.get("fitness", -np.inf)
+        instance.feedback = data.get("feedback", "")
+        instance.error = data.get("error", "")
+        instance.metadata = data.get("metadata", {})
+        return instance
+
     def to_dict(self):
         """
         Converts the individual to a dictionary.
