@@ -315,7 +315,7 @@ Give a novel Python class with an optimization landscape function and a short de
             if feature == "separable_scaled":
                 bounds = (-5.0, 5.0)
                 report = evaluate_separability(problem, 5, bounds=bounds, samples=1024)
-                feature_results[feature] = 1 - report.percent_noncompliance
+                feature_results[feature] = 1 - (report.percent_noncompliance / 100.0)
             else:
                 model = xgb.XGBClassifier(objective="binary:logistic")
                 model.load_model(f"models/model_5d_{feature}.json")
@@ -372,7 +372,7 @@ if __name__ == "__main__":
     #llm = Gemini_LLM(api_key, ai_model)
 
     feature_combinations = [
-        ["basins_scaled", "separable_scaled"],
+        #["basins_scaled", "separable_scaled"],
         #["multimodal_scaled", "structure_scaled"],
         #["multimodal_scaled", "separable_scaled"],
         #["multimodal_scaled", "globallocal_scaled"],
