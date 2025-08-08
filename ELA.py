@@ -195,7 +195,7 @@ if __name__ == "__main__":
     ai_model = args.ai_model
     if args.llm == "openai":
         api_key = os.getenv("OPENAI_API_KEY")
-        llm = OpenAI_LLM(api_key, "o4-mini-2025-04-16")
+        llm = OpenAI_LLM(api_key, ai_model, temperature=1.0)
     elif args.llm == "gemini":
         api_key = os.getenv("GEMINI_API_KEY")
         llm = Gemini_LLM(api_key, ai_model)
