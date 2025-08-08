@@ -456,7 +456,7 @@ With code:
         querying the LLM, and evaluating the fitness.
         """
         new_prompt = self.construct_prompt(individual)
-        evolved_individual = individual.copy()
+        evolved_individual = individual.empty_copy()
 
         try:
             evolved_individual = self.llm.sample_solution(
