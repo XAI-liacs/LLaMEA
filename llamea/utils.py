@@ -1,10 +1,10 @@
 import ast
 import re
-import os
 from difflib import SequenceMatcher
 from typing import List
 import numpy as np
 import subprocess
+import os
 
 
 class NoCodeException(Exception):
@@ -16,7 +16,6 @@ class NoCodeException(Exception):
 def handle_timeout(signum, frame):
     """Raise a timeout exception"""
     raise TimeoutError
-
 
 
 def apply_unified_diff(text: str, diff: str) -> str:
@@ -105,7 +104,6 @@ def apply_unified_diff(text: str, diff: str) -> str:
         except FileNotFoundError:
             pass
     return newcode
-
 
 
 def discrete_power_law_distribution(n, beta):
