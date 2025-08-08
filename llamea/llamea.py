@@ -498,7 +498,7 @@ With code:
         Evolves a single solution by constructing a new prompt,
         querying the LLM, and evaluating the fitness.
         """
-        evolved_individual = individual.copy()
+        evolved_individual = individual.empty_copy()
         if self.adaptive_prompt:
             evolved_individual.task_prompt = self.optimize_task_prompt(
                 evolved_individual
