@@ -26,9 +26,24 @@ def evaluate_tournament(solutions, logger=None, timeout=3600):
     for sol in solutions:
         agent_file = tmp / f"{sol.id}.py"
         agent_file.write_text(sol.code)
-        agent_paths.append(f"llamea.{sol.id}.{sol.name}")
         agent_files.append(agent_file)
+        
+        # First we check that each agent is fast enough to run in the tournament.
+        cmd = [str(VENV_PY), "-m", "runner_utils.ultrafast_agent_eval", "--agent", f"llamea.{sol.id}.{sol.name}"]
+        try:
+            env = dict(os.environ, PYTHONPATH=str(GAME_DIR))
+            subprocess.run(cmd, cwd=GAME_DIR, env=env, check=True, timeout=15)
+            result_file = GAME_DIR / "ultrafast_agent_eval_results.json"
+            if not result_file.exists():
+                # If the result file does not exist, the agent is too slow.
+                sol.set_scores(0, feedback=f"Agent {sol.name} is too slow to run in the tournament. Please speed it up.")
+                continue
+            agent_paths.append(f"llamea.{sol.id}.{sol.name}")
+        except Exception as e:
+            sol.set_scores(0, feedback=f"Agent {sol.name} is too slow to run in the tournament. Please speed it up.")
+            continue
 
+    # Now run the tournament with the fast agents.
     cmd = [str(VENV_PY), "-m", "runner_utils.fast_agent_eval", "--agent"]
     for a in agent_paths:
         cmd += [a]
@@ -43,8 +58,10 @@ def evaluate_tournament(solutions, logger=None, timeout=3600):
         if result_file.exists():
             json_data = json.loads(result_file.read_text())
             for sol in solutions:
-                score = json_data.get(f"llamea.{sol.id}.{sol.name}", [0, f"No data for llamea.{sol.id}.{sol.name}"])
-                sol.set_scores(score[0], feedback=score[1])
+                score = json_data.get(f"llamea.{sol.id}.{sol.name}", [-1, f"No data for llamea.{sol.id}.{sol.name}"])
+                if score[0] >= 0:
+                    sol.set_scores(score[0], feedback=score[1])
+                #otherwise the agent was too slow.
 
     except Exception as e:
         for sol in solutions:
@@ -184,21 +201,22 @@ if __name__ == "__main__":
 
     ai_model = "gemini-2.0-flash" #"o4-mini-2025-04-16" #"o3-mini-2025-01-31"
     llm = Gemini_LLM(api_key, ai_model)
-    llm2 = OpenAI_LLM(openai_api_key, "o3-mini-2025-01-31", temperature=1.0)
+    llm2 = OpenAI_LLM(openai_api_key, "gpt-5-2025-08-07", temperature=1.0)
 
     es = LLaMEA(
         evaluate_tournament,
         llm=llm,
         n_parents=3,
-        n_offspring=9,
+        n_offspring=6,
         budget=200,
-        experiment_name="planet_wars_openended",
+        experiment_name="planetwars",
         role_prompt=role_prompt,
         task_prompt=task_prompt,
         example_prompt=example_prompt,
         mutation_prompts=feedback_prompts,
         evaluate_population=True,
         elitism=False,
+        max_workers=3
     )
 
     print(es.run())
