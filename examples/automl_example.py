@@ -146,6 +146,7 @@ if __name__ == "__main__":
             experiment_name=experiment_name,
             elitism=True,
             HPO=False,
-            budget=100,
+            diff_mode=True,
+            budget=5,
         )
         print(es.run())

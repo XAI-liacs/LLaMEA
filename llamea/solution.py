@@ -47,6 +47,8 @@ class Solution:
         self.metadata = {}  # Dictionary to store additional metadata
         self.operator = operator
         self.task_prompt = task_prompt
+        self.base_code = ""  # Only used in diff mode
+        self.unified_diff = ""  # Only used in diff mode
 
     def set_operator(self, operator):
         """
@@ -154,6 +156,8 @@ class Solution:
             "operator": self.operator,
             "metadata": self.metadata,
             "task_prompt": self.task_prompt,
+            "base_code": self.base_code,
+            "unified_diff": self.unified_diff,
         }
 
     def to_json(self):

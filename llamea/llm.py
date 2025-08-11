@@ -153,6 +153,9 @@ class LLM(ABC):
             code=code,
             parent_ids=parent_ids,
         )
+        if diff_mode:
+            new_individual.base_code = base_code
+            new_individual.unified_diff = code_block
 
         return new_individual
 
