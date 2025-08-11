@@ -159,7 +159,7 @@ def best_solutions_from_log(
         results.append(Solution.from_dict(ctor_kwargs))
     return results
 
-best = best_solutions_from_log("/home/neocortex/repos/LLaMEA/exp-08-08_122424-LLaMEA-gemini-2.0-flash-planetwars/log.jsonl")
+best = best_solutions_from_log("/home/neocortex/repos/LLaMEA/exp-08-08_185234-LLaMEA-gpt-5-2025-08-07-planetwars/log.jsonl")
 print(best)
 print("Evaluating large tournament...")
 solution_scores = evaluate_tournament(best)
