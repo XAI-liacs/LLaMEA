@@ -112,7 +112,7 @@ class LLaMEA:
             clearing_interval (int | None): Interval (in generations) at which
                 clearing is applied when ``niching`` is set to ``"clearing"``.
             evaluate_population (bool): If True, the evaluation function `f` should
-                accept a list with the new population and a list of parents (optionally, to deal with elitism) 
+                accept a list with the new population and a list of parents (optionally, to deal with elitism)
                 and return a list of solutions representing a full population
                 instead of a single solution. So `f` should have the signature
                 `f(population, parents=None, logger=None)`.
