@@ -333,13 +333,22 @@ markdown code block labelled as diff:
         """Use the LLM to improve the task prompt for a given individual."""
         prompt = f"""{self.role_prompt}
 You are tasked with refining the instruction that guides algorithm generation.
-Current task prompt:
+### Current task prompt:
+----
 {individual.task_prompt}
+----
 
-Feedback from the last evaluation:
+### The current algorithm generated:
+----
+{individual.code}
+----
+
+ Feedback from the evaluation on this algorithm:
+----
 {individual.feedback}
+----
 
-Provide an improved task prompt only.
+Provide an improved / rephrased / augmented task prompt only. The intent of the task prompt should stay the same.
 """
         session_messages = [{"role": "user", "content": prompt}]
         try:
@@ -498,7 +507,7 @@ With code:
         Evolves a single solution by constructing a new prompt,
         querying the LLM, and evaluating the fitness.
         """
-        evolved_individual = individual.copy()
+        evolved_individual = individual.empty_copy()
         if self.adaptive_prompt:
             evolved_individual.task_prompt = self.optimize_task_prompt(
                 evolved_individual
