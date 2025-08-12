@@ -25,8 +25,6 @@ from .utils import (
     handle_timeout,
 )
 
-# TODOs:
-# Implement diversity selection mechanisms (none, prefer short code, update population only when (distribution of) results is different, AST / code difference)
 
 logging.basicConfig(
     level=logging.INFO,
@@ -114,8 +112,10 @@ class LLaMEA:
             clearing_interval (int | None): Interval (in generations) at which
                 clearing is applied when ``niching`` is set to ``"clearing"``.
             evaluate_population (bool): If True, the evaluation function `f` should
-                accept and return a list of solutions representing a full population
-                instead of a single solution.
+                accept a list with the new population and a list of parents (optionally, to deal with elitism) 
+                and return a list of solutions representing a full population
+                instead of a single solution. So `f` should have the signature
+                `f(population, parents=None, logger=None)`.
             diff_mode (bool): If ``True``, the LLM is asked to generate unified diff
                 patches instead of complete code when evolving solutions.
         """
@@ -323,10 +323,11 @@ markdown code block labelled as diff:
 
         return updated_individual
 
-    def evaluate_population_fitness(self, population):
+    def evaluate_population_fitness(self, new_population):
         """Evaluate a full population of solutions."""
         with contextlib.redirect_stdout(None):
-            evaluated = self.f(population, self.logger)
+            # pass the new population and the parent population to the evaluation function
+            evaluated = self.f(new_population, self.population, self.logger)
         return evaluated
 
     def optimize_task_prompt(self, individual):
@@ -489,7 +490,6 @@ With code:
             list: List of new selected population.
         """
         reverse = self.minimization == False
-        # TODO filter out non-diverse solutions
         if self.elitism:
             combined_population = parents + offspring
             combined_population = self.apply_niching(combined_population)
