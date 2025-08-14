@@ -336,23 +336,23 @@ markdown code block labelled as diff:
     def optimize_task_prompt(self, individual):
         """Use the LLM to improve the task prompt for a given individual."""
         prompt = f"""{self.role_prompt}
-You are tasked with refining the instruction that guides algorithm generation.
+You are tasked with refining the instructions (task prompt) that guides an LLM to generate algorithms.
 ### Current task prompt:
 ----
 {individual.task_prompt}
 ----
 
-### The current algorithm generated:
-----
+### The current algorithm generated with that prompt:
+```python
 {individual.code}
-----
+```
 
 ### Feedback from the evaluation on this algorithm:
 ----
 {individual.feedback}
 ----
 
-Provide an improved / rephrased / augmented task prompt only. The intent of the task prompt should stay the same.
+Provide an improved or augmented task prompt only. The intent of the task prompt should stay the same and will be send to an LLM, critical information should be kept in the task prompt.
 """
         session_messages = [{"role": "user", "content": prompt}]
         try:
@@ -510,15 +510,15 @@ With code:
         Evolves a single solution by constructing a new prompt,
         querying the LLM, and evaluating the fitness.
         """
-        evolved_individual = individual.empty_copy()
+        individual_copy = individual.copy()
         if self.adaptive_prompt:
-            evolved_individual.task_prompt = self.optimize_task_prompt(
-                evolved_individual
+            individual_copy.task_prompt = self.optimize_task_prompt(
+                individual_copy
             )
-        new_prompt = self.construct_prompt(evolved_individual)
+        new_prompt = self.construct_prompt(individual_copy)
 
+        evolved_individual = individual.empty_copy()
         try:
-            task_prompt = evolved_individual.task_prompt
             evolved_individual = self.llm.sample_solution(
                 new_prompt,
                 evolved_individual.parent_ids,
@@ -527,7 +527,7 @@ With code:
                 diff_mode=self.diff_mode,
             )
             evolved_individual.generation = self.generation
-            evolved_individual.task_prompt = task_prompt
+            evolved_individual.task_prompt = individual_copy.task_prompt
             if not self.evaluate_population:
                 evolved_individual = self.evaluate_fitness(evolved_individual)
         except Exception as e:
