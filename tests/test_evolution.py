@@ -84,7 +84,7 @@ def test_population_evaluation_mode():
     def f_pop(population, parents=None, logger=None):
         for i, ind in enumerate(population):
             ind.set_scores(float(i), f"feedback {i}")
-        return population
+        return population, parents
 
     response = "# Description: Algo\n# Code:\n```python\nclass Algo:\n    pass\n```"
 

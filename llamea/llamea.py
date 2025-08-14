@@ -113,9 +113,9 @@ class LLaMEA:
                 clearing is applied when ``niching`` is set to ``"clearing"``.
             evaluate_population (bool): If True, the evaluation function `f` should
                 accept a list with the new population and a list of parents (optionally, to deal with elitism)
-                and return a list of solutions representing a full population
-                instead of a single solution. So `f` should have the signature
-                `f(population, parents=None, logger=None)`.
+                and return a list of solutions that are evaluated, also the parents may receive new fitness values and should be returned.
+                So `f` should have the signature
+                `f(population, parents=None, logger=None) -> (evaluated_offspring, evaluated_parents)`.
             diff_mode (bool): If ``True``, the LLM is asked to generate unified diff
                 patches instead of complete code when evolving solutions.
         """
@@ -327,8 +327,11 @@ markdown code block labelled as diff:
         """Evaluate a full population of solutions."""
         with contextlib.redirect_stdout(None):
             # pass the new population and the parent population to the evaluation function
-            evaluated = self.f(new_population, self.population, self.logger)
-        return evaluated
+            evaluated_offspring, evaluated_parents = self.f(
+                new_population, self.population, self.logger
+            )
+            self.population = evaluated_parents  # The parent population fitness might also be updated (this does not need to be logged)
+        return evaluated_offspring
 
     def optimize_task_prompt(self, individual):
         """Use the LLM to improve the task prompt for a given individual."""
@@ -344,7 +347,7 @@ You are tasked with refining the instruction that guides algorithm generation.
 {individual.code}
 ----
 
- Feedback from the evaluation on this algorithm:
+### Feedback from the evaluation on this algorithm:
 ----
 {individual.feedback}
 ----
