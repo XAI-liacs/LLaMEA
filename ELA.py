@@ -210,6 +210,25 @@ def test_func(x):
     return np.sum(x**2)
 
 
+def ela_distance(s1, s2):
+    """
+    Calculate the ELA distance between two solutions based on their metadata.
+    """
+    if "ela_features" not in s1.metadata or "ela_features" not in s2.metadata:
+        return 0.0  # No features to compare
+
+    features1 = s1.metadata["ela_features"]
+    features2 = s2.metadata["ela_features"]
+
+    # Replace NaN values with zeros
+    features1 = np.nan_to_num(features1, nan=0.0)
+    features2 = np.nan_to_num(features2, nan=0.0)
+
+    # Calculate the Manhattan distance between the two feature vectors
+    if len(features1) != len(features2):
+        # fallback to Euclidean distance if lengths differ
+        return np.linalg.norm(features1 - features2)
+    return np.sum(np.abs(features1 - features2))
 
 
 class ELAproblem:
@@ -372,7 +391,7 @@ if __name__ == "__main__":
     #llm = Gemini_LLM(api_key, ai_model)
 
     feature_combinations = [
-        #["basins_scaled", "separable_scaled"],
+        ["basins_scaled", "separable_scaled"],
         ["multimodal_scaled", "structure_scaled"],
         #["multimodal_scaled", "separable_scaled"],
         #["multimodal_scaled", "globallocal_scaled"],
@@ -381,7 +400,7 @@ if __name__ == "__main__":
 
     
     for combi in feature_combinations:
-        experiment_name = f"ELA-{'_'.join([f for f in combi])}"
+        experiment_name = f"ELA-{'_'.join([f for f in combi])}-sharing" #
         problem = ELAproblem(name=f"ELA_{'_'.join(combi)}", features=combi, eval_timeout=360)
 
         mutation_prompts = []
@@ -403,7 +422,11 @@ if __name__ == "__main__":
                 elitism=True,
                 HPO=False,
                 budget=budget,
-                max_workers=8,
+                max_workers=4,
                 parallel_backend="threading",
+                niching="sharing",
+                distance_metric=ela_distance,
+                niche_radius=0.5,
+                adaptive_niche_radius=True,
             )
             print(es.run())

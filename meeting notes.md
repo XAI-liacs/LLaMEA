@@ -10,5 +10,5 @@ meeting notes.md
 - gemma3:4b, -- Doesnt work well
 - gpt-oss:20b
 - qwen2.5-coder:7b
-- devstral:24b
+- devstral:24b --
 - deepcoder:14b --

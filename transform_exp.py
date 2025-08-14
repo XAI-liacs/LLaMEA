@@ -126,6 +126,7 @@ def reshape(root: Path, outdir: Path):
         if not m:
             continue
         dt = parse_dt_token(m.group("dt")) or datetime.fromtimestamp(p.stat().st_mtime, tz=timezone.utc)
+
         entries.append({
             "path": p,
             "dt": dt,
@@ -177,8 +178,13 @@ def reshape(root: Path, outdir: Path):
             seed = counter - 1
 
             # Build per-run dict for progress.json
+            problem = e["problem"]
+            extra_method = ""
+            if problem.endswith("-sharing"):
+                problem = problem.replace("-sharing", "")
+                extra_method = "-sharing"
             run_entry = {
-                "method_name": f"LLaMEA-{e['llm']}",
+                "method_name": f"LLaMEA-{e['llm']}{extra_method}",
                 "problem_name": e["problem"],
                 "seed": seed,
                 "budget": budget,
@@ -194,11 +200,11 @@ def reshape(root: Path, outdir: Path):
             # Build experimentlog.jsonl entry (structure from your sample)
             best_sol = best_solution_from_log(src_log) if src_log.exists() else None
             exp_record = {
-                "method_name": f"LLaMEA-{e['llm']}",
-                "problem_name": e["problem"].replace("_scaled", ""),
+                "method_name": f"LLaMEA-{e['llm']}{extra_method}",
+                "problem_name": problem.replace("_scaled", ""),
                 "llm_name": e["llm"],
                 "method": {
-                    "method_name": f"LLaMEA-{e['llm']}",
+                    "method_name": f"LLaMEA-{e['llm']}{extra_method}",
                     "budget": budget,
                     "kwargs": {},
                 },
