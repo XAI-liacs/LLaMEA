@@ -19,6 +19,7 @@ class Solution:
         generation=0,
         parent_ids=[],
         operator=None,
+        task_prompt="",
     ):
         """
         Initializes an individual with optional attributes.
@@ -31,6 +32,7 @@ class Solution:
             generation (int): The generation this individual belongs to.
             parent_ids (list): UUID of the parent individuals in a list.
             operator (str): Optional identifier of the LLM operation that created this individual.
+            task_prompt (str): The task prompt used to generate this solution.
         """
         self.id = str(uuid.uuid4())  # Unique ID for this individual
         self.code = code
@@ -44,6 +46,7 @@ class Solution:
         self.parent_ids = parent_ids
         self.metadata = {}  # Dictionary to store additional metadata
         self.operator = operator
+        self.task_prompt = task_prompt
 
     def set_operator(self, operator):
         """
@@ -102,6 +105,7 @@ class Solution:
             generation=self.generation + 1,
             parent_ids=[self.id],  # Link this solution as the parent
             operator=self.operator,
+            task_prompt=self.task_prompt,
         )
         new_solution.metadata = self.metadata.copy()  # Copy the metadata as well
         return new_solution
@@ -149,6 +153,7 @@ class Solution:
             "parent_ids": self.parent_ids,
             "operator": self.operator,
             "metadata": self.metadata,
+            "task_prompt": self.task_prompt,
         }
 
     def to_json(self):

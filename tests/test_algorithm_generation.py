@@ -1,6 +1,9 @@
-import pytest
 from unittest.mock import MagicMock
-from llamea import LLaMEA, Ollama_LLM
+
+import pytest
+
+from llamea import LLaMEA, Ollama_LLM, Solution
+
 
 # Helper
 class obj(object):
@@ -37,3 +40,35 @@ def test_algorithm_generation():
     assert (
         "class ExampleAlgorithm" in individual.code
     ), "Algorithm code should be extracted correctly"
+
+
+def test_evolve_solution_with_diff():
+    def f(sol, logger):
+        return sol
+
+    optimizer = LLaMEA(
+        f,
+        llm=Ollama_LLM("model"),
+        experiment_name="diff",
+        log=False,
+        diff_mode=True,
+        evaluate_population=True,
+    )
+
+    base = Solution(code="class MyAlgo:\n    pass\n", name="MyAlgo", description="d")
+    optimizer.population = [base]
+    diff_reply = (
+        "# Description: Modified\n"
+        "```diff\n"
+        "--- original.py\n"
+        "+++ updated.py\n"
+        "@@ -1,2 +1,3 @@\n"
+        " class MyAlgo:\n"
+        "-    pass\n"
+        "+    def run(self):\n"
+        "+        return 42\n"
+        "```"
+    )
+    optimizer.llm.query = MagicMock(return_value=diff_reply)
+    evolved = optimizer.evolve_solution(base)
+    assert "return 42" in evolved.code

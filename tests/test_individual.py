@@ -25,6 +25,7 @@ def test_individual_initialization():
     assert individual.fitness == -np.inf  # Default should be -Inf
     assert individual.feedback == ""  # Default should be empty string
     assert individual.error == ""  # Default should be empty string
+    assert individual.task_prompt == ""  # Default task prompt
 
 
 def test_add_metadata():
@@ -60,6 +61,7 @@ def test_copy_individual():
     assert new_individual.name == individual.name
     assert new_individual.description == individual.description
     assert new_individual.metadata == individual.metadata  # Metadata should be copied
+    assert new_individual.task_prompt == individual.task_prompt
 
 
 def test_to_dict():
@@ -81,6 +83,7 @@ def test_to_dict():
     assert individual_dict["generation"] == 1
     assert "metadata" in individual_dict
     assert individual_dict["metadata"] == {"source": "LLM-generated"}
+    assert individual_dict["task_prompt"] == ""
 
 
 def test_to_json():
@@ -105,6 +108,7 @@ def test_to_json():
     assert individual_dict["description"] == "This is a test solution."
     assert individual_dict["generation"] == 1
     assert individual_dict["metadata"] == {"source": "LLM-generated"}
+    assert individual_dict["task_prompt"] == ""
 
 
 def test_mutation():
@@ -129,3 +133,4 @@ def test_default_values():
     assert individual.error == ""
     assert individual.parent_ids == []
     assert individual.metadata == {}
+    assert individual.task_prompt == ""

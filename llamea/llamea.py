@@ -25,8 +25,6 @@ from .utils import (
     handle_timeout,
 )
 
-# TODOs:
-# Implement diversity selection mechanisms (none, prefer short code, update population only when (distribution of) results is different, AST / code difference)
 
 logging.basicConfig(
     level=logging.INFO,
@@ -57,6 +55,7 @@ class LLaMEA:
         HPO=False,
         mutation_prompts=None,
         adaptive_mutation=False,
+        adaptive_prompt=False,
         budget=100,
         eval_timeout=3600,
         max_workers=10,
@@ -70,6 +69,7 @@ class LLaMEA:
         adaptive_niche_radius: bool = False,
         clearing_interval: Optional[int] = None,
         evaluate_population=False,
+        diff_mode: bool = False,
     ):
         """
         Initializes the LLaMEA instance with provided parameters. Note that by default LLaMEA maximizes the objective.
@@ -91,6 +91,7 @@ class LLaMEA:
             mutation_prompts (list): A list of prompts to specify mutation operators to the LLM model. Each mutation, a random choice from this list is made.
             adaptive_mutation (bool): If set to True, the mutation prompt 'Change X% of the lines of code' will be used in an adaptive control setting.
                 This overwrites mutation_prompts.
+            adaptive_prompt (bool): If True, the task prompt is optimized before each mutation, allowing it to co-evolve with the individuals.
             budget (int): The number of generations to run the evolutionary algorithm.
             eval_timeout (int): The number of seconds one evaluation can maximum take (to counter infinite loops etc.). Defaults to 1 hour.
             max_workers (int): The maximum number of parallel workers to use for evaluating individuals.
@@ -111,11 +112,16 @@ class LLaMEA:
             clearing_interval (int | None): Interval (in generations) at which
                 clearing is applied when ``niching`` is set to ``"clearing"``.
             evaluate_population (bool): If True, the evaluation function `f` should
-                accept and return a list of solutions representing a full population
-                instead of a single solution.
+                accept a list with the new population and a list of parents (optionally, to deal with elitism)
+                and return a list of solutions that are evaluated, also the parents may receive new fitness values and should be returned.
+                So `f` should have the signature
+                `f(population, parents=None, logger=None) -> (evaluated_offspring, evaluated_parents)`.
+            diff_mode (bool): If ``True``, the LLM is asked to generate unified diff
+                patches instead of complete code when evolving solutions.
         """
         self.llm = llm
         self.model = llm.model
+        self.diff_mode = diff_mode
         self.eval_timeout = eval_timeout
         self.f = f  # evaluation function, provides an individual as output.
         self.role_prompt = role_prompt
@@ -164,7 +170,7 @@ class RandomSearch:
             self.output_format_prompt = """
 Provide the Python code and a one-line description with the main idea (without enters). Give the response in the format:
 # Description: <short-description>
-# Code: 
+# Code:
 ```python
 <code>
 ```
@@ -173,13 +179,25 @@ Provide the Python code and a one-line description with the main idea (without e
                 self.output_format_prompt = """
 Provide the Python code, a one-line description with the main idea (without enters) and the SMAC3 Configuration space to optimize the code (in Python dictionary format). Give the response in the format:
 # Description: <short-description>
-# Code: 
+# Code:
 ```python
 <code>
 ```
 Space: <configuration_space>"""
         else:
             self.output_format_prompt = output_format_prompt
+        self.diff_output_format_prompt = """
+Provide only the unified diff patch for the requested changes. Begin with
+`--- original.py` and `+++ updated.py` headers and enclose the patch in a
+markdown code block labelled as diff:
+# Description: <short-description>
+```diff
+--- original.py
++++ updated.py
+@@
+<patch>
+```
+"""
         self.mutation_prompts = mutation_prompts
         self.adaptive_mutation = adaptive_mutation
         if mutation_prompts == None:
@@ -199,6 +217,7 @@ Space: <configuration_space>"""
         self.HPO = HPO
         self.minimization = minimization
         self.evaluate_population = evaluate_population
+        self.adaptive_prompt = adaptive_prompt
         self.worst_value = -np.inf
         if minimization:
             self.worst_value = np.inf
@@ -242,6 +261,7 @@ Space: <configuration_space>"""
         try:
             new_individual = self.llm.sample_solution(session_messages, HPO=self.HPO)
             new_individual.generation = self.generation
+            new_individual.task_prompt = self.task_prompt
             if not self.evaluate_population:
                 new_individual = self.evaluate_fitness(new_individual)
         except Exception as e:
@@ -303,11 +323,44 @@ Space: <configuration_space>"""
 
         return updated_individual
 
-    def evaluate_population_fitness(self, population):
+    def evaluate_population_fitness(self, new_population):
         """Evaluate a full population of solutions."""
         with contextlib.redirect_stdout(None):
-            evaluated = self.f(population, self.logger)
-        return evaluated
+            # pass the new population and the parent population to the evaluation function
+            evaluated_offspring, evaluated_parents = self.f(
+                new_population, self.population, self.logger
+            )
+            self.population = evaluated_parents  # The parent population fitness might also be updated (this does not need to be logged)
+        return evaluated_offspring
+
+    def optimize_task_prompt(self, individual):
+        """Use the LLM to improve the task prompt for a given individual."""
+        prompt = f"""{self.role_prompt}
+You are tasked with refining the instruction that guides algorithm generation.
+### Current task prompt:
+----
+{individual.task_prompt}
+----
+
+### The current algorithm generated:
+----
+{individual.code}
+----
+
+### Feedback from the evaluation on this algorithm:
+----
+{individual.feedback}
+----
+
+Provide an improved / rephrased / augmented task prompt only. The intent of the task prompt should stay the same.
+"""
+        session_messages = [{"role": "user", "content": prompt}]
+        try:
+            new_prompt = self.llm.query(session_messages)
+            return new_prompt.strip()
+        except Exception as e:
+            self.logevent(f"Prompt optimization failed: {e}")
+            return individual.task_prompt
 
     def construct_prompt(self, individual):
         """
@@ -337,7 +390,10 @@ This changing rate {(prob*100):.1f}% is a mandatory requirement, you cannot chan
         mutation_operator = random.choice(self.mutation_prompts)
         individual.set_operator(mutation_operator)
 
-        final_prompt = f"""{self.task_prompt}
+        task_prompt = (
+            individual.task_prompt if self.adaptive_prompt else self.task_prompt
+        )
+        final_prompt = f"""{task_prompt}
 The current population of algorithms already evaluated (name, description, score) is:
 {population_summary}
 
@@ -350,7 +406,7 @@ With code:
 {feedback}
 
 {mutation_operator}
-{self.output_format_prompt}
+{self.diff_output_format_prompt if self.diff_mode else self.output_format_prompt}
 """
         session_messages = [
             {"role": "user", "content": self.role_prompt + final_prompt},
@@ -437,7 +493,6 @@ With code:
             list: List of new selected population.
         """
         reverse = self.minimization == False
-        # TODO filter out non-diverse solutions
         if self.elitism:
             combined_population = parents + offspring
             combined_population = self.apply_niching(combined_population)
@@ -455,14 +510,24 @@ With code:
         Evolves a single solution by constructing a new prompt,
         querying the LLM, and evaluating the fitness.
         """
-        new_prompt = self.construct_prompt(individual)
         evolved_individual = individual.empty_copy()
+        if self.adaptive_prompt:
+            evolved_individual.task_prompt = self.optimize_task_prompt(
+                evolved_individual
+            )
+        new_prompt = self.construct_prompt(evolved_individual)
 
         try:
+            task_prompt = evolved_individual.task_prompt
             evolved_individual = self.llm.sample_solution(
-                new_prompt, evolved_individual.parent_ids, HPO=self.HPO
+                new_prompt,
+                evolved_individual.parent_ids,
+                HPO=self.HPO,
+                base_code=individual.code,
+                diff_mode=self.diff_mode,
             )
             evolved_individual.generation = self.generation
+            evolved_individual.task_prompt = task_prompt
             if not self.evaluate_population:
                 evolved_individual = self.evaluate_fitness(evolved_individual)
         except Exception as e:
