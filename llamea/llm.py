@@ -1,9 +1,11 @@
 """
 LLM modules to connect to different LLM providers. Also extracts code, name and description.
 """
+
 import copy
 import logging
 import pickle
+import random
 import re
 import time
 from abc import ABC, abstractmethod
@@ -486,3 +488,30 @@ class RandomSearch:
 ```
 """
         return response
+
+
+class Multi_LLM(LLM):
+    """Combine multiple LLM instances and randomly choose one per call."""
+
+    def __init__(self, llms: list[LLM]):
+        if not llms:
+            raise ValueError("llms must contain at least one LLM instance")
+        super().__init__("", "")
+        self.llms = llms
+
+    def _pick_llm(self) -> LLM:
+        return random.choice(self.llms)
+
+    def set_logger(self, logger):
+        self.logger = logger
+        self.log = True
+        for llm in self.llms:
+            llm.set_logger(logger)
+
+    def query(self, session_messages: list):
+        llm = self._pick_llm()
+        return llm.query(session_messages)
+
+    def sample_solution(self, *args, **kwargs):
+        llm = self._pick_llm()
+        return llm.sample_solution(*args, **kwargs)
