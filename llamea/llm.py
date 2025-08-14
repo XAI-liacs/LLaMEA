@@ -1,9 +1,11 @@
 """
 LLM modules to connect to different LLM providers. Also extracts code, name and description.
 """
+
 import copy
 import logging
 import pickle
+import random
 import re
 import time
 from abc import ABC, abstractmethod
@@ -423,6 +425,42 @@ class Ollama_LLM(LLM):
                 if attempt > max_retries:
                     raise
                 time.sleep(default_delay * attempt)
+
+
+class Multi_LLM(LLM):
+    def __init__(self, llms: list[LLM]):
+        """
+        Combine multiple LLM instances and randomly choose one per call.
+
+        Args:
+            llms (list[LLM]): A list of LLM instances to combine.
+        """
+        if not llms:
+            raise ValueError("llms must contain at least one LLM instance")
+        model = "multi-llm with [" + ", ".join([llm.model for llm in llms]) + "]"
+        super().__init__("", model)
+        self.llms = llms
+
+    def _pick_llm(self) -> LLM:
+        """
+        Randomly selects one of the LLMs from the list.
+        This method is used to alternate between LLMs during evolution.
+        """
+        return random.choice(self.llms)
+
+    def set_logger(self, logger):
+        self.logger = logger
+        self.log = True
+        for llm in self.llms:
+            llm.set_logger(logger)
+
+    def query(self, session_messages: list):
+        llm = self._pick_llm()
+        return llm.query(session_messages)
+
+    def sample_solution(self, *args, **kwargs):
+        llm = self._pick_llm()
+        return llm.sample_solution(*args, **kwargs)
 
 
 class Dummy_LLM(LLM):
