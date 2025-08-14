@@ -510,15 +510,13 @@ With code:
         Evolves a single solution by constructing a new prompt,
         querying the LLM, and evaluating the fitness.
         """
-        evolved_individual = individual.empty_copy()
+        individual_copy = individual.copy()
         if self.adaptive_prompt:
-            evolved_individual.task_prompt = self.optimize_task_prompt(
-                evolved_individual
-            )
-        new_prompt = self.construct_prompt(evolved_individual)
+            individual_copy.task_prompt = self.optimize_task_prompt(individual_copy)
+        new_prompt = self.construct_prompt(individual_copy)
 
+        evolved_individual = individual.empty_copy()
         try:
-            task_prompt = evolved_individual.task_prompt
             evolved_individual = self.llm.sample_solution(
                 new_prompt,
                 evolved_individual.parent_ids,
@@ -527,7 +525,7 @@ With code:
                 diff_mode=self.diff_mode,
             )
             evolved_individual.generation = self.generation
-            evolved_individual.task_prompt = task_prompt
+            evolved_individual.task_prompt = individual_copy.task_prompt
             if not self.evaluate_population:
                 evolved_individual = self.evaluate_fitness(evolved_individual)
         except Exception as e:
