@@ -24,6 +24,7 @@ import xgboost as xgb
 from pflacco.classical_ela_features import *
 from pflacco.sampling import create_initial_sample
 import pandas as pd
+import joblib
 
 from dataclasses import dataclass
 import json
@@ -224,6 +225,13 @@ def ela_distance(s1, s2):
     features1 = np.nan_to_num(features1, nan=0.0)
     features2 = np.nan_to_num(features2, nan=0.0)
 
+    try:
+        scaler = joblib.load(f"ela_scaler.joblib")
+        features1 = scaler.transform(features1)
+        features2 = scaler.transform(features2)
+    except:
+        pass
+
     # Calculate the Manhattan distance between the two feature vectors
     if len(features1) != len(features2):
         # fallback to Euclidean distance if lengths differ
@@ -372,6 +380,11 @@ if __name__ == "__main__":
         default="gemma3:12b",
         help="Select the AI model to use for code generation.",
     )
+    parser.add_argument(
+        "--share",
+        action="store_true",
+        help="Enable the sharing feature."
+    )
     
     args = parser.parse_args()
     ai_model = args.ai_model
@@ -400,13 +413,19 @@ if __name__ == "__main__":
 
     
     for combi in feature_combinations:
-        experiment_name = f"ELA-{'_'.join([f for f in combi])}-sharing" #
+        niching=None
+        experiment_name = f"ELA-{'_'.join([f for f in combi])}"
+        if args.share:
+            niching="sharing"
+            experiment_name = f"ELA-{'_'.join([f for f in combi])}-sharing"
         problem = ELAproblem(name=f"ELA_{'_'.join(combi)}", features=combi, eval_timeout=360)
 
         mutation_prompts = []
         for feature in problem.features:
             mutation_prompts.append(f"Create a new landscape class based on the selected code and improve the {feature} score, meaning: {problem.feature_descriptions[feature]}.")
         mutation_prompts.append("Create a new landscape class that is completely different from the selected solution but still adheres to the properties outlined in the task description.")
+
+        
 
         for experiment_i in [1,2,3,4,5]:
             es = LLaMEA(
@@ -424,7 +443,7 @@ if __name__ == "__main__":
                 budget=budget,
                 max_workers=4,
                 parallel_backend="threading",
-                niching="sharing",
+                niching=niching,
                 distance_metric=ela_distance,
                 niche_radius=0.5,
                 adaptive_niche_radius=True,
