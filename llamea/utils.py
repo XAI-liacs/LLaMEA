@@ -1,7 +1,7 @@
 import ast
 import re
 from difflib import SequenceMatcher
-from typing import List
+from typing import List, Tuple
 import numpy as np
 import subprocess
 import os
@@ -18,92 +18,199 @@ def handle_timeout(signum, frame):
     raise TimeoutError
 
 
-def apply_unified_diff(text: str, diff: str) -> str:
-    """
-    Apply a unified diff to the given text using the system `patch` command.
+_HUNK_HDR = re.compile(r"^@@ -(\d+)(?:,(\d+))? \+(\d+)(?:,(\d+))? @@.*$")
 
-    This delegates all parsing and application logic to the external `patch`
-    utility, which is far more robust than a hand-rolled parser. It handles
-    context mismatches, fuzz factors, and edge cases like missing EOF newlines.
 
-    ```text
-    ┌─────────────┐
-    │   INPUT     │
-    │  text:str   │──┐
-    └─────────────┘  │
-                     ▼
-               ┌───────────┐
-               │ tempfile  │  → holds original text
-               └───────────┘
-                     │
-                     ▼
-              ┌──────────────┐
-              │  patch cmd   │ ← receives unified diff on stdin
-              └──────────────┘
-                     │
-                     ▼
-               ┌───────────┐
-               │ tempfile  │ → now contains patched text
-               └───────────┘
-                     │
-                     ▼
-                patched:str
-    ```
+def _norm(s: str) -> str:
+    s = s.replace("\r\n", "\n").replace("\r", "\n").lstrip("\ufeff")
+    if not s.endswith("\n"):
+        s += "\n"
+    return s
 
-    Args:
-        text: The original text to patch.
-        diff: The unified diff (as produced by `git diff`, `difflib.unified_diff`, etc.).
-        strip: Optional `-p` value to pass to `patch` (number of path segments to strip).
-               Useful if the diff contains file paths you want ignored.
 
-    Returns:
-        The patched text as a string.
+def _split_lines(s: str) -> List[str]:
+    # keepends=True so we preserve exact text
+    return s.splitlines(keepends=True)
 
-    Raises:
-        subprocess.CalledProcessError: If `patch` fails and returns a nonzero exit code.
-        FileNotFoundError: If `patch` is not installed.
-    """
-    import tempfile
 
-    # check that the text ends in a newline
+def _parse_hunks(diff: str) -> List[List[str]]:
+    """Return a list of hunk payloads (each is list of lines including markers)."""
+    diff = _norm(diff)
+    lines = diff.splitlines(keepends=True)
 
-    if not text.endswith("\n"):
-        text += "\n"
+    hunks: List[List[str]] = []
+    i = 0
+    while i < len(lines):
+        line = lines[i]
+        if line.startswith("@@ "):
+            # capture header
+            m = _HUNK_HDR.match(line[0:-1] if line.endswith("\n") else line)
+            if not m:
+                # tolerant: still treat as header
+                pass
+            i += 1
+            payload: List[str] = [line]  # include header at index 0
+            # collect payload lines that *look* like unified diff content
+            while i < len(lines):
+                l = lines[i]
+                if (
+                    l.startswith("@@ ")
+                    or l.startswith("--- ")
+                    or l.startswith("diff --git ")
+                    or l.startswith("Index: ")
+                ):
+                    break
+                # if a payload line is unmarked, treat it as context
+                if l and l[0] not in (" ", "+", "-", "\\"):
+                    l = " " + l
+                payload.append(l)
+                i += 1
+            hunks.append(payload)
+        else:
+            i += 1
+    return hunks
 
-    d = diff.lstrip()
-    if not d.startswith("--- "):
-        diff = f"--- a\n+++ a\n{diff}"
 
-    # Ensure diff ends with a newline too
-    if not diff.endswith("\n"):
-        diff += "\n"
-
-    tf = tempfile.NamedTemporaryFile("w+", delete=False)
-    try:
-        tf.write(text)
-        tf.flush()
-        path = tf.name
-    finally:
-        tf.close()  # critical: allow patch to replace the file
-
-    try:
-        proc = subprocess.run(
-            ["patch", "-u", path],
-            input=diff.encode("utf-8"),
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-        )
-        # Now read the (possibly replaced) file from disk
-        with open(path, "r", encoding="utf-8") as f:
-            newcode = f.read()
-            # finally, remove the temporary file
-    finally:
-        # Clean up even if patch failed
-        try:
-            os.unlink(path)
-        except FileNotFoundError:
+def _old_new_from_hunk(payload: List[str]) -> Tuple[List[str], List[str]]:
+    """Given a hunk payload (header + lines), produce old_seq and new_seq (lists of raw text lines)."""
+    old_seq: List[str] = []
+    new_seq: List[str] = []
+    # skip header at payload[0]
+    for l in payload[1:]:
+        if not l:  # shouldn't happen
+            continue
+        tag = l[0]
+        body = l[1:]
+        if tag == " ":
+            old_seq.append(body)
+            new_seq.append(body)
+        elif tag == "-":
+            old_seq.append(body)
+        elif tag == "+":
+            new_seq.append(body)
+        elif tag == "\\":  # "\ No newline at end of file" – ignore for content
             pass
-    return newcode
+        else:
+            # unmarked -> treat as context
+            old_seq.append(l)
+            new_seq.append(l)
+    return old_seq, new_seq
+
+
+def _leading_trailing_context_mask(
+    old_pairs: List[Tuple[str, bool]]
+) -> Tuple[int, int]:
+    """Return counts of leading and trailing context-only lines in old_pairs."""
+    lead = 0
+    for t, required in old_pairs:
+        if required:
+            break
+        lead += 1
+    trail = 0
+    for t, required in reversed(old_pairs):
+        if required:
+            break
+        trail += 1
+    return lead, trail
+
+
+def _find_with_fuzz(
+    text_lines: List[str], old_seq: List[str], ctx_flags: List[bool], max_fuzz: int
+) -> int:
+    """
+    Find the start index where old_seq occurs in text_lines.
+    ctx_flags[i] == False for context lines (originating from ' '), True for required lines (originating from '-').
+    Fuzz allows dropping up to max_fuzz context lines from the *start and/or end* when locating the block.
+    Returns the *start index for the full, non-dropped old_seq* slice if found, else -1.
+    """
+    n = len(old_seq)
+    if n == 0:
+        return 0
+
+    # exact match first
+    for i in range(0, len(text_lines) - n + 1):
+        if text_lines[i : i + n] == old_seq:
+            return i
+
+    # prepare to drop context lines at the edges only
+    lead_ctx, trail_ctx = _leading_trailing_context_mask(list(zip(old_seq, ctx_flags)))
+    max_lead_drop = min(max_fuzz, lead_ctx)
+    max_trail_drop = min(max_fuzz, trail_ctx)
+
+    for d_lead in range(0, max_lead_drop + 1):
+        for d_trail in range(0, max_trail_drop + 1):
+            if d_lead == 0 and d_trail == 0:
+                continue
+            sub = old_seq[d_lead : n - d_trail]
+            if not sub:
+                continue
+            m = len(sub)
+            for i in range(0, len(text_lines) - m + 1):
+                if text_lines[i : i + m] == sub:
+                    start = i - d_lead
+                    if start < 0:
+                        continue
+                    end = start + n
+                    if end > len(text_lines):
+                        continue
+                    # we accept mismatches only on the dropped context edges;
+                    # the interior must match exactly
+                    if text_lines[start + d_lead : end - d_trail] == sub:
+                        return start
+    return -1
+
+
+def apply_unified_diff(text: str, diff: str, max_fuzz: int = 5) -> str:
+    """
+    Pure-Python unified-diff applier.
+    - Ignores file headers; applies hunks by content.
+    - Fuzz: allows dropping up to `max_fuzz` *leading/trailing context* lines to find a match.
+    - Raises ValueError if a hunk can't be placed.
+    """
+    text = _norm(text)
+    lines = _split_lines(text)
+
+    hunks = _parse_hunks(diff)
+    if not hunks:
+        raise ValueError("No @@ hunks found in diff.")
+
+    for idx, payload in enumerate(hunks, 1):
+        old_seq, new_seq = _old_new_from_hunk(payload)
+        # mark which old_seq lines were required (came from '-') vs context
+        ctx_flags: List[bool] = []
+        for l in payload[1:]:
+            if not l:
+                continue
+            tag = l[0]
+            if tag == " ":
+                ctx_flags.append(False)
+            elif tag == "-":
+                ctx_flags.append(True)
+            elif tag == "+":
+                # additions do not appear in old_seq; skip for ctx_flags
+                continue
+            elif tag == "\\":
+                continue
+            else:
+                ctx_flags.append(False)
+        if len(ctx_flags) != len(old_seq):
+            # Should not happen; make all required to be safe
+            ctx_flags = [True] * len(old_seq)
+
+        pos = _find_with_fuzz(lines, old_seq, ctx_flags, max_fuzz=max_fuzz)
+        if pos < 0:
+            # compact debug context
+            want_preview = "".join(old_seq[:5])
+            print(
+                f"Could not place hunk #{idx} (len old={len(old_seq)} new={len(new_seq)}). "
+                f"Try increasing max_fuzz. Preview of expected start:\n{want_preview}"
+            )
+            return text
+
+        # apply replacement
+        lines[pos : pos + len(old_seq)] = new_seq
+
+    return "".join(lines)
 
 
 def discrete_power_law_distribution(n, beta):
