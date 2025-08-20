@@ -11,11 +11,14 @@ import random
 import re
 import traceback
 from typing import Callable, Optional
+import types, inspect
+import json
 
 import numpy as np
 from ConfigSpace import ConfigurationSpace
 from joblib import Parallel, delayed
 
+from .llm import LLM
 from .loggers import ExperimentLogger
 from .solution import Solution
 from .utils import (
@@ -154,12 +157,12 @@ class RandomSearch:
     def __call__(self, func):
         for i in range(self.budget):
             x = np.random.uniform(func.bounds.lb, func.bounds.ub)
-            
+
             f = func(x)
             if f < self.f_opt:
                 self.f_opt = f
                 self.x_opt = x
-            
+
         return self.f_opt, self.x_opt
 ```
 """
@@ -380,9 +383,9 @@ Provide an improved / rephrased / augmented task prompt only. The intent of the 
         if self.adaptive_mutation == True:
             num_lines = len(solution.split("\n"))
             prob = discrete_power_law_distribution(num_lines, 1.5)
-            new_mutation_prompt = f"""Refine the strategy of the selected solution to improve it. 
-Make sure you only change {(prob*100):.1f}% of the code, which means if the code has 100 lines, you can only change {prob*100} lines, and the rest of the lines should remain unchanged. 
-This input code has {num_lines} lines, so you can only change {max(1, int(prob*num_lines))} lines, the rest {num_lines-max(1, int(prob*num_lines))} lines should remain unchanged. 
+            new_mutation_prompt = f"""Refine the strategy of the selected solution to improve it.
+Make sure you only change {(prob*100):.1f}% of the code, which means if the code has 100 lines, you can only change {prob*100} lines, and the rest of the lines should remain unchanged.
+This input code has {num_lines} lines, so you can only change {max(1, int(prob*num_lines))} lines, the rest {num_lines-max(1, int(prob*num_lines))} lines should remain unchanged.
 This changing rate {(prob*100):.1f}% is a mandatory requirement, you cannot change more or less than this rate.
 """
             self.mutation_prompts = [new_mutation_prompt]
@@ -603,3 +606,32 @@ With code:
             )
 
         return self.best_so_far
+
+    def to_json(self):
+        """
+        Logs the state of a give class, i.e. all of it's members into json file, for future warm starting.
+
+        Args:
+                object (An instance of any class): Object that needs to be logged, for warm start.
+        """
+
+        # Serialise data.
+        object_members = {}
+        for member, value in vars(self).items():
+            if isinstance(value, types.FunctionType):
+                object_members[member+"::func"] = inspect.getsource(value)
+            elif isinstance(value, Solution):
+                object_members[member+"::Solution"] = value.to_serialisable_dict()
+            elif isinstance(value, ExperimentLogger):
+                object_members[member+"::ExperimentLogger"] = value.to_serialisable_dict()
+            elif isinstance(value, logging.Logger):
+                object_members[member+"::loggerName"] = value.name
+            elif isinstance(value, LLM):
+                object_members[member+"::LLM"] = value.to_serialisable_dict()
+            else:
+                object_members[member] = value
+
+        #Save configuration to exp-mm-dd_time-LLaMEA-{agent}/llamea_config.json for warm start.
+        data = json.dumps(object_members)
+        with open(f"{self.logger.dirname}/llamea_config.json", "w") as file:
+            file.write(data)

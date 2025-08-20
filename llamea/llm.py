@@ -5,6 +5,7 @@ LLM modules to connect to different LLM providers. Also extracts code, name and 
 import copy
 import logging
 import pickle
+import json
 import random
 import re
 import time
@@ -16,6 +17,7 @@ import openai
 from ConfigSpace import ConfigurationSpace
 
 from .solution import Solution
+from .loggers import ExperimentLogger
 from .utils import NoCodeException, apply_unified_diff
 
 
@@ -212,6 +214,28 @@ class LLM(ABC):
             return match.group(1)
         else:
             return ""
+
+    def to_serialisable_dict(self):
+        """
+        Generate a json object for implementing warm start.
+
+        Args:
+            None.
+
+        Returns:
+            json object with of all the variables.
+        """
+        properties = {}
+        # get all attributes from instance
+
+        for member, value in self.__dict__.items():
+            # check if this member is defined in Base, not only in Child
+            if isinstance(value, ExperimentLogger):
+                properties[member+"::ExperimentLogger"] = value.to_serialisable_dict()
+            else:
+                properties[member] = value
+        properties.pop('client')
+        return properties
 
 
 class OpenAI_LLM(LLM):
@@ -491,7 +515,7 @@ class Dummy_LLM(LLM):
         for msg in session_messages:
             big_message += msg["content"] + "\n"
         response = """This is a dummy response from the DUMMY LLM. It does not connect to any LLM provider.
-It is used for testing purposes only. 
+It is used for testing purposes only.
 # Description: A simple random search algorithm that samples points uniformly in the search space and returns the best found solution.
 # Code:
 ```python
@@ -507,12 +531,12 @@ class RandomSearch:
     def __call__(self, func):
         for i in range(self.budget):
             x = np.random.uniform(func.bounds.lb, func.bounds.ub)
-            
+
             f = func(x)
             if f < self.f_opt:
                 self.f_opt = f
                 self.x_opt = x
-            
+
         return self.f_opt, self.x_opt
 ```
 # Configuration Space:

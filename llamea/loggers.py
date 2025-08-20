@@ -2,6 +2,7 @@ import os
 from datetime import datetime
 
 import jsonlines
+import json
 import numpy as np
 from ConfigSpace.read_and_write import json as cs_json
 
@@ -121,3 +122,15 @@ class ExperimentLogger:
             else:
                 file.write("Failed to extract config space")
         self.attempt = attempt
+
+    def to_serialisable_dict(self):
+        """
+        Generates json of current instance, used for warm starting as ExperimentLogger is used in LLaMEA.
+
+        Args:
+            None.
+        """
+        properties = {}
+        for member, value in vars(self).items():
+            properties[member] = convert_to_serializable(value)
+        return properties
