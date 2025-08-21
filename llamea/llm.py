@@ -215,29 +215,6 @@ class LLM(ABC):
         else:
             return ""
 
-    def to_serialisable_dict(self):
-        """
-        Generate a json object for implementing warm start.
-
-        Args:
-            None.
-
-        Returns:
-            json object with of all the variables.
-        """
-        properties = {}
-        # get all attributes from instance
-
-        for member, value in self.__dict__.items():
-            # check if this member is defined in Base, not only in Child
-            if isinstance(value, ExperimentLogger):
-                properties[member+"::ExperimentLogger"] = value.to_serialisable_dict()
-            else:
-                properties[member] = value
-        properties.pop('client')
-        return properties
-
-
 class OpenAI_LLM(LLM):
     """
     A manager class for handling requests to OpenAI's GPT models.

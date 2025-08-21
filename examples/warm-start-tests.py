@@ -1,8 +1,6 @@
-# This is a minimal example of how to use the LLaMEA algorithm with the Gemini LLM to generate optimization algorithms for the BBOB test suite.
-# We have to define the following components for LLaMEA to work:
-# - An evaluation function that executes the generated code and evaluates its performance.
-# - A task prompt that describes the problem to be solved.
-# - An LLM instance that will generate the code based on the task prompt.
+# This is a test for warm start, that tests both the functionalities of warm-starting:
+#   Warm starting from Pickled file.
+#   Cold starting new instance, and running with latest individual from specified run in archive_path.
 
 import os
 import re
@@ -89,4 +87,28 @@ if __name__ == "__main__":
             budget=100,
         )
 
-print(es.to_json())
+
+    """Declare path to warm start from here, update when necessary"""
+
+    path_to_archive = os.getcwd() + "/exp-08-21_110139-LLaMEA-gemini-1.5-flash-pop1-5"
+    print(f"Dir name = {path_to_archive}")
+
+
+
+    print(es.__dict__)
+    print("----------------------------------------------------")
+    """Simple run first."""
+    es.run()
+
+
+    es.run(path_to_archive)
+    """
+    ^C to exit, after a while, to test warm start, using,
+    then comment `es` initialisation, and `run`, and use `LLaMEA.warm_start` below.
+    Use es2.run for executing run after warm start.
+    """
+
+    es2 = LLaMEA.warm_start(path_to_archive)
+    print(es2.__dict__)
+
+    es2.run()

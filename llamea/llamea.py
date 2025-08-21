@@ -11,8 +11,8 @@ import random
 import re
 import traceback
 from typing import Callable, Optional
-import types, inspect
-import json
+import pickle
+import jsonlines
 
 import numpy as np
 from ConfigSpace import ConfigurationSpace
@@ -243,6 +243,23 @@ markdown code block labelled as diff:
         if max_workers > self.n_offspring:
             max_workers = self.n_offspring
         self.max_workers = max_workers
+        self.pickle_archieve()
+
+    @classmethod
+    def warm_start(cls, path_to_archive_dir):
+        """
+        Class method for warm starts, takes a archive directory, and finds pickle archieve stored at path_to_archieve_dir/llamea_config.pkl,
+        generates the object from it, and return it for warm start.
+        Args:
+            path_to_archive_dir: Directory of instance for which warm start needs to be executed.
+        """
+        try:
+            with open(f"{path_to_archive_dir}/llamea_config.pkl", "rb") as file:
+                obj = pickle.load(file)
+            return obj
+        except Exception as e:
+            print("Error unarchiving object", e.__repr__())
+            return 1
 
     def logevent(self, event):
         self.textlog.info(event)
@@ -284,7 +301,7 @@ markdown code block labelled as diff:
         Initializes the evolutionary process by generating the first parent population.
         """
 
-        population = []
+        population = self.population
         population_gen = []
         try:
             timeout = self.eval_timeout
@@ -293,7 +310,7 @@ markdown code block labelled as diff:
                 backend=self.parallel_backend,
                 timeout=timeout + 15,
                 return_as="generator_unordered",
-            )(delayed(self.initialize_single)() for _ in range(self.n_parents))
+            )(delayed(self.initialize_single)() for _ in range(len(self.population) - self.n_parents))
         except Exception as e:
             print(f"Parallel time out in initialization {e}, retrying.")
 
@@ -543,19 +560,65 @@ With code:
         # self.progress_bar.update(1)
         return evolved_individual
 
-    def run(self):
+    def get_population_from(self, archive_path):
+        """
+        Finds population log in archive_path/log.jsonl and loads it to current population.
+        If population size in log file is insufficient, runs initialize() for rest of the population.
+        Used to run a cold started algorithm with best known population.
+        `Note`: Make sure the goal of initialisation of current instance of LLaMEA matches the population being selected.
+        Args:
+            archive_path: A directory from previous runs, to load well known population from.
+        """
+
+        data = []
+        try:
+            with jsonlines.open(f"{archive_path}/log.jsonl") as reader:
+                for obj in reader:
+                    data.append(obj)
+
+        except Exception as e:
+            self.textlog.error("Error reading population: " + e.__repr__())
+
+        restore_population = data[-1 * self.n_parents:]
+        population = []
+        print(f"Restoring population of size {len(restore_population)}, of {self.n_parents}")
+        for individual in restore_population:
+            print("\tRestoring...")
+            for key, value in individual.items():
+                print(f"{key}: {value}, ({type(value)})")
+            soln = Solution(code=individual["code"],
+                    name=individual["name"],
+                    description=individual["description"],
+                    configspace=None if individual["configspace"] == "" else individual["configspace"],
+                    operator=individual["operator"],
+                    task_prompt=individual["task_prompt"])
+            population.append(soln)
+
+        self.population = population
+        if len(population) < self.n_parents:
+            self.initialize()
+
+
+
+    def run(self, archive_path=None):
         """
         Main loop to evolve the solutions until the evolutionary budget is exhausted.
         The method iteratively refines solutions through interaction with the language model,
         evaluates their fitness, and updates the best solution found.
 
+        Args:
+            archive_path: Runs the algorithm with a given known population, and performs
         Returns:
             tuple: A tuple containing the best solution and its fitness at the end of the evolutionary process.
         """
-        # self.progress_bar = tqdm(total=self.budget)
-        self.logevent("Initializing first population")
-        self.initialize()  # Initialize a population
-        # self.progress_bar.update(self.n_parents)
+        if archive_path:
+            self.logevent(f"Loading population from {archive_path}/log.jsonl...")
+            self.get_population_from(archive_path)
+        else:
+            # self.progress_bar = tqdm(total=self.budget)
+            self.logevent("Initializing first population")
+            self.initialize()  # Initialize a population
+            # self.progress_bar.update(self.n_parents)
 
         if self.log:
             self.logger.log_population(self.population)
@@ -605,33 +668,17 @@ With code:
                 f"Generation {self.generation}, best so far: {self.best_so_far.fitness}"
             )
 
+            ## Archive progress.
+            self.pickle_archieve()
+
         return self.best_so_far
 
-    def to_json(self):
+    def pickle_archieve(self):
         """
-        Logs the state of a give class, i.e. all of it's members into json file, for future warm starting.
-
-        Args:
-                object (An instance of any class): Object that needs to be logged, for warm start.
+        Store the llmea object, into a file, using pickle, to support warm start.
         """
-
-        # Serialise data.
-        object_members = {}
-        for member, value in vars(self).items():
-            if isinstance(value, types.FunctionType):
-                object_members[member+"::func"] = inspect.getsource(value)
-            elif isinstance(value, Solution):
-                object_members[member+"::Solution"] = value.to_serialisable_dict()
-            elif isinstance(value, ExperimentLogger):
-                object_members[member+"::ExperimentLogger"] = value.to_serialisable_dict()
-            elif isinstance(value, logging.Logger):
-                object_members[member+"::loggerName"] = value.name
-            elif isinstance(value, LLM):
-                object_members[member+"::LLM"] = value.to_serialisable_dict()
-            else:
-                object_members[member] = value
-
-        #Save configuration to exp-mm-dd_time-LLaMEA-{agent}/llamea_config.json for warm start.
-        data = json.dumps(object_members)
-        with open(f"{self.logger.dirname}/llamea_config.json", "w") as file:
-            file.write(data)
+        try:
+            with open(f"{self.logger.dirname}/llamea_config.pkl", "wb") as file:
+                pickle.dump(self, file)
+        except Exception as e:
+            self.textlog.error("Error archiving LLaMEA ofject", e)

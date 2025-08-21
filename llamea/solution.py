@@ -164,6 +164,3 @@ class Solution:
             str: A JSON string representation of the individual.
         """
         return json.dumps(self.to_dict(), default=str, indent=4)
-
-    def to_serialisable_dict(self):
-        return self.to_dict()
