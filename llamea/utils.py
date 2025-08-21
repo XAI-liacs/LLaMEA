@@ -107,15 +107,19 @@ def apply_unified_diff(text: str, diff: str) -> str:
 
 
 def discrete_power_law_distribution(n, beta):
+    """Generates a sample from a discrete power law distribution.
+    
+    This function computes a discrete power law distribution based on the given parameters
+    and returns a sample value normalized by the total number of elements.
+    
+    Args:
+        n (int): The total number of elements to consider for the distribution.
+        beta (float): The exponent parameter of the power law distribution.
+    
+    Returns:
+        float: A sample value from the discrete power law distribution, normalized by `n`.
+                If no elements are available, returns a default value of 0.05.
     """
-    Power law distribution function from:
-    # Benjamin Doerr, Huu Phuoc Le, Régis Makhmara, and Ta Duy Nguyen. 2017.
-    # Fast genetic algorithms.
-    # In Proceedings of the Genetic and Evolutionary Computation Conference (GECCO '17).
-    # Association for Computing Machinery, New York, NY, USA, 777–784.
-    # https://doi.org/10.1145/3071178.3071301
-    """
-
     def discrete_power_law(n, alpha, beta):
         half_n = int(n / 2)
         C_beta_half_n = 0

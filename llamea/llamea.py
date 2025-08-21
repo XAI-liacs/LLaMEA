@@ -512,9 +512,7 @@ With code:
         """
         individual_copy = individual.copy()
         if self.adaptive_prompt:
-            individual_copy.task_prompt = self.optimize_task_prompt(
-                individual_copy
-            )
+            individual_copy.task_prompt = self.optimize_task_prompt(individual_copy)
         new_prompt = self.construct_prompt(individual_copy)
 
         evolved_individual = individual.empty_copy()
