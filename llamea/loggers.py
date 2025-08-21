@@ -36,6 +36,12 @@ class ExperimentLogger:
         self.dirname = self.create_log_dir(name)
         self.attempt = 0
 
+    def __getstate__(self):
+        return self.__dict__
+
+    def __setstate__(self, state):
+        self.__dict__.update(state)
+
     def create_log_dir(self, name=""):
         """
         Creates a new directory for logging experiments based on the current date and time.

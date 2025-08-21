@@ -11,7 +11,7 @@ import random
 import re
 import traceback
 from typing import Callable, Optional
-import pickle
+import pickle, pickletools
 import jsonlines
 
 import numpy as np
@@ -245,6 +245,12 @@ markdown code block labelled as diff:
         self.max_workers = max_workers
         self.pickle_archieve()
 
+    def __getstate__(self):
+        return self.__dict__
+
+    def __setstate__(self, state):
+        self.__dict__.update(state)
+
     @classmethod
     def warm_start(cls, path_to_archive_dir):
         """
@@ -310,7 +316,7 @@ markdown code block labelled as diff:
                 backend=self.parallel_backend,
                 timeout=timeout + 15,
                 return_as="generator_unordered",
-            )(delayed(self.initialize_single)() for _ in range(len(self.population) - self.n_parents))
+            )(delayed(self.initialize_single)() for _ in range(self.n_parents - len(self.population)))
         except Exception as e:
             print(f"Parallel time out in initialization {e}, retrying.")
 
@@ -611,10 +617,11 @@ With code:
         Returns:
             tuple: A tuple containing the best solution and its fitness at the end of the evolutionary process.
         """
-        if archive_path:
+        if archive_path != None:
             self.logevent(f"Loading population from {archive_path}/log.jsonl...")
             self.get_population_from(archive_path)
         else:
+            self.logevent("No archive path, standard initialisation.")
             # self.progress_bar = tqdm(total=self.budget)
             self.logevent("Initializing first population")
             self.initialize()  # Initialize a population
@@ -680,5 +687,7 @@ With code:
         try:
             with open(f"{self.logger.dirname}/llamea_config.pkl", "wb") as file:
                 pickle.dump(self, file)
+                pickletools.dis(data)
         except Exception as e:
-            self.textlog.error("Error archiving LLaMEA ofject", e)
+            self.textlog.error("Error archiving LLaMEA object: " + e.__repr__())
+            traceback.print_exc()
