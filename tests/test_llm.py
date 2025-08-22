@@ -334,4 +334,4 @@ def test_multi_llm_logger_propagates():
     assert combo.llms[0].logger is logger
     assert combo.llms[1].logger is logger
     assert combo.llms[0].log and combo.llms[1].log
-    assert combo.model == "multi-llm with [ma, mb]"
+    assert combo.model == "multi-llm"

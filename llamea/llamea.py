@@ -336,16 +336,16 @@ markdown code block labelled as diff:
     def optimize_task_prompt(self, individual):
         """Use the LLM to improve the task prompt for a given individual."""
         prompt = f"""{self.role_prompt}
-You are tasked with refining the instruction that guides algorithm generation.
+You are tasked with refining the instructions (task prompt) that guides an LLM to generate algorithms.
 ### Current task prompt:
 ----
 {individual.task_prompt}
 ----
 
-### The current algorithm generated:
-----
+### The current algorithm generated with that prompt:
+```python
 {individual.code}
-----
+```
 
 ### Feedback from the evaluation on this algorithm:
 ----
@@ -530,6 +530,7 @@ With code:
                 evolved_individual = self.evaluate_fitness(evolved_individual)
         except Exception as e:
             error = repr(e)
+            evolved_individual.generation = self.generation
             evolved_individual.set_scores(
                 self.worst_value, f"An exception occurred: {error}.", error
             )

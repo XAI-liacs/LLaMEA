@@ -327,7 +327,7 @@ class Gemini_LLM(LLM):
             "temperature": 1,
             "top_p": 0.95,
             "top_k": 64,
-            "max_output_tokens": 8192,
+            "max_output_tokens": 65536,
             "response_mime_type": "text/plain",
         }
 
@@ -437,7 +437,7 @@ class Multi_LLM(LLM):
         """
         if not llms:
             raise ValueError("llms must contain at least one LLM instance")
-        model = "multi-llm with [" + ", ".join([llm.model for llm in llms]) + "]"
+        model = "multi-llm"
         super().__init__("", model)
         self.llms = llms
 
@@ -461,6 +461,17 @@ class Multi_LLM(LLM):
     def sample_solution(self, *args, **kwargs):
         llm = self._pick_llm()
         return llm.sample_solution(*args, **kwargs)
+
+
+class DeepSeek_LLM(OpenAI_LLM):
+    """A manager class for the DeepSeek chat models."""
+
+    def __init__(self, api_key, model="deepseek-chat", temperature=0.8, **kwargs):
+        """Initializes DeepSeek LLM with required base URL."""
+        super().__init__(api_key, model=model, temperature=temperature, **kwargs)
+        self.base_url = "https://api.deepseek.com"
+        self._client_kwargs["base_url"] = self.base_url
+        self.client = openai.OpenAI(**self._client_kwargs)
 
 
 class Dummy_LLM(LLM):
