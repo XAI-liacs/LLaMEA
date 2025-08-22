@@ -1,6 +1,6 @@
 [project]
 name = "llamea"
-version = "1.1.0"
+version = "1.1.2"
 description = "LLaMEA is a Python framework for automatically generating and refining metaheuristic optimization algorithms using large language models, featuring optional in-the-loop hyper-parameter optimization."
 authors = [{ name = "Niki van Stein", email = "n.van.stein@liacs.leidenuniv.nl" }]
 requires-python = ">=3.11, <4"
@@ -9,7 +9,7 @@ license = "MIT"
 dependencies = [
     "numpy>=1.26.3,<2",
     "pandas==2.0.3",
-    "openai>=1.25.2,<2",
+    "openai>=1.99.1,<2",
     "tqdm>=4.66.4,<5",
     "ollama>=0.2.1,<0.3",
     "jsonlines>=4.0.0,<5",
@@ -54,7 +54,6 @@ examples = [
     "flask>=3.0.3,<4",
     "flask-socketio>=5.3.6,<6",
     "smac>=2.2.0,<3",
-    "google-generativeai>=0.8.1,<0.9",
     "modcma>=1.0.8,<2",
     "lizard>=1.17.13,<2",
     "networkx>=3.4.2,<4",
