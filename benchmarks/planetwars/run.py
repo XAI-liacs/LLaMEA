@@ -247,9 +247,9 @@ if __name__ == "__main__":
         llm=mllm,
         n_parents=4,
         n_offspring=6,
-        budget=400,
+        budget=200,
         diff_mode=False,
-        experiment_name="planetwars-multillm",
+        experiment_name="planetwars-sharing",
         role_prompt=role_prompt,
         task_prompt=task_prompt,
         example_prompt=example_prompt,
@@ -257,7 +257,9 @@ if __name__ == "__main__":
         evaluate_population=True,
         elitism=True,
         adaptive_prompt=False,
-        max_workers=4
+        max_workers=4,
+        niching= "sharing",
+        adaptive_niche_radius= True,
     )
 
     print(es.run())
