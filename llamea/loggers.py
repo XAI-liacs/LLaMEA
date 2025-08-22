@@ -50,7 +50,6 @@ class ExperimentLogger:
         Returns:
             str: The name of the created directory.
         """
-        print("Experiment Logger: ", self.__dict__)
         model_name = name.split("/")[-1]
         today = self.working_date
         dirname = f"exp-{today}-{name}"
