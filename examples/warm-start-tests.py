@@ -76,17 +76,17 @@ if __name__ == "__main__":
 
     for experiment_i in [1]:
         # A 1+1 strategy
-        # es = LLaMEA(
-        #     evaluateBBOB,
-        #     n_parents=1,
-        #     n_offspring=1,
-        #     llm=llm,
-        #     task_prompt=task_prompt,
-        #     experiment_name=experiment_name,
-        #     elitism=True,
-        #     HPO=False,
-        #     budget=400,
-        # )
+        es = LLaMEA(
+            evaluateBBOB,
+            n_parents=1,
+            n_offspring=1,
+            llm=llm,
+            task_prompt=task_prompt,
+            experiment_name=experiment_name,
+            elitism=True,
+            HPO=False,
+            budget=400,
+        )
 
         """Simple run first.
         Hit ^C, before ending execution, and end program prematurely.
