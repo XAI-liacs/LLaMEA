@@ -462,6 +462,7 @@ class Multi_LLM(LLM):
         llm = self._pick_llm()
         return llm.sample_solution(*args, **kwargs)
 
+
 class DeepSeek_LLM(OpenAI_LLM):
     """A manager class for the DeepSeek chat models."""
 
@@ -471,6 +472,7 @@ class DeepSeek_LLM(OpenAI_LLM):
         self.base_url = "https://api.deepseek.com"
         self._client_kwargs["base_url"] = self.base_url
         self.client = openai.OpenAI(**self._client_kwargs)
+
 
 class Dummy_LLM(LLM):
     def __init__(self, model="DUMMY", **kwargs):
