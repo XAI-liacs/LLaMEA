@@ -530,6 +530,7 @@ With code:
                 evolved_individual = self.evaluate_fitness(evolved_individual)
         except Exception as e:
             error = repr(e)
+            evolved_individual.generation = self.generation
             evolved_individual.set_scores(
                 self.worst_value, f"An exception occurred: {error}.", error
             )
