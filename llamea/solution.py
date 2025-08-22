@@ -53,6 +53,8 @@ class Solution:
 
     def __setstate__(self, state):
         self.__dict__.update(state)
+        if self.configspace == "":
+            self.configspace = None
 
     def set_operator(self, operator):
         """

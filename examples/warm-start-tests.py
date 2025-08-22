@@ -9,7 +9,7 @@ import pickle
 import numpy as np
 from ioh import get_problem, logger
 
-from llamea import Gemini_LLM, LLaMEA, ExperimentLogger
+from llamea import Dummy_LLM, LLaMEA, ExperimentLogger
 from misc import OverBudgetException, aoc_logger, correct_aoc
 
 if __name__ == "__main__":
@@ -17,7 +17,7 @@ if __name__ == "__main__":
     api_key = os.getenv("GEMINI_API_KEY")
     ai_model = "gemini-1.5-flash"
     experiment_name = "pop1-5"
-    llm = Gemini_LLM(api_key, ai_model)
+    llm = Dummy_LLM()
 
     # We define the evaluation function that executes the generated algorithm (solution.code) on the BBOB test suite.
     # It should set the scores and feedback of the solution based on the performance metric, in this case we use mean AOCC.
@@ -76,55 +76,36 @@ if __name__ == "__main__":
 
     for experiment_i in [1]:
         # A 1+1 strategy
-        es = LLaMEA(
-            evaluateBBOB,
-            n_parents=1,
-            n_offspring=1,
-            llm=llm,
-            task_prompt=task_prompt,
-            experiment_name=experiment_name,
-            elitism=True,
-            HPO=False,
-            budget=4,
-        )
+        # es = LLaMEA(
+        #     evaluateBBOB,
+        #     n_parents=1,
+        #     n_offspring=1,
+        #     llm=llm,
+        #     task_prompt=task_prompt,
+        #     experiment_name=experiment_name,
+        #     elitism=True,
+        #     HPO=False,
+        #     budget=400,
+        # )
 
-
-        """Declare path to warm start from here, update when necessary"""
-
-        path_to_archive = os.getcwd() + "/exp-08-21_110139-LLaMEA-gemini-1.5-flash-pop1-5"
-        print(f"Dir name = {path_to_archive}")
-
-
-        for key, value in es.__dict__.items():
-            print(f"{key}: {value}")
-        print("----------------------------------------------------")
-        """Simple run first."""
+        """Simple run first.
+        Hit ^C, before ending execution, and end program prematurely.
+        Then comment following line"""
         es.run()
 
-
-        # es.run(path_to_archive)
-        #
-        # Testing Pickle dumps for all objects.
-
-        print(pickle.dumps(es.llm))
-        print("----------------------------------------------------")
-        print(pickle.dumps(es.logger))
-        print("----------------------------------------------------")
-        print(pickle.dumps(es.logevent))
-        print("----------------------------------------------------")
-        print(pickle.dumps(es.textlog))
-        print("----------------------------------------------------")
-        # pickle.dumps(es.sol)
-
-        pickle.dumps(evaluateBBOB)
+        """Declare path to warm start from here, the path where the above quitted program was logging."""
+        path_to_archive = os.getcwd() + "/exp-08-22_110651-LLaMEA-DUMMY-pop1-5"
+        print(f"Dir name = {path_to_archive}")
 
         """
-        ^C to exit, after a while, to test warm start, using,
-        then comment `es` initialisation, and `run`, and use `LLaMEA.warm_start` below.
-        Use es2.run for executing run after warm start.
+        Use `warm_start` class function, which returns the qutting instance of previous object if success, else
+        return None.
         """
 
-        # es2 = LLaMEA.warm_start(path_to_archive)
-        # print(es2.__dict__)
-
-        # es2.run()
+        try:
+            es2 = LLaMEA.warm_start(path_to_archive)
+            for key, value in es2.__dict__.items():
+                print(key, ":", value)
+            es2.run()
+        except Exception as e:
+            print(f"Error un-arciving. {e.__repr__()}")

@@ -2,7 +2,6 @@ import os
 from datetime import datetime
 
 import jsonlines
-import json
 import numpy as np
 from ConfigSpace.read_and_write import json as cs_json
 
@@ -33,6 +32,7 @@ class ExperimentLogger:
         Args:
             name (str): The name of the experiment.
         """
+        self.working_date = datetime.today().strftime("%m-%d_%H%M%S")
         self.dirname = self.create_log_dir(name)
         self.attempt = 0
 
@@ -50,8 +50,9 @@ class ExperimentLogger:
         Returns:
             str: The name of the created directory.
         """
+        print("Experiment Logger: ", self.__dict__)
         model_name = name.split("/")[-1]
-        today = datetime.today().strftime("%m-%d_%H%M%S")
+        today = self.working_date
         dirname = f"exp-{today}-{name}"
         os.mkdir(dirname)
         os.mkdir(f"{dirname}/configspace")

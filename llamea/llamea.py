@@ -246,10 +246,14 @@ markdown code block labelled as diff:
         self.pickle_archieve()
 
     def __getstate__(self):
-        return self.__dict__
+        state = self.__dict__.copy()
+        state.pop("textlog", None)
+        return state
 
     def __setstate__(self, state):
         self.__dict__.update(state)
+        # Logging object often has open f stream, which is not piklable.
+        self.textlog = logging.getLogger(__name__)
 
     @classmethod
     def warm_start(cls, path_to_archive_dir):
@@ -264,8 +268,8 @@ markdown code block labelled as diff:
                 obj = pickle.load(file)
             return obj
         except Exception as e:
-            print("Error unarchiving object", e.__repr__())
-            return 1
+            print(f"Error unarchiving object from {f"{path_to_archive_dir}/llamea_config.pkl"}: {e.__repr__()}")
+            return None
 
     def logevent(self, event):
         self.textlog.info(event)
@@ -687,7 +691,6 @@ With code:
         try:
             with open(f"{self.logger.dirname}/llamea_config.pkl", "wb") as file:
                 pickle.dump(self, file)
-                pickletools.dis(data)
         except Exception as e:
             self.textlog.error("Error archiving LLaMEA object: " + e.__repr__())
             traceback.print_exc()
