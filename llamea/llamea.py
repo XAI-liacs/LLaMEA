@@ -268,7 +268,9 @@ markdown code block labelled as diff:
                 obj = pickle.load(file)
             return obj
         except Exception as e:
-            print(f"Error unarchiving object from {path_to_archive_dir}/llamea_config.pkl: {e.__repr__()}")
+            print(
+                f"Error unarchiving object from {path_to_archive_dir}/llamea_config.pkl: {e.__repr__()}"
+            )
             return None
 
     def logevent(self, event):
@@ -320,7 +322,10 @@ markdown code block labelled as diff:
                 backend=self.parallel_backend,
                 timeout=timeout + 15,
                 return_as="generator_unordered",
-            )(delayed(self.initialize_single)() for _ in range(self.n_parents - len(self.population)))
+            )(
+                delayed(self.initialize_single)()
+                for _ in range(self.n_parents - len(self.population))
+            )
         except Exception as e:
             print(f"Parallel time out in initialization {e}, retrying.")
 
@@ -589,26 +594,30 @@ With code:
         except Exception as e:
             self.textlog.error("Error reading population: " + e.__repr__())
 
-        restore_population = data[-1 * self.n_parents:]
+        restore_population = data[-1 * self.n_parents :]
         population = []
-        print(f"Restoring population of size {len(restore_population)}, of {self.n_parents}")
+        print(
+            f"Restoring population of size {len(restore_population)}, of {self.n_parents}"
+        )
         for individual in restore_population:
             print("\tRestoring...")
             for key, value in individual.items():
                 print(f"{key}: {value}, ({type(value)})")
-            soln = Solution(code=individual["code"],
-                    name=individual["name"],
-                    description=individual["description"],
-                    configspace=None if individual["configspace"] == "" else individual["configspace"],
-                    operator=individual["operator"],
-                    task_prompt=individual["task_prompt"])
+            soln = Solution(
+                code=individual["code"],
+                name=individual["name"],
+                description=individual["description"],
+                configspace=None
+                if individual["configspace"] == ""
+                else individual["configspace"],
+                operator=individual["operator"],
+                task_prompt=individual["task_prompt"],
+            )
             population.append(soln)
 
         self.population = population
         if len(population) < self.n_parents:
             self.initialize()
-
-
 
     def run(self, archive_path=None):
         """

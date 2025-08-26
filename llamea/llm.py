@@ -215,6 +215,7 @@ class LLM(ABC):
         else:
             return ""
 
+
 class OpenAI_LLM(LLM):
     """
     A manager class for handling requests to OpenAI's GPT models.
