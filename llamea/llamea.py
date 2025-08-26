@@ -268,7 +268,7 @@ markdown code block labelled as diff:
                 obj = pickle.load(file)
             return obj
         except Exception as e:
-            print(f"Error unarchiving object from {f"{path_to_archive_dir}/llamea_config.pkl"}: {e.__repr__()}")
+            print(f"Error unarchiving object from {path_to_archive_dir}/llamea_config.pkl: {e.__repr__()}")
             return None
 
     def logevent(self, event):
