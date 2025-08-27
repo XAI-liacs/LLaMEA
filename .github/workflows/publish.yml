@@ -60,3 +60,17 @@ jobs:
       #----------------------------------------------
       - name: Publish package distributions to PyPI
         run: uv publish
+      #----------------------------------------------
+      # build and publish lite package
+      #----------------------------------------------
+      - name: Build lite package
+        run: |
+          rm -rf dist
+          mv pyproject.toml pyproject-full.toml
+          mv pyproject-lite.toml pyproject.toml
+          uv build
+      - name: Publish lite package distributions to PyPI
+        run: |
+          uv publish
+          mv pyproject.toml pyproject-lite.toml
+          mv pyproject-full.toml pyproject.toml
