@@ -8,7 +8,16 @@ import httpx
 import pytest
 
 import llamea.llm as llm_mod  # the module that defines query
-from llamea import LLM, Dummy_LLM, Gemini_LLM, Multi_LLM, Ollama_LLM, OpenAI_LLM, Multi_LLM
+from llamea import (
+    LLM,
+    Dummy_LLM,
+    Gemini_LLM,
+    Multi_LLM,
+    Ollama_LLM,
+    OpenAI_LLM,
+    Multi_LLM,
+    LLaMEA,
+)
 
 
 class _DummyOpenAI:
@@ -269,20 +278,19 @@ def test_openai_llm_gives_up(monkeypatch):
 
 
 def test_ollama_llm_retries_then_succeeds(monkeypatch):
+    fake_client = MagicMock()
+    fake_client.chat.side_effect = [
+        _ollama_response_error(429),
+        {"message": {"content": "OK"}},
+    ]
+    monkeypatch.setattr(llm_mod.ollama, "Client", MagicMock(return_value=fake_client))
     llm = Ollama_LLM(model="llama-test")
     slept = MagicMock()
     monkeypatch.setattr(llm_mod.time, "sleep", slept)
-    monkeypatch.setattr(
-        llm_mod.ollama,
-        "chat",
-        MagicMock(
-            side_effect=[_ollama_response_error(429), {"message": {"content": "OK"}}]
-        ),
-    )
 
     reply = llm.query([{"role": "u", "content": "hi"}], max_retries=2)
     assert reply == "OK"
-    llm_mod.ollama.chat.assert_called_with(
+    fake_client.chat.assert_called_with(
         model=llm.model,
         messages=[{"role": "user", "content": "hi\n"}],
     )
@@ -290,18 +298,58 @@ def test_ollama_llm_retries_then_succeeds(monkeypatch):
 
 
 def test_ollama_llm_gives_up(monkeypatch):
+    fake_client = MagicMock()
+    fake_client.chat.side_effect = [
+        _ollama_response_error(),
+        _ollama_response_error(),
+    ]
+    monkeypatch.setattr(llm_mod.ollama, "Client", MagicMock(return_value=fake_client))
     llm = Ollama_LLM(model="llama-test")
     slept = MagicMock()
     monkeypatch.setattr(llm_mod.time, "sleep", slept)
-    monkeypatch.setattr(
-        llm_mod.ollama,
-        "chat",
-        MagicMock(side_effect=[_ollama_response_error(), _ollama_response_error()]),
-    )
 
     with pytest.raises(llm_mod.ollama.ResponseError):
         llm.query([{"role": "u", "content": "boom"}], max_retries=1)
     slept.assert_called_once_with(10)
+
+
+def test_llamea_spawns_ollama_clients():
+    llm = Ollama_LLM(model="llama-test", ports=[12000])
+    engine = LLaMEA(
+        lambda x: x, llm, n_parents=1, n_offspring=3, max_workers=3, log=False
+    )
+    assert llm.ports == [12000, 12001, 12002]
+
+
+def test_llamea_assigns_hosts_to_jobs(monkeypatch):
+    calls = []
+
+    class DummyClient:
+        def __init__(self, host):
+            calls.append(host)
+
+        def chat(self, model, messages):
+            return {
+                "message": {
+                    "content": "# Description: A\n```python\nclass A:\n    pass\n```"
+                }
+            }
+
+    monkeypatch.setattr(llm_mod.ollama, "Client", DummyClient)
+
+    llm = Ollama_LLM(model="llama-test", ports=[13000])
+    engine = LLaMEA(
+        lambda ind, logger: ind,
+        llm,
+        n_parents=2,
+        n_offspring=2,
+        max_workers=2,
+        log=False,
+        parallel_backend="threading",
+    )
+    engine.initialize()
+
+    assert sorted(calls) == sorted(llm.hosts[:2])
 
 
 def test_dummy_llm():
@@ -314,6 +362,7 @@ def test_dummy_llm():
         len(response)
     )
 
+
 def test_multi_llm_logger_propagates():
     class LLMA(LLM):
         def query(self, session):
@@ -323,9 +372,7 @@ def test_multi_llm_logger_propagates():
         def query(self, session):
             return "B"
 
-    combo = Multi_LLM(
-        [LLMA(api_key="a", model="ma"), LLMB(api_key="b", model="mb")]
-    )
+    combo = Multi_LLM([LLMA(api_key="a", model="ma"), LLMB(api_key="b", model="mb")])
 
     logger = MagicMock()
     combo.set_logger(logger)

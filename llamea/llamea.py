@@ -16,6 +16,8 @@ import numpy as np
 from ConfigSpace import ConfigurationSpace
 from joblib import Parallel, delayed
 
+from .llm import Ollama_LLM
+
 from .loggers import ExperimentLogger
 from .solution import Solution
 from .utils import (
@@ -95,6 +97,8 @@ class LLaMEA:
             budget (int): The number of generations to run the evolutionary algorithm.
             eval_timeout (int): The number of seconds one evaluation can maximum take (to counter infinite loops etc.). Defaults to 1 hour.
             max_workers (int): The maximum number of parallel workers to use for evaluating individuals.
+                When ``llm`` is an :class:`Ollama_LLM`, this many Ollama client
+                connections are configured on consecutive ports.
             parallel_backend (str): The backend to use for parallel processing (e.g., 'loky', 'threading').
             log (bool): Flag to switch of the logging of experiments.
             minimization (bool): Whether we minimize or maximize the objective function. Defaults to False.
@@ -240,14 +244,14 @@ markdown code block labelled as diff:
         if max_workers > self.n_offspring:
             max_workers = self.n_offspring
         self.max_workers = max_workers
+        if isinstance(self.llm, Ollama_LLM):
+            self.llm.ensure_clients(self.max_workers)
 
     def logevent(self, event):
         self.textlog.info(event)
 
-    def initialize_single(self):
-        """
-        Initializes a single solution.
-        """
+    def initialize_single(self, host=None):
+        """Initialize a single solution."""
         new_individual = Solution(name="", code="", generation=self.generation)
         session_messages = [
             {
@@ -259,7 +263,10 @@ markdown code block labelled as diff:
             },
         ]
         try:
-            new_individual = self.llm.sample_solution(session_messages, HPO=self.HPO)
+            kwargs = {"host": host} if host is not None else {}
+            new_individual = self.llm.sample_solution(
+                session_messages, HPO=self.HPO, **kwargs
+            )
             new_individual.generation = self.generation
             new_individual.task_prompt = self.task_prompt
             if not self.evaluate_population:
@@ -285,12 +292,24 @@ markdown code block labelled as diff:
         population_gen = []
         try:
             timeout = self.eval_timeout
-            population_gen = Parallel(
-                n_jobs=self.max_workers,
-                backend=self.parallel_backend,
-                timeout=timeout + 15,
-                return_as="generator_unordered",
-            )(delayed(self.initialize_single)() for _ in range(self.n_parents))
+            if isinstance(self.llm, Ollama_LLM):
+                hosts = self.llm.hosts
+                population_gen = Parallel(
+                    n_jobs=self.max_workers,
+                    backend=self.parallel_backend,
+                    timeout=timeout + 15,
+                    return_as="generator_unordered",
+                )(
+                    delayed(self.initialize_single)(host=hosts[i % len(hosts)])
+                    for i in range(self.n_parents)
+                )
+            else:
+                population_gen = Parallel(
+                    n_jobs=self.max_workers,
+                    backend=self.parallel_backend,
+                    timeout=timeout + 15,
+                    return_as="generator_unordered",
+                )(delayed(self.initialize_single)() for _ in range(self.n_parents))
         except Exception as e:
             print(f"Parallel time out in initialization {e}, retrying.")
 
@@ -505,11 +524,8 @@ With code:
 
         return new_population
 
-    def evolve_solution(self, individual):
-        """
-        Evolves a single solution by constructing a new prompt,
-        querying the LLM, and evaluating the fitness.
-        """
+    def evolve_solution(self, individual, host=None):
+        """Evolve a single solution on a specific host."""
         individual_copy = individual.copy()
         if self.adaptive_prompt:
             individual_copy.task_prompt = self.optimize_task_prompt(individual_copy)
@@ -517,12 +533,14 @@ With code:
 
         evolved_individual = individual.empty_copy()
         try:
+            kwargs = {"host": host} if host is not None else {}
             evolved_individual = self.llm.sample_solution(
                 new_prompt,
                 evolved_individual.parent_ids,
                 HPO=self.HPO,
                 base_code=individual.code,
                 diff_mode=self.diff_mode,
+                **kwargs,
             )
             evolved_individual.generation = self.generation
             evolved_individual.task_prompt = individual_copy.task_prompt
@@ -570,15 +588,29 @@ With code:
             new_population = []
             try:
                 timeout = self.eval_timeout
-                new_population_gen = Parallel(
-                    n_jobs=self.max_workers,
-                    timeout=timeout + 15,
-                    backend=self.parallel_backend,
-                    return_as="generator_unordered",
-                )(
-                    delayed(self.evolve_solution)(individual)
-                    for individual in new_offspring_population
-                )
+                if isinstance(self.llm, Ollama_LLM):
+                    hosts = self.llm.hosts
+                    new_population_gen = Parallel(
+                        n_jobs=self.max_workers,
+                        timeout=timeout + 15,
+                        backend=self.parallel_backend,
+                        return_as="generator_unordered",
+                    )(
+                        delayed(self.evolve_solution)(
+                            individual, host=hosts[i % len(hosts)]
+                        )
+                        for i, individual in enumerate(new_offspring_population)
+                    )
+                else:
+                    new_population_gen = Parallel(
+                        n_jobs=self.max_workers,
+                        timeout=timeout + 15,
+                        backend=self.parallel_backend,
+                        return_as="generator_unordered",
+                    )(
+                        delayed(self.evolve_solution)(individual)
+                        for individual in new_offspring_population
+                    )
             except Exception as e:
                 print("Parallel time out .")
 

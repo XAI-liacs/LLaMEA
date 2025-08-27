@@ -99,6 +99,7 @@ class LLM(ABC):
         HPO: bool = False,
         base_code: str | None = None,
         diff_mode: bool = False,
+        **query_kwargs,
     ):
         """Generate or mutate a solution using the language model.
 
@@ -110,6 +111,8 @@ class LLM(ABC):
             diff_mode: When ``True``, interpret the LLM response as a unified
                 diff patch to apply to ``base_code`` rather than full source
                 code.
+            **query_kwargs: Extra keyword arguments forwarded to
+                :meth:`query`.
 
         Returns:
             tuple: A tuple containing the new algorithm code, its class name, its full descriptive name and an optional configuration space object.
@@ -126,7 +129,7 @@ class LLM(ABC):
                 "client", "\n".join([d["content"] for d in session_messages])
             )
 
-        message = self.query(session_messages)
+        message = self.query(session_messages, **query_kwargs)
 
         if self.log:
             self.logger.log_conversation(self.model, message)
@@ -379,27 +382,54 @@ class Gemini_LLM(LLM):
 
 
 class Ollama_LLM(LLM):
-    def __init__(self, model="llama3.2", **kwargs):
+    def __init__(
+        self,
+        model: str = "llama3.2",
+        host: str = "http://localhost",
+        ports: list[int] | None = None,
+        **kwargs,
+    ):
         """
         Initializes the Ollama LLM manager with a model name. See https://ollama.com/search for models.
 
         Args:
             model (str, optional): model abbreviation. Defaults to "llama3.2".
                 See for options: https://ollama.com/search.
+            host (str, optional): Base host where the Ollama clients run. Defaults to ``"http://localhost"``.
+            ports (list[int], optional): List of ports where the clients run. When ``None`` a
+                single client on port ``11434`` is assumed.
         """
         super().__init__("", model, None, **kwargs)
+        self.host = host.rstrip("/")
+        self.ports = ports if ports is not None else [11434]
 
-    def query(self, session_messages, max_retries: int = 5, default_delay: int = 10):
+    def ensure_clients(self, n_clients: int):
+        """Ensure that at least ``n_clients`` hosts are configured.
+
+        Additional ports are created sequentially starting from the last known
+        port number.
         """
-        Sends a conversation history to the configured model and returns the response text.
+        if len(self.ports) >= n_clients:
+            return
 
-        Args:
-            session_messages (list of dict): A list of message dictionaries with keys
-                "role" (e.g. "user", "assistant") and "content" (the message text).
+        next_port = self.ports[-1] + 1 if self.ports else 11434
+        while len(self.ports) < n_clients:
+            self.ports.append(next_port)
+            next_port += 1
 
-        Returns:
-            str: The text content of the LLM's response.
-        """
+    @property
+    def hosts(self) -> list[str]:
+        return [f"{self.host}:{p}" for p in self.ports]
+
+    def query(
+        self,
+        session_messages,
+        max_retries: int = 5,
+        default_delay: int = 10,
+        host: str | None = None,
+    ):
+        """Send a conversation to an Ollama client and return the reply."""
+
         # first concatenate the session messages
         big_message = ""
         for msg in session_messages:
@@ -408,7 +438,9 @@ class Ollama_LLM(LLM):
         attempt = 0
         while True:
             try:
-                response = ollama.chat(
+                target_host = host if host is not None else random.choice(self.hosts)
+                client = ollama.Client(host=target_host)
+                response = client.chat(
                     model=self.model,
                     messages=[{"role": "user", "content": big_message}],
                 )
