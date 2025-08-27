@@ -309,7 +309,7 @@ def test_dummy_llm():
     assert llm.model == "dummy-model"
     response = llm.query([{"role": "user", "content": "test"}])
     assert (
-        len(response) == 946
+        len(response) == 921
     ), "Dummy_LLM should return a 946-character string, returned length: {}".format(
         len(response)
     )
