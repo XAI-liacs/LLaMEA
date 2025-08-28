@@ -1786,7 +1786,7 @@ requires-dist = [
     { name = "joblib", specifier = ">=1.4.2,<2" },
     { name = "jsonlines", specifier = ">=4.0.0,<5" },
     { name = "numpy", specifier = ">=1.26.3,<2" },
-    { name = "ollama", specifier = ">=0.2.1,<0.3" },
+    { name = "ollama", specifier = ">=0.5.3,<1" },
     { name = "openai", specifier = ">=1.99.1,<2" },
     { name = "tqdm", specifier = ">=4.66.4,<5" },
 ]
@@ -2386,14 +2386,15 @@ wheels = [
 
 [[package]]
 name = "ollama"
-version = "0.2.1"
+version = "0.5.3"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "httpx" },
+    { name = "pydantic" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/aa/2b/bda3e59080b136e90367bebb67d5072922a912f0e0b6f49be1b4eb79c109/ollama-0.2.1.tar.gz", hash = "sha256:fa316baa9a81eac3beb4affb0a17deb3008fdd6ed05b123c26306cfbe4c349b6", size = 9918, upload-time = "2024-06-05T19:00:52.447Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/91/6d/ae96027416dcc2e98c944c050c492789502d7d7c0b95a740f0bb39268632/ollama-0.5.3.tar.gz", hash = "sha256:40b6dff729df3b24e56d4042fd9d37e231cee8e528677e0d085413a1d6692394", size = 43331, upload-time = "2025-08-07T21:44:10.422Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/7d/b7/8cc05807bfbc5b92da7fb94c525e1e56572a08eea7cdf3656e6c5dc6f9b1/ollama-0.2.1-py3-none-any.whl", hash = "sha256:b6e2414921c94f573a903d1069d682ba2fb2607070ea9e19ca4a7872f2a460ec", size = 9738, upload-time = "2024-06-05T19:00:47.437Z" },
+    { url = "https://files.pythonhosted.org/packages/be/f6/2091e50b8b6c3e6901f6eab283d5efd66fb71c86ddb1b4d68766c3eeba0f/ollama-0.5.3-py3-none-any.whl", hash = "sha256:a8303b413d99a9043dbf77ebf11ced672396b59bec27e6d5db67c88f01b279d2", size = 13490, upload-time = "2025-08-07T21:44:09.353Z" },
 ]
 
 [[package]]
