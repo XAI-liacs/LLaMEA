@@ -11,8 +11,8 @@ Welcome, Codex and other AI agents! This file contains instructions for working 
 
 ## Development Tools
 - Format code with:
-  - `uv run black .`
-  - `uv run isort .`
+  - `uv run isort llamea/`
+  - `uv run black llamea/`
 - Follow style guidelines:
   - 4-space indentation.
   - Limit lines to 80 characters.
@@ -23,8 +23,8 @@ Welcome, Codex and other AI agents! This file contains instructions for working 
 
 ## Testing
 - Run the test suite before committing code changes:
-  - `uv run pytest`
-- Aim for at least 80% test coverage, using `uv run pytest --cov` when measuring coverage.
+  - `uv run pytest  tests/`
+- Aim for at least 80% test coverage, using `uv run pytest --cov=llamea --cov-report=xml tests/` when measuring coverage.
 
 ## Pull Requests
 - Ensure all tests pass and code is formatted before committing.
