@@ -1,9 +1,14 @@
 import os
 from datetime import datetime
+import warnings
 
 import jsonlines
 import numpy as np
-from ConfigSpace.read_and_write import json as cs_json
+
+try:
+    from ConfigSpace.read_and_write import json as cs_json
+except ModuleNotFoundError:  # pragma: no cover - optional dependency
+    cs_json = None
 
 
 def convert_to_serializable(data):
@@ -120,10 +125,16 @@ class ExperimentLogger:
             algorithm_name (str): The name of the algorithm used.
             config_space (ConfigSpace): The Config space to be logged.
         """
+        if cs_json is None:  # pragma: no cover - optional dependency
+            warnings.warn(
+                "ConfigSpace is not installed; skipping config space logging.",
+                stacklevel=2,
+            )
+            return
         with open(
             f"{self.dirname}/configspace/try-{attempt}-{algorithm_name}.py", "w"
         ) as file:
-            if config_space != None:
+            if config_space is not None:
                 file.write(cs_json.write(config_space))
             else:
                 file.write("Failed to extract config space")

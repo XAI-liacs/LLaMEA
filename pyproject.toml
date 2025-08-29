@@ -1,17 +1,16 @@
 [project]
 name = "llamea"
-version = "1.1.0"
+version = "1.1.2"
 description = "LLaMEA is a Python framework for automatically generating and refining metaheuristic optimization algorithms using large language models, featuring optional in-the-loop hyper-parameter optimization."
 authors = [{ name = "Niki van Stein", email = "n.van.stein@liacs.leidenuniv.nl" }]
 requires-python = ">=3.11, <4"
 readme = "README.md"
 license = "MIT"
 dependencies = [
-    "numpy>=1.26.3,<2",
-    "pandas==2.0.3",
-    "openai>=1.25.2,<2",
+    "numpy>=2,<3",
+    "openai>=1.99.1,<2",
     "tqdm>=4.66.4,<5",
-    "ollama>=0.2.1,<0.3",
+    "ollama>=0.5.3,<1",
     "jsonlines>=4.0.0,<5",
     "configspace>=1.2.0,<2",
     "google-generativeai>=0.8.1,<0.9",
@@ -45,7 +44,7 @@ docs = [
     "sphinx-autobuild>=2024.10.3,<2025",
 ]
 examples = [
-    "ioh>=0.3.18,<0.4",
+    "ioh @ git+https://github.com/XAI-liacs/IOHexperimenter@master",
     "scikit-learn==1.3.0",
     "seaborn>=0.13.2,<0.14",
     "levenshtein>=0.25.1,<0.26",
@@ -54,12 +53,12 @@ examples = [
     "flask>=3.0.3,<4",
     "flask-socketio>=5.3.6,<6",
     "smac>=2.2.0,<3",
-    "google-generativeai>=0.8.1,<0.9",
     "modcma>=1.0.8,<2",
     "lizard>=1.17.13,<2",
     "networkx>=3.4.2,<4",
     "iohinspector>=0.0.3,<0.0.4",
     "pymoosh==3.2",
+    "pandas>=2.2.3,<3",
 ]
 llm-extras = [
     "torch>=2.6.0,<3",

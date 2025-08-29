@@ -11,10 +11,25 @@ import re
 import time
 from abc import ABC, abstractmethod
 
-import google.generativeai as genai
-import ollama
-import openai
-from ConfigSpace import ConfigurationSpace
+try:
+    import google.generativeai as genai
+except ModuleNotFoundError:  # pragma: no cover - optional dependency
+    genai = None
+
+try:
+    import ollama
+except ModuleNotFoundError:  # pragma: no cover - optional dependency
+    ollama = None
+
+try:
+    import openai
+except ModuleNotFoundError:  # pragma: no cover - optional dependency
+    openai = None
+
+try:
+    from ConfigSpace import ConfigurationSpace
+except ModuleNotFoundError:  # pragma: no cover - optional dependency
+    ConfigurationSpace = None
 
 from .solution import Solution
 from .loggers import ExperimentLogger
@@ -148,7 +163,7 @@ class LLM(ABC):
         )[0]
         desc = self.extract_algorithm_description(message)
         cs = None
-        if HPO:
+        if HPO and ConfigurationSpace is not None:
             cs = self.extract_configspace(message)
         new_individual = Solution(
             name=name,
@@ -170,12 +185,15 @@ class LLM(ABC):
         Returns:
             ConfigSpace: Extracted configuration space object.
         """
+        if ConfigurationSpace is None:  # pragma: no cover - optional dependency
+            return None
         pattern = r"space\s*:\s*\n*```\n*(?:python)?\n(.*?)\n```"
         c = None
         for m in re.finditer(pattern, message, re.DOTALL | re.IGNORECASE):
             try:
                 c = ConfigurationSpace(eval(m.group(1)))
-            except Exception as e:
+            except Exception as e:  # pragma: no cover - best effort
+                logging.info(e)
                 pass
         return c
 
@@ -230,6 +248,10 @@ class OpenAI_LLM(LLM):
             model (str, optional): model abbreviation. Defaults to "gpt-4-turbo".
                 Options are: gpt-3.5-turbo, gpt-4-turbo, gpt-4o, and others from OpeNAI models library.
         """
+        if openai is None:  # pragma: no cover - optional dependency
+            raise ImportError(
+                "openai is required to use OpenAI_LLM. Install the 'openai' package."
+            )
         super().__init__(api_key, model, None, **kwargs)
         self._client_kwargs = dict(api_key=api_key)
         self.client = openai.OpenAI(**self._client_kwargs)
@@ -323,13 +345,17 @@ class Gemini_LLM(LLM):
             model (str, optional): model abbreviation. Defaults to "gemini-2.0-flash".
                 Options are: "gemini-1.5-flash","gemini-2.0-flash", and others from Googles models library.
         """
+        if genai is None:  # pragma: no cover - optional dependency
+            raise ImportError(
+                "google-generativeai is required to use Gemini_LLM. Install the 'google-generativeai' package."
+            )
         super().__init__(api_key, model, None, **kwargs)
         genai.configure(api_key=api_key)
         generation_config = {
             "temperature": 1,
             "top_p": 0.95,
             "top_k": 64,
-            "max_output_tokens": 8192,
+            "max_output_tokens": 65536,
             "response_mime_type": "text/plain",
         }
 
@@ -389,6 +415,10 @@ class Ollama_LLM(LLM):
             model (str, optional): model abbreviation. Defaults to "llama3.2".
                 See for options: https://ollama.com/search.
         """
+        if ollama is None:  # pragma: no cover - optional dependency
+            raise ImportError(
+                "ollama is required to use Ollama_LLM. Install the 'ollama' package."
+            )
         super().__init__("", model, None, **kwargs)
 
     def query(self, session_messages, max_retries: int = 5, default_delay: int = 10):
@@ -439,7 +469,7 @@ class Multi_LLM(LLM):
         """
         if not llms:
             raise ValueError("llms must contain at least one LLM instance")
-        model = "multi-llm with [" + ", ".join([llm.model for llm in llms]) + "]"
+        model = "multi-llm"
         super().__init__("", model)
         self.llms = llms
 
@@ -463,6 +493,17 @@ class Multi_LLM(LLM):
     def sample_solution(self, *args, **kwargs):
         llm = self._pick_llm()
         return llm.sample_solution(*args, **kwargs)
+
+
+class DeepSeek_LLM(OpenAI_LLM):
+    """A manager class for the DeepSeek chat models."""
+
+    def __init__(self, api_key, model="deepseek-chat", temperature=0.8, **kwargs):
+        """Initializes DeepSeek LLM with required base URL."""
+        super().__init__(api_key, model=model, temperature=temperature, **kwargs)
+        self.base_url = "https://api.deepseek.com"
+        self._client_kwargs["base_url"] = self.base_url
+        self.client = openai.OpenAI(**self._client_kwargs)
 
 
 class Dummy_LLM(LLM):

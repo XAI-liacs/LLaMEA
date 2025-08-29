@@ -10,15 +10,20 @@ import os
 import random
 import re
 import traceback
+import warnings
 from typing import Callable, Optional
 import pickle, pickletools
 import jsonlines
 
 import numpy as np
-from ConfigSpace import ConfigurationSpace
 from joblib import Parallel, delayed
 
 from .llm import LLM
+try:
+    from ConfigSpace import ConfigurationSpace
+except ModuleNotFoundError:  # pragma: no cover - optional dependency
+    ConfigurationSpace = None
+
 from .loggers import ExperimentLogger
 from .solution import Solution
 from .utils import (
@@ -129,6 +134,12 @@ class LLaMEA:
         self.f = f  # evaluation function, provides an individual as output.
         self.role_prompt = role_prompt
         self.parallel_backend = parallel_backend
+        if HPO and ConfigurationSpace is None:
+            warnings.warn(
+                "ConfigSpace is not installed. Install ConfigSpace to enable HPO.",
+                stacklevel=2,
+            )
+            HPO = False
         if role_prompt == "":
             self.role_prompt = "You are a highly skilled computer scientist in the field of natural computing. Your task is to design novel metaheuristic algorithms to solve black box optimization problems."
         if task_prompt == "":
@@ -370,16 +381,16 @@ markdown code block labelled as diff:
     def optimize_task_prompt(self, individual):
         """Use the LLM to improve the task prompt for a given individual."""
         prompt = f"""{self.role_prompt}
-You are tasked with refining the instruction that guides algorithm generation.
+You are tasked with refining the instructions (task prompt) that guides an LLM to generate algorithms.
 ### Current task prompt:
 ----
 {individual.task_prompt}
 ----
 
-### The current algorithm generated:
-----
+### The current algorithm generated with that prompt:
+```python
 {individual.code}
-----
+```
 
 ### Feedback from the evaluation on this algorithm:
 ----
@@ -564,6 +575,7 @@ With code:
                 evolved_individual = self.evaluate_fitness(evolved_individual)
         except Exception as e:
             error = repr(e)
+            evolved_individual.generation = self.generation
             evolved_individual.set_scores(
                 self.worst_value, f"An exception occurred: {error}.", error
             )
