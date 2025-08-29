@@ -19,6 +19,7 @@ import numpy as np
 from joblib import Parallel, delayed
 
 from .llm import LLM
+
 try:
     from ConfigSpace import ConfigurationSpace
 except ModuleNotFoundError:  # pragma: no cover - optional dependency
