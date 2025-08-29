@@ -48,6 +48,14 @@ class Solution:
         self.operator = operator
         self.task_prompt = task_prompt
 
+    def __getstate__(self):
+        return self.to_dict()
+
+    def __setstate__(self, state):
+        self.__dict__.update(state)
+        if self.configspace == "":
+            self.configspace = None
+
     def set_operator(self, operator):
         """
         Sets the operator name that generated this individual.

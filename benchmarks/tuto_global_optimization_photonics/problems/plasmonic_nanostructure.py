@@ -38,7 +38,7 @@ class plasmonic_nanostructure(photonic_problem):
         Returns:
             pyGDM2.structures.struct: instance of nano-geometry class
         """
-        x_new = x * 5.
+        x_new = x * 5.0
         n = len(x_new) // 2
         x_list = x_new[:n]
         y_list = x_new[n:]
@@ -51,8 +51,7 @@ class plasmonic_nanostructure(photonic_problem):
             _s = self.element_sim.struct.copy()
             DX = _s.geometry[:, 0].max() - _s.geometry[:, 0].min() + _s.step
             DY = _s.geometry[:, 1].max() - _s.geometry[:, 1].min() + _s.step
-            _s = structures.shift(_s, np.array(
-                [DX*int(x_new), DY*int(y), 0.0]))
+            _s = structures.shift(_s, np.array([DX * int(x_new), DY * int(y), 0.0]))
 
             # do not add the block if too close to emitter at (0,0)
             if np.abs(x_new) >= 1 or np.abs(y) >= 1:
@@ -62,7 +61,8 @@ class plasmonic_nanostructure(photonic_problem):
             struct_list.append(_s + [DX, DY, 0])  # add at least one block
 
         full_struct = structures.combine_geometries(
-            struct_list, step=self.element_sim.struct.step)
+            struct_list, step=self.element_sim.struct.step
+        )
         full_sim = self.element_sim.copy()
         full_sim.struct = full_struct
         return full_sim
@@ -70,7 +70,7 @@ class plasmonic_nanostructure(photonic_problem):
     # ------- the optimization target function -------
 
     def __call__(self, x):
-        """ cost function: maximize scattering towards small solid angle
+        """cost function: maximize scattering towards small solid angle
 
         Args:
             x (list): optimization params --> pos of elements
@@ -84,24 +84,36 @@ class plasmonic_nanostructure(photonic_problem):
         sim.scatter(method=self.method, verbose=self.verbose)
 
         # 2D scattering evaluation in upper hemisphere
-        warnings.filterwarnings('ignore')
+        warnings.filterwarnings("ignore")
         Nteta, Nphi = 18, 32
         NtetaW, NphiW = 4, 5
-        Delta_angle = np.pi * 10/180   # +/- 10 degrees target angle
+        Delta_angle = np.pi * 10 / 180  # +/- 10 degrees target angle
         I_full = linear.farfield(
-            sim, field_index=0, return_value='int_Etot',
-            phimin=0, phimax=2*np.pi,
-            tetamin=0, tetamax=np.pi/2,
-            Nteta=Nteta, Nphi=Nphi)
+            sim,
+            field_index=0,
+            return_value="int_Etot",
+            phimin=0,
+            phimax=2 * np.pi,
+            tetamin=0,
+            tetamax=np.pi / 2,
+            Nteta=Nteta,
+            Nphi=Nphi,
+        )
         I_window = linear.farfield(
-            sim, field_index=0, return_value='int_Etot',
+            sim,
+            field_index=0,
+            return_value="int_Etot",
             # supposed to start at zero, excluding last point
-            phimin=-np.pi/6, phimax=np.pi/6 + (np.pi/3)/NphiW,
-            tetamin=np.pi/2 - Delta_angle, tetamax=np.pi/2 + Delta_angle,
-            Nteta=NtetaW, Nphi=NphiW)
+            phimin=-np.pi / 6,
+            phimax=np.pi / 6 + (np.pi / 3) / NphiW,
+            tetamin=np.pi / 2 - Delta_angle,
+            tetamax=np.pi / 2 + Delta_angle,
+            Nteta=NtetaW,
+            Nphi=NphiW,
+        )
 
         cost = -1 * (I_window / I_full)
         if self.verbose:
-            print('cost: {:.5f}'.format(cost))
+            print("cost: {:.5f}".format(cost))
 
         return cost

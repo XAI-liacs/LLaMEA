@@ -37,8 +37,15 @@ class ExperimentLogger:
         Args:
             name (str): The name of the experiment.
         """
+        self.working_date = datetime.today().strftime("%m-%d_%H%M%S")
         self.dirname = self.create_log_dir(name)
         self.attempt = 0
+
+    def __getstate__(self):
+        return self.__dict__
+
+    def __setstate__(self, state):
+        self.__dict__.update(state)
 
     def create_log_dir(self, name=""):
         """
@@ -49,7 +56,7 @@ class ExperimentLogger:
             str: The name of the created directory.
         """
         model_name = name.split("/")[-1]
-        today = datetime.today().strftime("%m-%d_%H%M%S")
+        today = self.working_date
         dirname = f"exp-{today}-{name}"
         os.mkdir(dirname)
         os.mkdir(f"{dirname}/configspace")

@@ -5,6 +5,7 @@ LLM modules to connect to different LLM providers. Also extracts code, name and 
 import copy
 import logging
 import pickle
+import json
 import random
 import re
 import time
@@ -31,6 +32,7 @@ except ModuleNotFoundError:  # pragma: no cover - optional dependency
     ConfigurationSpace = None
 
 from .solution import Solution
+from .loggers import ExperimentLogger
 from .utils import NoCodeException, apply_unified_diff
 
 
@@ -532,7 +534,7 @@ class Dummy_LLM(LLM):
         for msg in session_messages:
             big_message += msg["content"] + "\n"
         response = """This is a dummy response from the DUMMY LLM. It does not connect to any LLM provider.
-It is used for testing purposes only. 
+It is used for testing purposes only.
 # Description: A simple random search algorithm that samples points uniformly in the search space and returns the best found solution.
 # Code:
 ```python
@@ -548,12 +550,12 @@ class RandomSearch:
     def __call__(self, func):
         for i in range(self.budget):
             x = np.random.uniform(func.bounds.lb, func.bounds.ub)
-            
+
             f = func(x)
             if f < self.f_opt:
                 self.f_opt = f
                 self.x_opt = x
-            
+
         return self.f_opt, self.x_opt
 ```
 # Configuration Space:

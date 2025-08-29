@@ -12,6 +12,7 @@ from llamea import LLaMEA
 from misc import OverBudgetException, aoc_logger, correct_aoc
 
 from llamea import Gemini_LLM
+
 api_key = os.getenv("GEMINI_API_KEY")
 ai_model = "gemini-2.0-flash"  # gpt-4-turbo or gpt-3.5-turbo gpt-4o llama3:70b gpt-4o-2024-05-13, gemini-1.5-flash gpt-4-turbo-2024-04-09
 experiment_name = "gemini-minibrag"
@@ -67,7 +68,7 @@ def evaluate(solution, explogger=None):
     l2 = aoc_logger(
         budget, upper=1.0, lower=0.15, scale_log=True, triggers=[logger.trigger.ALWAYS]
     )
-    #combined_logger = ioh.logger.Combine([l1,l2])
+    # combined_logger = ioh.logger.Combine([l1,l2])
 
     problem = get_problem("cost_minibragg", instance=0, dimension=dim)
     problem.attach_logger(l2)
