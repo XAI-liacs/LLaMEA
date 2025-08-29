@@ -243,7 +243,7 @@ markdown code block labelled as diff:
         if max_workers > self.n_offspring:
             max_workers = self.n_offspring
         self.max_workers = max_workers
-        self.pickle_archieve()
+        self.pickle_archive()
 
     def __getstate__(self):
         state = self.__dict__.copy()
@@ -305,7 +305,7 @@ markdown code block labelled as diff:
             self.logevent(f"An exception occured: {traceback.format_exc()}.")
             if hasattr(self.f, "log_individual"):
                 self.f.log_individual(new_individual)
-
+        print("Releasing individual", new_individual)
         return new_individual
 
     def initialize(self):
@@ -324,11 +324,10 @@ markdown code block labelled as diff:
                 return_as="generator_unordered",
             )(
                 delayed(self.initialize_single)()
-                for _ in range(self.n_parents - len(self.population))
+                for _ in range(self.n_parents - len(population))
             )
         except Exception as e:
             print(f"Parallel time out in initialization {e}, retrying.")
-
         for p in population_gen:
             population.append(p)
 
@@ -617,7 +616,10 @@ With code:
 
         self.population = population
         if len(population) < self.n_parents:
+            print(len(population), self.n_parents)
             self.initialize()
+        else:
+            print("-----------Init not called--------------")
 
     def run(self, archive_path=None):
         """
@@ -634,7 +636,7 @@ With code:
             self.logevent(f"Loading population from {archive_path}/log.jsonl...")
             self.get_population_from(archive_path)
         else:
-            self.logevent("No archive path, standard initialisation.")
+            self.logevent("No archive path provided, standard initialisation.")
             # self.progress_bar = tqdm(total=self.budget)
             self.logevent("Initializing first population")
             self.initialize()  # Initialize a population
@@ -689,11 +691,11 @@ With code:
             )
 
             ## Archive progress.
-            self.pickle_archieve()
+            self.pickle_archive()
 
         return self.best_so_far
 
-    def pickle_archieve(self):
+    def pickle_archive(self):
         """
         Store the llmea object, into a file, using pickle, to support warm start.
         """

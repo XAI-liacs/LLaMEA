@@ -8,7 +8,15 @@ import httpx
 import pytest
 
 import llamea.llm as llm_mod  # the module that defines query
-from llamea import LLM, Dummy_LLM, Gemini_LLM, Multi_LLM, Ollama_LLM, OpenAI_LLM, Multi_LLM
+from llamea import (
+    LLM,
+    Dummy_LLM,
+    Gemini_LLM,
+    Multi_LLM,
+    Ollama_LLM,
+    OpenAI_LLM,
+    Multi_LLM,
+)
 
 
 class _DummyOpenAI:
@@ -314,6 +322,7 @@ def test_dummy_llm():
         len(response)
     )
 
+
 def test_multi_llm_logger_propagates():
     class LLMA(LLM):
         def query(self, session):
@@ -323,9 +332,7 @@ def test_multi_llm_logger_propagates():
         def query(self, session):
             return "B"
 
-    combo = Multi_LLM(
-        [LLMA(api_key="a", model="ma"), LLMB(api_key="b", model="mb")]
-    )
+    combo = Multi_LLM([LLMA(api_key="a", model="ma"), LLMB(api_key="b", model="mb")])
 
     logger = MagicMock()
     combo.set_logger(logger)

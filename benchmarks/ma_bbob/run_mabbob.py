@@ -18,7 +18,7 @@ import ioh
 import numpy as np
 import pandas as pd
 import polars as pl
-from tqdm import tqdm # optional, for progress bars
+from tqdm import tqdm  # optional, for progress bars
 import os
 
 # Execution code starts here
@@ -28,13 +28,16 @@ experiment_name = "gemini-mabbob"
 llm = Gemini_LLM(api_key, ai_model)
 
 # Read in the instance specifications
-weights = pd.read_csv(os.path.join(os.path.dirname(__file__),"weights.csv"), index_col=0)
-iids = pd.read_csv(os.path.join(os.path.dirname(__file__),"iids.csv"), index_col=0)
-opt_locs = pd.read_csv(os.path.join(os.path.dirname(__file__),"opt_locs.csv"), index_col=0)
+weights = pd.read_csv(
+    os.path.join(os.path.dirname(__file__), "weights.csv"), index_col=0
+)
+iids = pd.read_csv(os.path.join(os.path.dirname(__file__), "iids.csv"), index_col=0)
+opt_locs = pd.read_csv(
+    os.path.join(os.path.dirname(__file__), "opt_locs.csv"), index_col=0
+)
 
-def evaluateMABBOBWithHPO(
-    solution, explogger = None
-):
+
+def evaluateMABBOBWithHPO(solution, explogger=None):
     """
     Evaluates an optimization algorithm on the BBOB (Black-Box Optimization Benchmarking) suite and computes
     the Area Over the Convergence Curve (AOCC) to measure performance. In addddition, if a configuration space is provided, it
@@ -85,7 +88,6 @@ def evaluateMABBOBWithHPO(
     error = ""
     algorithm = None
 
-
     # perform a small run to check for any code errors
     l2_temp = aoc_logger(100, upper=1e2, triggers=[logger.trigger.ALWAYS])
     problem = get_problem(11, 1, 2)
@@ -102,12 +104,14 @@ def evaluateMABBOBWithHPO(
         dim, idx = instance.split(",")
         dim = int(dim[1:])
         idx = int(idx[:-1])
-        budget=budget_factor * dim
-        
-        f_new = ioh.problem.ManyAffine(xopt = np.array(opt_locs.iloc[idx])[:dim], 
-                                    weights = np.array(weights.iloc[idx]),
-                                    instances = np.array(iids.iloc[idx], dtype=int), 
-                                    n_variables = dim)
+        budget = budget_factor * dim
+
+        f_new = ioh.problem.ManyAffine(
+            xopt=np.array(opt_locs.iloc[idx])[:dim],
+            weights=np.array(weights.iloc[idx]),
+            instances=np.array(iids.iloc[idx], dtype=int),
+            n_variables=dim,
+        )
         f_new.set_id(100)
         f_new.set_instance(idx)
         np.random.seed(seed)
@@ -125,19 +129,19 @@ def evaluateMABBOBWithHPO(
         auc = correct_aoc(f_new, l2, budget)
         return 1 - auc
 
-    args = list(product([2,5], range(0, 100)))
+    args = list(product([2, 5], range(0, 100)))
     np.random.shuffle(args)
     inst_feats = {str(arg): [arg[0]] for idx, arg in enumerate(args)}
     # inst_feats = {str(arg): [idx] for idx, arg in enumerate(args)}
     error = ""
-    
+
     if solution.configspace == None:
         # No HPO possible, evaluate only the default
         incumbent = {}
         error = "The configuration space was not properly formatted or not present in your answer. The evaluation was done on the default configuration."
     else:
         configuration_space = solution.configspace
-        #First try if the algorithm can run with a random configuration
+        # First try if the algorithm can run with a random configuration
         config = configuration_space.sample_configuration()
         l2_temp = aoc_logger(100, upper=1e2, triggers=[logger.trigger.ALWAYS])
         problem = get_problem(11, 1, 2)
@@ -160,30 +164,38 @@ def evaluateMABBOBWithHPO(
             walltime_limit=2000,
             instances=args,
             instance_features=inst_feats,
-            output_directory="smac3_output" if explogger is None else explogger.dirname + "/smac"
-            #n_workers=10
+            output_directory="smac3_output"
+            if explogger is None
+            else explogger.dirname + "/smac"
+            # n_workers=10
         )
-        smac = AlgorithmConfigurationFacade(scenario, get_mabbob_performance, logging_level=30)
+        smac = AlgorithmConfigurationFacade(
+            scenario, get_mabbob_performance, logging_level=30
+        )
         incumbent = smac.optimize()
 
     # last but not least, perform the final validation
-    
+
     aucs = []
     error = ""
-    for dim in [2,5]:
+    for dim in [2, 5]:
         for idx in range(100):
-            budget=budget_factor * dim
-            f_new = ioh.problem.ManyAffine(xopt = np.array(opt_locs.iloc[idx])[:dim], 
-                                        weights = np.array(weights.iloc[idx]),
-                                        instances = np.array(iids.iloc[idx], dtype=int), 
-                                        n_variables = dim)
+            budget = budget_factor * dim
+            f_new = ioh.problem.ManyAffine(
+                xopt=np.array(opt_locs.iloc[idx])[:dim],
+                weights=np.array(weights.iloc[idx]),
+                instances=np.array(iids.iloc[idx], dtype=int),
+                n_variables=dim,
+            )
             f_new.set_id(100)
             f_new.set_instance(idx)
             l2 = aoc_logger(budget, upper=1e2, triggers=[logger.trigger.ALWAYS])
             f_new.attach_logger(l2)
 
             try:
-                algorithm = local_env[algorithm_name](budget=budget, dim=dim, **dict(incumbent))
+                algorithm = local_env[algorithm_name](
+                    budget=budget, dim=dim, **dict(incumbent)
+                )
                 algorithm(f_new)
             except OverBudgetException:
                 pass
@@ -193,8 +205,8 @@ def evaluateMABBOBWithHPO(
                 aucs.append(auc)
                 l2.reset(f_new)
                 f_new.reset()
-                break #stop the loop
-            
+                break  # stop the loop
+
             auc = correct_aoc(f_new, l2, budget)
             aucs.append(auc)
             l2.reset(f_new)
@@ -209,7 +221,7 @@ def evaluateMABBOBWithHPO(
     solution.add_metadata("aucs", aucs)
     solution.add_metadata("incumbent", dict_hyperparams)
     solution.set_scores(auc_mean, feedback)
-    
+
     return solution
 
 
@@ -274,7 +286,7 @@ for experiment_i in [1]:
         budget=500,
         n_parents=2,
         n_offspring=8,
-        eval_timeout=int(3600), #1 hours per algorithm
+        eval_timeout=int(3600),  # 1 hours per algorithm
         role_prompt=role_prompt,
         task_prompt=task_prompt,
         mutation_prompts=feedback_prompts,

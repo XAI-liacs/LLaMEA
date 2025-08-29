@@ -15,16 +15,20 @@ Recent features include:
   instead of entire source files from the LLM.
 * **Population evaluation** – with ``evaluate_population=True`` the evaluation
   function ``f`` operates on lists of solutions, allowing batch evaluations.
-* **Warm start** - With every iteration LLaMEA archives its latest run, in
-  `<experiment_log_directory>/llamea_config.pkl`. It not have `warm_start`
-  class methods, that takes the path to `<experiment_log_directory>`, restores
-  the latest object and warm starts the program. Using `.run()` on the restored
-  object will continue from where program was quit, and continue updating the
-  provided directory.
-*  **Initial Population** - After a cold start, initialisation of LLaMEA object
+* **Warm start** -With every iteration, **LLaMEA** archives its latest run in
+    `<experiment_log_directory>/llamea_config.pkl`. The framework provides
+    **``warm_start`` class methods** that allow you to resume from a previously
+    saved state. This methods:
+        - Accept the path to the ``<experiment_log_directory>``.
+        - Restore the most recent object from the archive.
+        - Reinitialize the program in warm-start mode.
+    After restoring the object, you can call `restored_object.run()` to continue execution
+    from the point where the program was last terminated, while updating the same experiment
+    directory.
+*  **Initial Population**  -After a cold start, initialisation of LLaMEA object
    one can use `.run(<experiment_log_directory>)` to start with latest individual
-   from the run in described in that directory. Make sure to use similar initialisation
-   criteria, as was use in the previous experiment.
+   from the run logged in that directory. Make sure to use similar initialisation
+   criteria, as was used in the logged experiment.
 
 Initialization Parameters
 -------------------------
