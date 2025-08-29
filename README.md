@@ -110,6 +110,14 @@ It is the easiest to use LLaMEA from the pypi package.
 > The Python version **must** be larger or equal to 3.11.
 > You need an OpenAI/Gemini/Ollama API key for using LLM models.
 
+For a slimmed-down installation without bundled LLM or HPO dependencies, install
+the lite package:
+
+```bash
+  pip install llamea-lite
+```
+HPO features in the lite package require installing `ConfigSpace` separately.
+
 You can also install the package from source using <a href="https://docs.astral.sh/uv/" target="_blank">uv</a> (0.7.19).
 make sure you have `uv` installed.
 

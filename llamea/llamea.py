@@ -10,11 +10,16 @@ import os
 import random
 import re
 import traceback
+import warnings
 from typing import Callable, Optional
 
 import numpy as np
-from ConfigSpace import ConfigurationSpace
 from joblib import Parallel, delayed
+
+try:
+    from ConfigSpace import ConfigurationSpace
+except ModuleNotFoundError:  # pragma: no cover - optional dependency
+    ConfigurationSpace = None
 
 from .loggers import ExperimentLogger
 from .solution import Solution
@@ -126,6 +131,12 @@ class LLaMEA:
         self.f = f  # evaluation function, provides an individual as output.
         self.role_prompt = role_prompt
         self.parallel_backend = parallel_backend
+        if HPO and ConfigurationSpace is None:
+            warnings.warn(
+                "ConfigSpace is not installed. Install ConfigSpace to enable HPO.",
+                stacklevel=2,
+            )
+            HPO = False
         if role_prompt == "":
             self.role_prompt = "You are a highly skilled computer scientist in the field of natural computing. Your task is to design novel metaheuristic algorithms to solve black box optimization problems."
         if task_prompt == "":
