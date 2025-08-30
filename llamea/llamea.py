@@ -79,6 +79,9 @@ class LLaMEA:
         clearing_interval: Optional[int] = None,
         evaluate_population=False,
         diff_mode: bool = False,
+        parent_selection: str = "random",
+        tournament_size: int = 3,
+        
     ):
         """
         Initializes the LLaMEA instance with provided parameters. Note that by default LLaMEA maximizes the objective.
@@ -131,6 +134,7 @@ class LLaMEA:
         self.llm = llm
         self.model = llm.model
         self.diff_mode = diff_mode
+        
         self.eval_timeout = eval_timeout
         self.f = f  # evaluation function, provides an individual as output.
         self.role_prompt = role_prompt
@@ -244,6 +248,8 @@ markdown code block labelled as diff:
         self.best_so_far = Solution(name="", code="")
         self.best_so_far.set_scores(self.worst_value, "", "")
         self.experiment_name = experiment_name
+        self.parent_selection = parent_selection  # "random" | "roulette" | "tournament"
+        self.tournament_size = tournament_size
 
         if self.log:
             modelname = self.model.replace(":", "_")
@@ -634,6 +640,74 @@ With code:
         else:
             print("-----------Init not called--------------")
 
+
+    def _select_parents(self):
+        """
+        Return list of parents (length = n_offspring) chosen according to
+        self.parent_selection.
+        """
+        method = (self.parent_selection or "random").lower()
+        if method == "random":
+            return np.random.choice(self.population, self.n_offspring, replace=True)
+        elif method == "roulette":
+            return self._roulette_wheel_selection(self.n_offspring)
+        elif method == "tournament":
+            return self._tournament_selection(self.n_offspring, self.tournament_size)
+        else:
+            raise ValueError(f"Unknown parent_selection: {self.parent_selection}")
+
+    def _sorted_indices_by_fitness(self):
+        """Return indices of population sorted by fitness (best first for maximizing)."""
+        reverse = (self.minimization == False)  # maximize -> reverse True
+        return sorted(range(len(self.population)),
+                      key=lambda i: self.population[i].fitness,
+                      reverse=reverse)
+
+    def _roulette_wheel_selection(self, k: int):
+        """
+        Rank-based roulette:
+        - Convert ordering into weights (best gets largest weight).
+        - Works robustly if raw fitness values are negative/inf.
+        """
+        n = len(self.population)
+        if n == 0:
+            return []
+        sorted_idx = self._sorted_indices_by_fitness()
+        # Assign rank weights: best -> n, worst -> 1
+        weights = np.zeros(n, dtype=float)
+        for pos, idx in enumerate(sorted_idx):
+            weights[idx] = n - pos
+        s = weights.sum()
+        if s <= 0 or not np.isfinite(s):
+            probs = np.ones(n) / n
+        else:
+            probs = weights / s
+        chosen_indices = np.random.choice(range(n), size=k, replace=True, p=probs)
+        return [self.population[i] for i in chosen_indices]
+
+    def _tournament_selection(self, k: int, tournament_size: int = 3):
+        """
+        For each parent to choose, sample `tournament_size` candidates randomly
+        and pick the best among them.
+        """
+        n = len(self.population)
+        if n == 0:
+            return []
+        ts = max(1, min(tournament_size, n))
+        selected = []
+        for _ in range(k):
+            if n >= ts:
+                cand_idx = random.sample(range(n), ts)
+            else:
+                cand_idx = list(np.random.choice(range(n), size=ts, replace=True))
+            if self.minimization:
+                best_i = min(cand_idx, key=lambda i: self.population[i].fitness)
+            else:
+                best_i = max(cand_idx, key=lambda i: self.population[i].fitness)
+            selected.append(self.population[best_i])
+        return selected
+    
+    
     def run(self, archive_path=None):
         """
         Main loop to evolve the solutions until the evolutionary budget is exhausted.
@@ -663,9 +737,7 @@ With code:
         )
         while len(self.run_history) < self.budget:
             # pick a new offspring population using random sampling
-            new_offspring_population = np.random.choice(
-                self.population, self.n_offspring, replace=True
-            )
+            new_offspring_population = self._select_parents()
 
             new_population = []
             try:
