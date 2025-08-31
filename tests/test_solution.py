@@ -1,7 +1,7 @@
 import os, sys, random
 import numpy as np
 
-# make sure project root is in path
+
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 sys.path.insert(0, ROOT)
 
@@ -10,7 +10,7 @@ from llamea import LLaMEA
 from llamea.solution import Solution
 
 
-# Minimal dummy LLM and f to be able to construct LLaMEA without external deps
+
 class DummyLLM:
     def __init__(self):
         self.model = "DUMMY"
@@ -23,7 +23,7 @@ class DummyLLM:
 
 
 def dummy_f(individual, logger=None):
-    # identity evaluator (we set fitness manually in tests)
+
     return individual
 
 
@@ -53,7 +53,7 @@ def test_tournament_selects_best():
         [1, 2, 3, 4], parent_selection="tournament", tournament_size=4, n_offspring=3
     )
     selected = algo._select_parents()
-    # tournament_size == population size => always pick global best
+
     assert len(selected) == 3
     assert all(s.fitness == 4 for s in selected)
 
@@ -64,7 +64,7 @@ def test_roulette_prefers_best():
     algo = make_algo_with_population(
         [1, 2, 3, 4], parent_selection="roulette", n_offspring=2
     )
-    # run multiple times and assert average selected fitness > population average (maximizing)
+
     vals = []
     for _ in range(500):
         sel = algo._select_parents()
