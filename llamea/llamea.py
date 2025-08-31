@@ -81,7 +81,6 @@ class LLaMEA:
         diff_mode: bool = False,
         parent_selection: str = "random",
         tournament_size: int = 3,
-        
     ):
         """
         Initializes the LLaMEA instance with provided parameters. Note that by default LLaMEA maximizes the objective.
@@ -134,7 +133,7 @@ class LLaMEA:
         self.llm = llm
         self.model = llm.model
         self.diff_mode = diff_mode
-        
+
         self.eval_timeout = eval_timeout
         self.f = f  # evaluation function, provides an individual as output.
         self.role_prompt = role_prompt
@@ -625,9 +624,11 @@ With code:
                 code=individual["code"],
                 name=individual["name"],
                 description=individual["description"],
-                configspace=None
-                if individual["configspace"] == ""
-                else individual["configspace"],
+                configspace=(
+                    None
+                    if individual["configspace"] == ""
+                    else individual["configspace"]
+                ),
                 operator=individual["operator"],
                 task_prompt=individual["task_prompt"],
             )
@@ -639,7 +640,6 @@ With code:
             self.initialize()
         else:
             print("-----------Init not called--------------")
-
 
     def _select_parents(self):
         """
@@ -658,10 +658,12 @@ With code:
 
     def _sorted_indices_by_fitness(self):
         """Return indices of population sorted by fitness (best first for maximizing)."""
-        reverse = (self.minimization == False)  # maximize -> reverse True
-        return sorted(range(len(self.population)),
-                      key=lambda i: self.population[i].fitness,
-                      reverse=reverse)
+        reverse = self.minimization == False  # maximize -> reverse True
+        return sorted(
+            range(len(self.population)),
+            key=lambda i: self.population[i].fitness,
+            reverse=reverse,
+        )
 
     def _roulette_wheel_selection(self, k: int):
         """
@@ -706,8 +708,7 @@ With code:
                 best_i = max(cand_idx, key=lambda i: self.population[i].fitness)
             selected.append(self.population[best_i])
         return selected
-    
-    
+
     def run(self, archive_path=None):
         """
         Main loop to evolve the solutions until the evolutionary budget is exhausted.
