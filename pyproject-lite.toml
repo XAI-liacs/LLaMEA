@@ -1,6 +1,6 @@
 [project]
 name = "llamea-lite"
-version = "1.1.2"
+version = "1.1.3"
 description = "LLaMEA without bundled LLM or HPO dependencies"
 authors = [{ name = "Niki van Stein", email = "n.van.stein@liacs.leidenuniv.nl" }]
 requires-python = ">=3.11, <4"
@@ -18,9 +18,14 @@ dependencies = [
 Homepage = "https://github.com/XAI-liacs/LLaMEA"
 Repository = "https://github.com/XAI-liacs/LLaMEA"
 
-
 [tool.uv]
 default-groups = []
+
+[tool.hatch.build.targets.wheel]
+packages = ["llamea"]
+
+[tool.hatch.build.targets.sdist]
+packages = ["llamea"]
 
 [build-system]
 requires = ["hatchling"]
