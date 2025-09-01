@@ -129,6 +129,12 @@ class LLaMEA:
                 `f(population, parents=None, logger=None) -> (evaluated_offspring, evaluated_parents)`.
             diff_mode (bool): If ``True``, the LLM is asked to generate unified diff
                 patches instead of complete code when evolving solutions.
+            parent_selection (str): Strategy for selecting parents to produce
+                offspring. Options are ``"random"``, ``"tournament"``, which
+                picks the best from a sampled subset, and fitness-proportionate
+                roulette wheel selection ``"roulette"``.
+            tournament_size (int): Number of candidates sampled in each
+                tournament when using ``"tournament"`` selection.
         """
         self.llm = llm
         self.model = llm.model
