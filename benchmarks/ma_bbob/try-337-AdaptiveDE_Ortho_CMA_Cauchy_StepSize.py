@@ -78,7 +78,7 @@ class AdaptiveDE_Ortho_CMA_Cauchy_StepSize:
         return None
 
     def __call__(self, func):
-        self.f_opt = np.Inf
+        self.f_opt = np.inf
         self.x_opt = None
         self.population = np.random.uniform(
             func.bounds.lb, func.bounds.ub, size=(self.pop_size, self.dim)

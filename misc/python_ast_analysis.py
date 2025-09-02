@@ -301,7 +301,7 @@ if __name__ == "__main__":
             convergence = np.ones(budget) * -100
             # convergence_default = np.zeros(budget)
             code_diff_ratios = np.zeros(budget)
-            best_so_far = -np.Inf
+            best_so_far = -np.inf
             best_so_far_default = 0
             previous_code = ""
             previous_config = {}
@@ -366,8 +366,8 @@ if __name__ == "__main__":
         exp_dirs = ["run1", "run2", "run3"]
         convergence_lines = []
         for exp_dir in exp_dirs:
-            conv_line = np.ones(budget * 200) * -np.Inf
-            best_so_far = -np.Inf
+            conv_line = np.ones(budget * 200) * -np.inf
+            best_so_far = -np.inf
             teller = 0
             gen = 0
             for k in range(5):
@@ -444,7 +444,7 @@ if __name__ == "__main__":
             convergence = np.ones(budget) * -100
             # convergence_default = np.zeros(budget)
             code_diff_ratios = np.zeros(budget)
-            best_so_far = -np.Inf
+            best_so_far = -np.inf
             best_so_far_default = 0
             previous_code = ""
             previous_config = {}
@@ -509,8 +509,8 @@ if __name__ == "__main__":
         exp_dirs = ["run1", "run2", "run3"]
         convergence_lines = []
         for exp_dir in exp_dirs:
-            conv_line = np.ones(budget * 200) * -np.Inf
-            best_so_far = -np.Inf
+            conv_line = np.ones(budget * 200) * -np.inf
+            best_so_far = -np.inf
             teller = 0
             gen = 0
             for k in range(5):
@@ -622,7 +622,7 @@ if __name__ == "__main__":
                 convergence = np.ones(budget) * -100
                 # convergence_default = np.zeros(budget)
                 code_diff_ratios = np.zeros(budget)
-                best_so_far = -np.Inf
+                best_so_far = -np.inf
                 best_so_far_default = 0
                 previous_code = ""
                 previous_config = {}
@@ -742,7 +742,7 @@ if __name__ == "__main__":
             convergence = np.ones(budget) * -100
             # convergence_default = np.zeros(budget)
             code_diff_ratios = np.zeros(budget)
-            best_so_far = -np.Inf
+            best_so_far = -np.inf
             best_so_far_default = 0
             previous_code = ""
             previous_config = {}

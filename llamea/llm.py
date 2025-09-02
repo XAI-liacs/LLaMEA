@@ -544,7 +544,7 @@ class RandomSearch:
     def __init__(self, budget=10000, dim=10):
         self.budget = budget
         self.dim = dim
-        self.f_opt = np.Inf
+        self.f_opt = np.inf
         self.x_opt = None
 
     def __call__(self, func):
