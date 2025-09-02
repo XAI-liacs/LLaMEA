@@ -407,7 +407,7 @@ def analyze_run(
     """
     results = []
     alg_id = 0
-    best_ever_fitness = -np.Inf
+    best_ever_fitness = -np.inf
 
     log_file = f"{expfolder}/log.jsonl"
     print(log_file)
@@ -417,7 +417,7 @@ def analyze_run(
             for obj in reader.iter(type=dict, skip_invalid=True):
                 reader_i += 1
                 stats = []
-                fitness = -np.Inf
+                fitness = -np.inf
                 code = ""
                 if "solution" in obj.keys():
                     code = obj["solution"]
@@ -438,7 +438,7 @@ def analyze_run(
                 ):  # EOH log file
                     fitness = obj["objective"] * -1
                 else:
-                    fitness = -np.Inf
+                    fitness = -np.inf
                 try:
                     stats = process_code(code, False)
                 except Exception as e:

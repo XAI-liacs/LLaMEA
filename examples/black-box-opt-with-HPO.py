@@ -206,7 +206,7 @@ if __name__ == "__main__":
             self.dim = dim
 
         def __call__(self, func):
-            self.f_opt = np.Inf
+            self.f_opt = np.inf
             self.x_opt = None
             for i in range(self.budget):
                 x = np.random.uniform(func.bounds.lb, func.bounds.ub)
