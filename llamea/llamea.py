@@ -262,21 +262,10 @@ markdown code block labelled as diff:
             self.llm.set_logger(self.logger)
         else:
             self.logger = None
-        self.textlog = logging.getLogger(__name__)
         if max_workers > self.n_offspring:
             max_workers = self.n_offspring
         self.max_workers = max_workers
         self.pickle_archive()
-
-    def __getstate__(self):
-        state = self.__dict__.copy()
-        state.pop("textlog", None)
-        return state
-
-    def __setstate__(self, state):
-        self.__dict__.update(state)
-        # Logging object often has open f stream, which is not piklable.
-        self.textlog = logging.getLogger(__name__)
 
     @classmethod
     def warm_start(cls, path_to_archive_dir):
@@ -297,7 +286,7 @@ markdown code block labelled as diff:
             return None
 
     def logevent(self, event):
-        self.textlog.info(event)
+        print(event)
 
     def initialize_single(self):
         """
@@ -615,7 +604,7 @@ With code:
                     data.append(obj)
 
         except Exception as e:
-            self.textlog.error("Error reading population: " + e.__repr__())
+            print("Error reading population: " + e.__repr__())
 
         restore_population = data[-1 * self.n_parents :]
         population = []
@@ -792,8 +781,8 @@ With code:
         Store the llmea object, into a file, using pickle, to support warm start.
         """
         try:
-            with open(f"{self.logger.dirname}/llamea_config.pkl", "wb") as file:
-                pickle.dump(self, file)
+            if self.logger:
+                with open(f"{self.logger.dirname}/llamea_config.pkl", "wb") as file:
+                    pickle.dump(self, file)
         except Exception as e:
-            self.textlog.error("Error archiving LLaMEA object: " + e.__repr__())
-            traceback.print_exc()
+            print("Error archiving LLaMEA object for restarting: " + e.__repr__())
