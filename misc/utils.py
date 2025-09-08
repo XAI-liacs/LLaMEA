@@ -1,11 +1,11 @@
 import numpy as np
 
-try:
-    from ioh import LogInfo
-    from ioh.logger import AbstractLogger
-except ImportError:
-    LogInfo = None
-    AbstractLogger = object
+# try:
+from ioh import LogInfo
+from ioh.iohcpp.logger import AbstractLogger
+# except ImportError:
+#     LogInfo = None
+#     AbstractLogger = object
 
 class ThresholdReachedException(Exception):
     """The algorithm reached the lower threshold."""

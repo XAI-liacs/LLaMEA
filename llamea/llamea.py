@@ -55,6 +55,7 @@ class LLaMEA:
         experiment_name="",
         elitism=True,
         HPO=False,
+        crossover_prompts=None,
         mutation_prompts=None,
         adaptive_mutation=False,
         adaptive_prompt=False,
@@ -200,6 +201,10 @@ markdown code block labelled as diff:
 """
         self.mutation_prompts = mutation_prompts
         self.adaptive_mutation = adaptive_mutation
+        if crossover_prompts == None:
+            self.crossover_prompts = [
+                "Simulate the crossover process of chromosomes in nature to crossover these two algorithmic codes."
+            ]
         if mutation_prompts == None:
             self.mutation_prompts = [
                 "Refine the strategy of the selected solution to improve it.",  # small mutation
@@ -415,6 +420,43 @@ With code:
         # Logic to construct the new prompt based on current evolutionary state.
         return session_messages
 
+    def construct_crossover_prompt(self, parents):
+        # Generate the current population summary
+        population_summary = "\n".join([ind.get_summary() for ind in self.population])
+        solutions = [p.code for p in parents]
+        descriptions = [p.description for p in parents]
+        feedbacks = [p.feedback for p in parents]
+        task_prompt = random.choice(self.crossover_prompts)
+        final_prompt = f"""{task_prompt}
+The current population of algorithms already evaluated (name, description, score) is:
+{population_summary}
+
+The selected solutions to apply crossover are:
+"""
+        for i in range(len(solutions)):
+            final_prompt += f"""
+{descriptions[i]}
+
+With code:
+{solutions[i]}
+
+{feedbacks[i]}
+
+"""
+        final_prompt += f"""
+{self.diff_output_format_prompt if self.diff_mode else self.output_format_prompt}
+"""
+        session_messages = [
+            {"role": "user", "content": self.role_prompt + final_prompt},
+        ]
+
+        if self._random:  # not advised to use, only for debugging purposes
+            session_messages = [
+                {"role": "user", "content": self.role_prompt + self.task_prompt},
+            ]
+        # Logic to construct the new prompt based on current evolutionary state.
+        return session_messages
+
     def update_best(self):
         """
         Update the best individual in the new population
@@ -476,6 +518,34 @@ With code:
                 else:
                     ind.fitness = self.worst_value
         return population
+
+    def crossover(self, parents):
+        try:
+            print("construct prompt")
+            new_prompt = self.construct_crossover_prompt(parents)
+            print("prompt constructed")
+            crossover_individual = self.llm.sample_solution(
+                new_prompt,
+                [p.id for p in parents],
+                HPO=self.HPO
+            )
+            print("create crossover_individual")
+            crossover_individual.generation = self.generation
+            crossover_individual.task_prompt = parents[0].task_prompt
+            if not self.evaluate_population:
+                crossover_individual = self.evaluate_fitness(crossover_individual)
+        except Exception as e:
+            print("cossover error")
+            error = repr(e)
+            crossover_individual.set_scores(
+                self.worst_value, f"An exception occurred: {error}.", error
+            )
+            if hasattr(self.f, "log_individual"):
+                self.f.log_individual(crossover_individual)
+            self.logevent(f"An exception occured: {traceback.format_exc()}.")
+
+        # self.progress_bar.update(1)
+        return crossover_individual
 
     def selection(self, parents, offspring):
         """
@@ -561,22 +631,34 @@ With code:
         )
         while len(self.run_history) < self.budget:
             # pick a new offspring population using random sampling
-            new_offspring_population = np.random.choice(
-                self.population, self.n_offspring, replace=True
-            )
+            # new_offspring_population = np.random.choice(
+            #     self.population, self.n_offspring, replace=True
+            # )
+            new_offspring_population = []
 
             new_population = []
             try:
+                for i in range(self.n_offspring):
+                    print(f"crossover {i}")
+                    crossover_parents = np.random.choice(self.population, 2, replace=False)
+                    print(crossover_parents)
+                    print(f"select parents {i}")
+                    crossover_individual = self.crossover(crossover_parents)
+                    print(f"crossover {i} done")
+                    new_offspring_population += [crossover_individual]
                 timeout = self.eval_timeout
-                new_population_gen = Parallel(
-                    n_jobs=self.max_workers,
-                    timeout=timeout + 15,
-                    backend=self.parallel_backend,
-                    return_as="generator_unordered",
-                )(
-                    delayed(self.evolve_solution)(individual)
-                    for individual in new_offspring_population
-                )
+                new_population_gen = []
+                for individual in new_offspring_population:
+                    new_population_gen += [self.evolve_solution(individual)]
+                # new_population_gen = Parallel(
+                #     n_jobs=self.max_workers,
+                #     timeout=timeout + 15,
+                #     backend=self.parallel_backend,
+                #     return_as="generator_unordered",
+                # )(
+                #     delayed(self.evolve_solution)(individual)
+                #     for individual in new_offspring_population
+                # )
             except Exception as e:
                 print("Parallel time out .")
 
