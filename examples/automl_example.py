@@ -69,7 +69,7 @@ class AlgorithmName:
         lr_model = sklearn.linear_model.LogisticRegression()
         lr_model.fit(X_train, y_train)
         self.model = lr_model
-        
+
     def __call__(self, X):
         # predict using the trained model
         return self.model.predict(X)
@@ -79,7 +79,7 @@ class AlgorithmName:
 
 Give an excellent and novel ML pipeline to solve this task and also give it a one-line description, describing the main idea. Give the response in the format:
 # Description: <short-description>
-# Code: 
+# Code:
 ```python
 <code>
 ```
@@ -146,6 +146,8 @@ if __name__ == "__main__":
             experiment_name=experiment_name,
             elitism=True,
             HPO=False,
-            budget=100,
+            budget=25,
+            diff_mode=True,
+            diff_mode_approach="generic"
         )
         print(es.run())

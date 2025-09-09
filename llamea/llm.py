@@ -11,6 +11,9 @@ import re
 import time
 from abc import ABC, abstractmethod
 
+from numpy import diff
+from .diff_manager import DiffManager
+
 try:
     import google.generativeai as genai
 except ModuleNotFoundError:  # pragma: no cover - optional dependency
@@ -116,6 +119,7 @@ class LLM(ABC):
         HPO: bool = False,
         base_code: str | None = None,
         diff_mode: bool = False,
+        diff_implementer : DiffManager | None = None,
     ):
         """Generate or mutate a solution using the language model.
 
@@ -127,6 +131,8 @@ class LLM(ABC):
             diff_mode: When ``True``, interpret the LLM response as a unified
                 diff patch to apply to ``base_code`` rather than full source
                 code.
+            diff_implementer: A diff manager instance to expriment and log
+            diff functionality and apply different diff modes.
 
         Returns:
             tuple: A tuple containing the new algorithm code, its class name, its full descriptive name and an optional configuration space object.
@@ -152,7 +158,11 @@ class LLM(ABC):
         if diff_mode:
             if base_code is None:
                 base_code = ""
-            code = apply_unified_diff(base_code, code_block)
+            if diff_implementer != None:
+                print("Hello.")
+                code = diff_implementer.apply_diff(base_code, message)
+            else:
+                code = apply_unified_diff(base_code, code_block)
         else:
             code = code_block
 

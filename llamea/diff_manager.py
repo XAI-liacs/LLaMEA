@@ -3,7 +3,6 @@ import ast
 import jsonlines
 from copy import deepcopy
 
-from llamea import Solution
 from difflib import SequenceMatcher
 
 class DiffManager:
@@ -21,7 +20,7 @@ class DiffManager:
         self._location = location
 
 
-    def complete_prompt(self, optimisation_prompt: str) -> str:
+    def get_diff_prompt(self) -> str:
         """
             Adds the required prompt to receive diff mode data from LLM.
 
@@ -29,7 +28,7 @@ class DiffManager:
             optimisation_pompt: Optimisation of given individual.
         """
         if self._diffToolingMethod == "generic":
-            return optimisation_prompt + """
+            return """
 ---
 I have a function that replaces a strings `[lines_to_be_changed]` with `[updated_lines]` in the current code. Only provide the required array to apply said patch
 MUST use the following format for the solution:
@@ -40,17 +39,19 @@ MUST use the following format for the solution:
 ```
 """
         else:
-            return optimisation_prompt + """
+            return  """
 ---
 You MUST use the exact SEARCH/REPLACE diff format shown below to indicate changes:
-
+```
 <<<<<<< SEARCH
 # Original code to find and replace (must match exactly)
 =======
 # New replacement code
 >>>>>>> REPLACE
+```
 
 Example of valid diff format:
+```
 <<<<<<< SEARCH
 for i in range(m):
     for j in range(p):
@@ -63,6 +64,7 @@ for i in range(m):
         for j in range(p):
             C[i, j] += A[i, k] * B[k, j]
 >>>>>>> REPLACE
+```
 """
 
     def _code_updater(self, code: str, lines_to_change : list[str], updated_lines: list[str]):
@@ -80,7 +82,7 @@ for i in range(m):
             code = code.replace(lines_to_change[i], updated_lines[i], 1)        #Update one occurance of lines_to_change, to corresponding change.
         return code
 
-    def _apply_generic_change(self, text:str, solution:Solution) -> tuple[bool, float]:
+    def _apply_generic_change(self, text:str, base_code:str) -> tuple[str, bool, float]:
         """
         Assuming the LLM follows the intructions properly, following format of response is expected.
         ```(python)? <- (python may appear sometimes.)
@@ -96,8 +98,9 @@ for i in range(m):
             line 6           <- replaced by replacingline3
         Args:
             text: LLM response.text.
-            solution: Instance of an individual in LLaMEA framework.
+            base_code: Base code to be mutated.
         Return:
+            Code: updated code, after applying diff.
             bool: Flag about the success of mutation.
             float: Ratio of change in code.
         """
@@ -106,17 +109,16 @@ for i in range(m):
         try:
             parameter1 = ast.literal_eval(parameters[0])
             parameter2 = ast.literal_eval(parameters[1])
-            code = self._code_updater(solution.code, parameter1, parameter2)
+            code = self._code_updater(base_code, parameter1, parameter2)
 
-            seq_match = SequenceMatcher(None, code, solution.code)
+            seq_match = SequenceMatcher(None, code, base_code)
             ratio = seq_match.ratio()
 
-            solution.code = code
-            return True, ratio
+            return code, True, ratio
         except Exception:
-            return False, 0.0
+            return base_code, False, 0.0
 
-    def _apply_open_evolve(self, text:str, solution: Solution) -> tuple[bool, float]:
+    def _apply_open_evolve(self, text:str, base_code: str) -> tuple[str, bool, float]:
         """
         Assuming the LLM follows the intructions properly, following format of response is expected.
         ```(python)? <- (python may appear sometimes.)
@@ -135,12 +137,12 @@ for i in range(m):
         >>>>>>> REPLACE
         Args:
             text: LLM response.text.
-            solution: Instance of an individual in LLaMEA framework.
+            base_code: Base code to be mutated.
         Returns:
+            Code: updated code, after applying diff.
             bool: Success of diff mode implementation.
             float: Ratio of code changed.
         """
-        code = deepcopy(solution.code)
         outLines = []
         inLines = []
         try:
@@ -152,38 +154,37 @@ for i in range(m):
                     raise ValueError
                 outLines.append(elements[0])
                 inLines.append(elements[1])
-            code = self._code_updater(code, outLines, inLines)
+            code = self._code_updater(base_code, outLines, inLines)
 
-            seq_match = SequenceMatcher(None, code, solution.code)
+            seq_match = SequenceMatcher(None, code, base_code)
             ratio = seq_match.ratio()
 
-            solution.code = code
-            return True, ratio
+            return code, True, ratio
 
         except Exception:
-            return False, 0.0
+            return base_code, False, 0.0
 
-    def apply_response(self, responseText: str, token_cost, solution: Solution):
+    def apply_diff(self, base_code: str, responseText: str) -> str:
         """
         Decodes and updates the code.
+        Args:
+            base_code: Base code that needs to be edited.
+            responseText: Response text from the user.
         """
         if self._diffToolingMethod == "generic":
-            success, delta = self._apply_generic_change(responseText, solution)
+            new_code, success, delta = self._apply_generic_change(responseText, base_code)
 
-        else:
-            success, delta = self._apply_open_evolve(responseText, solution)
+        elif self._diffToolingMethod == "openEvolve":
+            new_code, success, delta = self._apply_open_evolve(responseText, base_code)
 
         diffObject = {
-            "id": solution.id,
-            "generation": solution.generation,
-            "request": solution.task_prompt,
             "response": responseText,
-            "token_cost": token_cost,
             "success" : success,
             "diff": delta
         }
 
         # Log for diagnostics.
-
         with jsonlines.open(self.logLocation, "a") as jlf:
             jlf.write(diffObject)
+
+        return new_code
