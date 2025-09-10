@@ -159,7 +159,6 @@ class LLM(ABC):
             if base_code is None:
                 base_code = ""
             if diff_implementer != None:
-                print("Hello.")
                 code = diff_implementer.apply_diff(base_code, message)
             else:
                 code = apply_unified_diff(base_code, code_block)

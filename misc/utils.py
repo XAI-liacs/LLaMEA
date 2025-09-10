@@ -2,10 +2,10 @@ import numpy as np
 
 try:
     from ioh import LogInfo
-    from ioh.logger import AbstractLogger
+    from ioh import logger
 except ImportError:
     LogInfo = None
-    AbstractLogger = object
+    logger = object
 
 
 class ThresholdReachedException(Exception):
@@ -47,7 +47,7 @@ def correct_aoc(ioh_function, logger, budget):
     return 1 - aoc
 
 
-class aoc_logger(AbstractLogger):
+class aoc_logger(logger.AbstractLogger):
     """aoc_logger class implementing the logging module for ioh."""
 
     def __init__(
@@ -95,7 +95,7 @@ class aoc_logger(AbstractLogger):
         self.aoc = 0
 
 
-class budget_logger(AbstractLogger):
+class budget_logger(logger.AbstractLogger):
     """budget_logger class implementing the logging module for ioh."""
 
     def __init__(

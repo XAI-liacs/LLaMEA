@@ -135,6 +135,8 @@ for i in range(m):
                 for j in range(p):
                     C[i, j] += A[i, k] * B[k, j]
         >>>>>>> REPLACE
+        ```
+
         Args:
             text: LLM response.text.
             base_code: Base code to be mutated.
@@ -146,14 +148,12 @@ for i in range(m):
         outLines = []
         inLines = []
         try:
-            diffBlocks = text.split("<<<<<<< SEARCH")
-            for diffBlock in diffBlocks:
-                diffBlock = diffBlock.rstrip(">>>>>>> REPLACE")
-                elements = diffBlock.split("=======")
-                if len(elements) != 2:
-                    raise ValueError
-                outLines.append(elements[0])
-                inLines.append(elements[1])
+            elements = text.split("=======")
+            if len(elements) != 2:
+                raise ValueError
+            outLines.append(elements[0].lstrip("<<<<<<< SEARCH"))
+            inLines.append(elements[1].rstrip(">>>>>>> REPLACE"))
+
             code = self._code_updater(base_code, outLines, inLines)
 
             seq_match = SequenceMatcher(None, code, base_code)
