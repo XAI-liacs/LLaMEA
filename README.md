@@ -104,9 +104,10 @@ LLaMEA couples large-language-model reasoning with an evolutionary loop to **inv
 > [!Important]
 > Ensure that SWIG is installed on your system by running `swig --version`
 > If it is not installed, use the appropriate method for your platform:
->	  •	**macOS**: `brew install swig`
->		•	**Ubuntu/Linux**: `sudo apt-get install swig` (or your distribution’s package manager)
->		•	**Windows**: Download and install from the official [SWIG website](https://www.swig.org/download.html) and make sure to add it to your system PATH.
+> 
+> -	**macOS**: `brew install swig`
+> -	**Ubuntu/Linux**: `sudo apt-get install swig` (or your distribution’s package manager)
+> -	**Windows**: Download and install from the official [SWIG website](https://www.swig.org/download.html) and make sure to add it to your system PATH.
 
 
 It is the easiest to use LLaMEA from the pypi package.
