@@ -101,7 +101,7 @@ LLaMEA couples large-language-model reasoning with an evolutionary loop to **inv
 
 ## 🎁 Installation
 
-> [!Swig Dependency]
+> [!Important]
 > Ensure that SWIG is installed on your system by running `swig --version`
 > If it is not installed, use the appropriate method for your platform:
 >	  •	**macOS**: brew install swig
