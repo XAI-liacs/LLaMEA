@@ -20,14 +20,14 @@
   <img src="https://img.shields.io/badge/Maintained%3F-yes-brightgreen.svg" alt="Maintenance" height="18">
   <img src="https://img.shields.io/badge/Python-3.10+-blue" alt="Python 3.10+" height="18">
   <img src="https://github.com/XAI-liacs/LLaMEA/actions/workflows/test.yml/badge.svg" alt="Test"/>
-  <a href="https://codecov.io/gh/XAI-liacs/LLaMEA" > 
-    <img src="https://codecov.io/gh/XAI-liacs/LLaMEA/graph/badge.svg?token=VKCNPWVBNM"/> 
+  <a href="https://codecov.io/gh/XAI-liacs/LLaMEA" >
+    <img src="https://codecov.io/gh/XAI-liacs/LLaMEA/graph/badge.svg?token=VKCNPWVBNM"/>
  </a>
   <a href="https://doi.org/10.5281/zenodo.13842144"><img src="https://zenodo.org/badge/DOI/10.5281/zenodo.13842144.svg" alt="DOI"></a>
   <a target="_blank" href="https://colab.research.google.com/github/XAI-liacs/LLaMEA/blob/main/docs/notebooks/simple_example.ipynb">
     <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/>
   </a>
-  
+
   <a target="_blank" href="https://xai-liacs.github.io/LLaMEA/">
     <img src="https://img.shields.io/badge/docs-online-success" alt="Docs"/>
   </a>
@@ -37,10 +37,10 @@
 
 > **The fully-open successor to Google DeepMind’s AlphaEvolve for automated algorithm discovery.**
 > First released 📅 Nov 2024 • MIT License • 100 % reproducible.
-> Also read the  <a href="https://xai-liacs.github.io/LLaMEA/" target="_blank">Documentation</a>.  
+> Also read the  <a href="https://xai-liacs.github.io/LLaMEA/" target="_blank">Documentation</a>.
 > 🥈 Winner of the Silver <a href="https://www.human-competitive.org/awards">Humies 2025</a> at GECCO!
 
-LLaMEA couples large-language-model reasoning with an evolutionary loop to **invent, mutate and benchmark algorithms fully autonomously**.  
+LLaMEA couples large-language-model reasoning with an evolutionary loop to **invent, mutate and benchmark algorithms fully autonomously**.
 
 ## Table of Contents
 - [Introduction](#introduction)
@@ -80,34 +80,41 @@ LLaMEA couples large-language-model reasoning with an evolutionary loop to **inv
 - **Machine Learning Pipelines**: Without any ML knowledge, you can use LLaMEA to generate optimized machine learning pipelines for any task. Just insert the task description and provide the dataset and evaluation metric and start LLaMEA.
 
 
-## 🔥 News 
+## 🔥 News
 
-+ 2025.07 🎉🎉 **"LLaMEA" won the Any-time Performancy on Many-Affine BBOB competition, and the Silver award at the [Humies @GECCO2025](https://www.human-competitive.org/awards)**!  
++ 2025.07 🎉🎉 **"LLaMEA" won the Any-time Performancy on Many-Affine BBOB competition, and the Silver award at the [Humies @GECCO2025](https://www.human-competitive.org/awards)**!
 
-+ 2025.06 🎉🎉 **["LLaMEA-BO: A Large Language Model Evolutionary Algorithm for Automatically Generating Bayesian Optimization Algorithms"](https://arxiv.org/abs/2505.21034) published on Arxiv**!  
++ 2025.06 🎉🎉 **["LLaMEA-BO: A Large Language Model Evolutionary Algorithm for Automatically Generating Bayesian Optimization Algorithms"](https://arxiv.org/abs/2505.21034) published on Arxiv**!
 
-+ 2025.05 🎉🎉 **["Optimizing Photonic Structures with Large Language Model Driven Algorithm Discovery"](https://arxiv.org/abs/2503.19742) accepted as workshop paper at GECCO 2025**!  
++ 2025.05 🎉🎉 **["Optimizing Photonic Structures with Large Language Model Driven Algorithm Discovery"](https://arxiv.org/abs/2503.19742) accepted as workshop paper at GECCO 2025**!
 
-+ 2025.05 🎉🎉 **["BLADE: Benchmark Suite for LLM-Driven Automated Design and Evolution of iterative optimisation heuristics"](https://arxiv.org/abs/2504.20183) accepted as workshop paper at GECCO 2025**!  
++ 2025.05 🎉🎉 **["BLADE: Benchmark Suite for LLM-Driven Automated Design and Evolution of iterative optimisation heuristics"](https://arxiv.org/abs/2504.20183) accepted as workshop paper at GECCO 2025**!
 
-+ 2025.04 🎉🎉 **LLaMEA-HPO paper accepted in ACM TELO** [“In-the-loop Hyper-Parameter Optimization for LLM-Based Automated Design of Heuristics"](https://dl.acm.org/doi/abs/10.1145/3731567)!  
++ 2025.04 🎉🎉 **LLaMEA-HPO paper accepted in ACM TELO** [“In-the-loop Hyper-Parameter Optimization for LLM-Based Automated Design of Heuristics"](https://dl.acm.org/doi/abs/10.1145/3731567)!
 
-+ 2025.04 🎉🎉 **["Code Evolution Graphs"](https://arxiv.org/abs/2503.16668) accepted as full paper at GECCO 2025**!  
++ 2025.04 🎉🎉 **["Code Evolution Graphs"](https://arxiv.org/abs/2503.16668) accepted as full paper at GECCO 2025**!
 
-+ 2025.03 🎉🎉 **LLaMEA v1.0.0 released**!  
++ 2025.03 🎉🎉 **LLaMEA v1.0.0 released**!
 
-+ 2025.01 🎉🎉 **LLaMEA paper accepted in IEEE TEVC** [“Llamea: A large language model evolutionary algorithm for automatically generating metaheuristics"](https://ieeexplore.ieee.org/abstract/document/10752628/)!  
++ 2025.01 🎉🎉 **LLaMEA paper accepted in IEEE TEVC** [“Llamea: A large language model evolutionary algorithm for automatically generating metaheuristics"](https://ieeexplore.ieee.org/abstract/document/10752628/)!
 
 
 ## 🎁 Installation
 
-It is the easiest to use LLaMEA from the pypi package.
+> [!Swig Dependency]
+> Ensure that SWIG is installed on your system by running `swig --version`
+> If it is not installed, use the appropriate method for your platform:
+>	  •	**macOS**: brew install swig
+>		•	**Ubuntu/Linux**: sudo apt-get install swig (or your distribution’s package manager)
+>		•	**Windows**: Download and install from the official (SWIG website)[https://www.swig.org/download.html] and make sure to add it to your system PATH.
 
+
+It is the easiest to use LLaMEA from the pypi package.
 ```bash
   pip install llamea
 ```
 > [!Important]
-> The Python version **must** be larger or equal to 3.11.
+> The Python version **must** be higher or equal to 3.11.
 > You need an OpenAI/Gemini/Ollama API key for using LLM models.
 
 For a slimmed-down installation without bundled LLM or HPO dependencies, install
@@ -220,8 +227,8 @@ The script will:
 - Passes these hyper-parameters to SMAC, which then searches for good parameter settings on a BBOB training set.
 - Evaluates the best hyper-parameters found by SMAC on the full BBOB suite.
 - Feeds back the final performance (and errors) to the LLM, prompting it to mutate the algorithm’s structure (rather than simply numeric settings).
-  
-**Why LLaMEA-HPO?**  
+
+**Why LLaMEA-HPO?**
 Offloading hyper-parameter search to SMAC significantly reduces LLM query overhead and encourages the LLM to focus on novel structural improvements.
 
 **How to run:**
@@ -242,12 +249,12 @@ uv run python examples/black-box-opt-with-HPO.py
 
 ### Running `automl_example.py`
 
-**`automl_example.py`** uses LLaMEA to showcase that it can not only evolve and generate metaheuristics but also all kind of other algorithms, such as Machine Learning pipelines.  
+**`automl_example.py`** uses LLaMEA to showcase that it can not only evolve and generate metaheuristics but also all kind of other algorithms, such as Machine Learning pipelines.
 In this example, a basic classification task on the breast-cancer dataset from sklearn is solved by generating and evolving open-ended ML pipelines.
 - We define the evaluate function (accuracy score on a hold-out test set)
 - We provide a very basic example code to get the algorithm started.
 - We run a few iterations and observe the excellent performance of our completely automatic ML pipeline.
-  
+
 **How to run:**
 ```bash
 uv run python examples/automl_example.py
@@ -305,8 +312,8 @@ If you use LLaMEA in your research, please consider citing the associated paper:
 ```bibtex
 @ARTICLE{van2025llamea,
   author={Stein, Niki van and Bäck, Thomas},
-  journal={IEEE Transactions on Evolutionary Computation}, 
-  title={LLaMEA: A Large Language Model Evolutionary Algorithm for Automatically Generating Metaheuristics}, 
+  journal={IEEE Transactions on Evolutionary Computation},
+  title={LLaMEA: A Large Language Model Evolutionary Algorithm for Automatically Generating Metaheuristics},
   year={2025},
   volume={29},
   number={2},
@@ -369,5 +376,4 @@ flowchart LR
 
 CodeCov test coverage
 
-<img src="https://codecov.io/gh/XAI-liacs/LLaMEA/graphs/sunburst.svg?token=VKCNPWVBNM"/> 
-
+<img src="https://codecov.io/gh/XAI-liacs/LLaMEA/graphs/sunburst.svg?token=VKCNPWVBNM"/>
