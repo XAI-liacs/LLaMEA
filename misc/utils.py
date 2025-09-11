@@ -128,7 +128,7 @@ class budget_logger(iohlogger.AbstractLogger):
         super().reset()
 
 
-def _code_updater(code: str, lines_to_change : list[str], updated_lines: list[str]):
+def _code_updater(code: str, lines_to_change: list[str], updated_lines: list[str]):
     """Line by line update code, and return the update.
     Args:
         code: Current code in the individual.
@@ -139,10 +139,13 @@ def _code_updater(code: str, lines_to_change : list[str], updated_lines: list[st
     if len(lines_to_change) != len(lines_to_change):
         raise ValueError
     for i in range(len(lines_to_change)):
-        code = code.replace(lines_to_change[i], updated_lines[i], 1)        #Update one occurance of lines_to_change, to corresponding change.
+        code = code.replace(
+            lines_to_change[i], updated_lines[i], 1
+        )  # Update one occurance of lines_to_change, to corresponding change.
     return code
 
-def apply_open_evolve(text:str, base_code: str) -> tuple[str, bool, float]:
+
+def apply_open_evolve(text: str, base_code: str) -> tuple[str, bool, float]:
     """
     Assuming the LLM follows the intructions properly, following format of response is expected.
     ```diff <- (diff may appear sometimes.)
@@ -172,10 +175,14 @@ def apply_open_evolve(text:str, base_code: str) -> tuple[str, bool, float]:
     outLines = []
     inLines = []
     try:
-        pattern = re.compile(r"<<<<<<< SEARCH\n(.*?)\n=======\n(.*?)\n>>>>>>> REPLACE", re.DOTALL)
+        pattern = re.compile(
+            r"<<<<<<< SEARCH\n(.*?)\n=======\n(.*?)\n>>>>>>> REPLACE", re.DOTALL
+        )
         matches = pattern.findall(text)
         if len(matches) == 0:
-            print("WARNING: LLM didn't adhere to search replace pattern. Try bigger model.")
+            print(
+                "WARNING: LLM didn't adhere to search replace pattern. Try bigger model."
+            )
             raise ValueError
 
         for search, replace in matches:

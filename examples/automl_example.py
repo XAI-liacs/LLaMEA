@@ -148,6 +148,5 @@ if __name__ == "__main__":
             HPO=False,
             budget=25,
             diff_mode=True,
-            diff_mode_approach="generic"
         )
         print(es.run())

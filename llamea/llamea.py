@@ -585,7 +585,7 @@ With code:
                 evolved_individual.parent_ids,
                 HPO=self.HPO,
                 base_code=individual.code,
-                diff_mode=self.diff_mode
+                diff_mode=self.diff_mode,
             )
             evolved_individual.generation = self.generation
             evolved_individual.task_prompt = individual_copy.task_prompt

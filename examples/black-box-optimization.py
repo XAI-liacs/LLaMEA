@@ -90,6 +90,6 @@ if __name__ == "__main__":
             elitism=True,
             HPO=False,
             budget=25,
-            diff_mode=True
+            diff_mode=True,
         )
         print(es.run())

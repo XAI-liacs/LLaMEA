@@ -117,7 +117,7 @@ class LLM(ABC):
         parent_ids: list | None = None,
         HPO: bool = False,
         base_code: str | None = None,
-        diff_mode: bool = False
+        diff_mode: bool = False,
     ):
         """Generate or mutate a solution using the language model.
 
@@ -151,13 +151,15 @@ class LLM(ABC):
             self.logger.log_conversation(self.model, message)
 
         code_block = self.extract_algorithm_code(message)
-        success = False                                                     #<- Flag to Implement fall back to code block update, when LLM fails to adhere to diff mode.
+        success = False  # <- Flag to Implement fall back to code block update, when LLM fails to adhere to diff mode.
         if diff_mode:
             if base_code is None:
                 base_code = ""
             else:
                 code, success, similarity = apply_open_evolve(code_block, base_code)
-                print(f"\t Diff application {'un' if not success else ''}successful, Similarity {similarity * 100:.2f}%.")
+                print(
+                    f"\t Diff application {'un' if not success else ''}successful, Similarity {similarity * 100:.2f}%."
+                )
         else:
             code = code_block
 

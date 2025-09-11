@@ -10,7 +10,6 @@ from llamea import LLaMEA
 from llamea.solution import Solution
 
 
-
 class DummyLLM:
     def __init__(self):
         self.model = "DUMMY"
@@ -23,7 +22,6 @@ class DummyLLM:
 
 
 def dummy_f(individual, logger=None):
-
     return individual
 
 
