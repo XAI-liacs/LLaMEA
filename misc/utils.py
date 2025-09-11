@@ -128,7 +128,7 @@ class budget_logger(logger.AbstractLogger):
         super().reset()
 
 
-def _code_updater(self, code: str, lines_to_change : list[str], updated_lines: list[str]):
+def _code_updater(code: str, lines_to_change : list[str], updated_lines: list[str]):
     """Line by line update code, and return the update.
     Args:
         code: Current code in the individual.
@@ -176,12 +176,13 @@ def apply_open_evolve(text:str, base_code: str) -> tuple[str, bool, float]:
         matches = pattern.findall(text)
         if len(matches) == 0:
             print("WARNING: LLM didn't adhere to search replace pattern. Try bigger model.")
-            print(f"response: {text}")
+            raise ValueError
+
         for search, replace in matches:
             outLines.append(search)
             inLines.append(replace)
 
-        code = self._code_updater(base_code, outLines, inLines)
+        code = _code_updater(base_code, outLines, inLines)
 
         seq_match = SequenceMatcher(None, code, base_code)
         ratio = seq_match.ratio()
@@ -189,4 +190,4 @@ def apply_open_evolve(text:str, base_code: str) -> tuple[str, bool, float]:
         return code, True, ratio
 
     except Exception:
-        return base_code, False, 0.0
+        return base_code, False, 1.0

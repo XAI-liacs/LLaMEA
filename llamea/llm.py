@@ -5,7 +5,6 @@ LLM modules to connect to different LLM providers. Also extracts code, name and 
 import copy
 import logging
 import pickle
-import json
 import random
 import re
 import time
@@ -152,13 +151,18 @@ class LLM(ABC):
             self.logger.log_conversation(self.model, message)
 
         code_block = self.extract_algorithm_code(message)
+        success = False                                                     #<- Flag to Implement fall back to code block update, when LLM fails to adhere to diff mode.
         if diff_mode:
             if base_code is None:
                 base_code = ""
             else:
-                code, success, similarity = apply_open_evolve(message, base_code)
+                code, success, similarity = apply_open_evolve(code_block, base_code)
                 print(f"\t Diff application {'un' if not success else ''}successful, Similarity {similarity * 100:.2f}%.")
         else:
+            code = code_block
+
+        if diff_mode and not success:
+            print("\t\t Falling back to code replace.")
             code = code_block
 
         name = re.findall(
