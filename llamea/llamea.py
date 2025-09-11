@@ -19,7 +19,6 @@ import numpy as np
 from joblib import Parallel, delayed
 
 from .llm import LLM
-from .diff_manager import DiffManager
 
 try:
     from ConfigSpace import ConfigurationSpace
@@ -80,7 +79,6 @@ class LLaMEA:
         clearing_interval: Optional[int] = None,
         evaluate_population=False,
         diff_mode: bool = False,
-        diff_mode_approach: str = "generic",
         parent_selection: str = "random",
         tournament_size: int = 3,
     ):
@@ -131,7 +129,6 @@ class LLaMEA:
                 `f(population, parents=None, logger=None) -> (evaluated_offspring, evaluated_parents)`.
             diff_mode (bool): If ``True``, the LLM is asked to generate unified diff
                 patches instead of complete code when evolving solutions.
-            diff_mode_approach: String literal "generic" | "open_evolve"
             parent_selection (str): Strategy for selecting parents to produce
                 offspring. Options are ``"random"``, ``"tournament"``, which
                 picks the best from a sampled subset, and fitness-proportionate
@@ -214,15 +211,30 @@ Space: <configuration_space>"""
         else:
             self.output_format_prompt = output_format_prompt
         self.diff_output_format_prompt = """
-Provide only the unified diff patch for the requested changes. Begin with
-`--- original.py` and `+++ updated.py` headers and enclose the patch in a
-markdown code block labelled as diff:
-# Description: <short-description>
-```diff
---- original.py
-+++ updated.py
-@@
-<patch>
+        ---
+You MUST use the exact SEARCH/REPLACE diff format shown below to indicate changes:
+```
+<<<<<<< SEARCH
+# Original code to find and replace (must match exactly)
+=======
+# New replacement code
+>>>>>>> REPLACE
+```
+
+Example of valid diff format:
+```
+<<<<<<< SEARCH
+for i in range(m):
+    for j in range(p):
+        for k in range(n):
+            C[i, j] += A[i, k] * B[k, j]
+=======
+# Reorder loops for better memory access pattern
+for i in range(m):
+    for k in range(n):
+        for j in range(p):
+            C[i, j] += A[i, k] * B[k, j]
+>>>>>>> REPLACE
 ```
 """
         self.mutation_prompts = mutation_prompts
@@ -263,7 +275,6 @@ markdown code block labelled as diff:
             modelname = self.model.replace(":", "_")
             self.logger = ExperimentLogger(f"LLaMEA-{modelname}-{experiment_name}")
             self.llm.set_logger(self.logger)
-            self.diff_implementer = DiffManager(diff_mode_approach, self.logger.dirname)
         else:
             self.logger = None
         if max_workers > self.n_offspring:
@@ -457,9 +468,8 @@ With code:
 
 {mutation_operator}
 
-{self.diff_implementer.get_diff_prompt() if self.diff_mode else self.output_format_prompt}
+{self.diff_output_format_prompt if self.diff_mode else self.output_format_prompt}
 """
-# {self.diff_output_format_prompt if self.diff_mode else self.output_format_prompt}
 
         session_messages = [
             {"role": "user", "content": self.role_prompt + final_prompt},
@@ -575,8 +585,7 @@ With code:
                 evolved_individual.parent_ids,
                 HPO=self.HPO,
                 base_code=individual.code,
-                diff_mode=self.diff_mode,
-                diff_implementer=self.diff_implementer
+                diff_mode=self.diff_mode
             )
             evolved_individual.generation = self.generation
             evolved_individual.task_prompt = individual_copy.task_prompt

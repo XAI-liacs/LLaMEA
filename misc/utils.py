@@ -1,4 +1,7 @@
 import numpy as np
+import re
+
+from difflib import SequenceMatcher
 
 try:
     from ioh import LogInfo
@@ -123,3 +126,67 @@ class budget_logger(logger.AbstractLogger):
 
     def reset(self):
         super().reset()
+
+
+def _code_updater(self, code: str, lines_to_change : list[str], updated_lines: list[str]):
+    """Line by line update code, and return the update.
+    Args:
+        code: Current code in the individual.
+        lines_to_change: A list of lines to be changed by the LLM.
+        updated_lines: Lines to replace the `lines_to_update`.
+
+    """
+    if len(lines_to_change) != len(lines_to_change):
+        raise ValueError
+    for i in range(len(lines_to_change)):
+        code = code.replace(lines_to_change[i], updated_lines[i], 1)        #Update one occurance of lines_to_change, to corresponding change.
+    return code
+
+def apply_open_evolve(text:str, base_code: str) -> tuple[str, bool, float]:
+    """
+    Assuming the LLM follows the intructions properly, following format of response is expected.
+    ```diff <- (diff may appear sometimes.)
+    # A series of following search replace pattern will appear.
+    <<<<<<< SEARCH
+    for i in range(m):
+        for j in range(p):
+            for k in range(n):
+                C[i, j] += A[i, k] * B[k, j]
+    =======
+    # Reorder loops for better memory access pattern
+    for i in range(m):
+        for k in range(n):
+            for j in range(p):
+                C[i, j] += A[i, k] * B[k, j]
+    >>>>>>> REPLACE
+    ```
+
+    Args:
+        text: LLM response.text.
+        base_code: Base code to be mutated.
+    Returns:
+        Code: updated code, after applying diff.
+        bool: Success of diff mode implementation.
+        float: Ratio of code changed.
+    """
+    outLines = []
+    inLines = []
+    try:
+        pattern = re.compile(r"<<<<<<< SEARCH\n(.*?)\n=======\n(.*?)\n>>>>>>> REPLACE", re.DOTALL)
+        matches = pattern.findall(text)
+        if len(matches) == 0:
+            print("WARNING: LLM didn't adhere to search replace pattern. Try bigger model.")
+            print(f"response: {text}")
+        for search, replace in matches:
+            outLines.append(search)
+            inLines.append(replace)
+
+        code = self._code_updater(base_code, outLines, inLines)
+
+        seq_match = SequenceMatcher(None, code, base_code)
+        ratio = seq_match.ratio()
+
+        return code, True, ratio
+
+    except Exception:
+        return base_code, False, 0.0

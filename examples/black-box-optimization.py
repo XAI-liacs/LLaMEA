@@ -16,12 +16,12 @@ from misc import OverBudgetException, aoc_logger, correct_aoc
 
 if __name__ == "__main__":
     # Execution code starts here
-    api_key = os.getenv("GEMINI_API_KEY")
-    ai_model = "gemini-1.5-flash"
+    # api_key = os.getenv("GEMINI_API_KEY")
+    # ai_model = "gemini-1.5-flash"
     experiment_name = "pop1-5"
-    llm = Gemini_LLM(api_key, ai_model)
+    # llm = Gemini_LLM(api_key, ai_model)
     #
-    # llm = Ollama_LLM()
+    llm = Ollama_LLM()
 
     # We define the evaluation function that executes the generated algorithm (solution.code) on the BBOB test suite.
     # It should set the scores and feedback of the solution based on the performance metric, in this case we use mean AOCC.
@@ -90,7 +90,6 @@ if __name__ == "__main__":
             elitism=True,
             HPO=False,
             budget=25,
-            diff_mode=True,
-            diff_mode_approach="openEvolve"
+            diff_mode=True
         )
         print(es.run())
