@@ -1,7 +1,7 @@
 import os
+import re
 import ast
 import jsonlines
-from copy import deepcopy
 
 from difflib import SequenceMatcher
 
@@ -71,11 +71,10 @@ for i in range(m):
         """Line by line update code, and return the update.
         Args:
             code: Current code in the individual.
-            lines_to_update: A list of lines to be changed by the LLM.
+            lines_to_change: A list of lines to be changed by the LLM.
             updated_lines: Lines to replace the `lines_to_update`.
 
         """
-        code = deepcopy(code)
         if len(lines_to_change) != len(lines_to_change):
             raise ValueError
         for i in range(len(lines_to_change)):
@@ -148,11 +147,15 @@ for i in range(m):
         outLines = []
         inLines = []
         try:
-            elements = text.split("=======")
-            if len(elements) != 2:
-                raise ValueError
-            outLines.append(elements[0].lstrip("<<<<<<< SEARCH"))
-            inLines.append(elements[1].rstrip(">>>>>>> REPLACE"))
+            pattern = re.compile(r"<<<<<<< SEARCH\n(.*?)\n=======\n(.*?)\n>>>>>>> REPLACE", re.DOTALL)
+            new_code = ""
+            matches = pattern.findall(text)
+            if len(matches) == 0:
+                print("WARNING: LLM didn't adhere to search replace pattern. Try bigger model.")
+                print(f"response: {text}")
+            for search, replace in matches:
+                outLines.append(search)
+                inLines.append(replace)
 
             code = self._code_updater(base_code, outLines, inLines)
 
@@ -176,6 +179,8 @@ for i in range(m):
 
         elif self._diffToolingMethod == "openEvolve":
             new_code, success, delta = self._apply_open_evolve(responseText, base_code)
+        else:
+            new_code = code
 
         diffObject = {
             "response": responseText,
