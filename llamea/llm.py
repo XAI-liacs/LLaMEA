@@ -10,7 +10,7 @@ import re
 import time
 from abc import ABC, abstractmethod
 
-from misc.utils import apply_open_evolve
+from misc.utils import apply_code_delta
 
 
 try:
@@ -156,7 +156,7 @@ class LLM(ABC):
             if base_code is None:
                 base_code = ""
             else:
-                code, success, similarity = apply_open_evolve(code_block, base_code)
+                code, success, similarity = apply_code_delta(code_block, base_code)
                 print(
                     f"\t Diff application {'un' if not success else ''}successful, Similarity {similarity * 100:.2f}%."
                 )

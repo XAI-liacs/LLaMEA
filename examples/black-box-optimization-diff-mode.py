@@ -1,11 +1,15 @@
 # This is a minimal example of how to use the LLaMEA algorithm with the Gemini LLM to generate optimization algorithms for the BBOB test suite.
+
 # We have to define the following components for LLaMEA to work:
 # - An evaluation function that executes the generated code and evaluates its performance.
 # - A task prompt that describes the problem to be solved.
 # - An LLM instance that will generate the code based on the task prompt.
 
+# This example uses diff mode for implementing the changes.
+#   The program will alert you, when LLM refuses to adhere to diff mode implementation requirements and will immediately roll back to
+#   code replacement, without making new request for that iteration.
+
 import os
-import re
 
 import numpy as np
 from ioh import get_problem, logger
@@ -86,6 +90,7 @@ if __name__ == "__main__":
             experiment_name=experiment_name,
             elitism=True,
             HPO=False,
-            budget=100
+            budget=25,
+            diff_mode=True,
         )
         print(es.run())

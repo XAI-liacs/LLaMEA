@@ -145,7 +145,7 @@ def _code_updater(code: str, lines_to_change: list[str], updated_lines: list[str
     return code
 
 
-def apply_open_evolve(text: str, base_code: str) -> tuple[str, bool, float]:
+def apply_code_delta(text: str, base_code: str) -> tuple[str, bool, float]:
     """
     Assuming the LLM follows the intructions properly, following format of response is expected.
     ```diff <- (diff may appear sometimes.)
@@ -176,7 +176,7 @@ def apply_open_evolve(text: str, base_code: str) -> tuple[str, bool, float]:
     inLines = []
     try:
         pattern = re.compile(
-            r"<<<<<<< SEARCH\n(.*?)\n=======\n(.*?)\n>>>>>>> REPLACE", re.DOTALL
+            r"(?s)<{3,}\s*SEARCH\s*\n(.*?)\n={3,}\s*\n(.*?)(?=\n>{3,}\s*REPLACE)"
         )
         matches = pattern.findall(text)
         if len(matches) == 0:
