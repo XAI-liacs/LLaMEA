@@ -5,10 +5,10 @@ from difflib import SequenceMatcher
 
 try:
     from ioh import LogInfo
-    from ioh import logger as iohlogger
+    from ioh.logger import AbstractLogger
 except ImportError:
     LogInfo = None
-    iohlogger = object
+    AbstractLogger = object
 
 
 class ThresholdReachedException(Exception):
@@ -50,7 +50,7 @@ def correct_aoc(ioh_function, logger, budget):
     return 1 - aoc
 
 
-class aoc_logger(iohlogger.AbstractLogger):
+class aoc_logger(AbstractLogger):
     """aoc_logger class implementing the logging module for ioh."""
 
     def __init__(
@@ -98,7 +98,7 @@ class aoc_logger(iohlogger.AbstractLogger):
         self.aoc = 0
 
 
-class budget_logger(iohlogger.AbstractLogger):
+class budget_logger(AbstractLogger):
     """budget_logger class implementing the logging module for ioh."""
 
     def __init__(
