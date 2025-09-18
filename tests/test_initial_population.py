@@ -121,7 +121,7 @@ class TestInitialPopulation(unittest.TestCase):
             llm,
             n_parents=2,
             budget=5,
-            experiment_name="Test-init-known-pop-same-size",
+            experiment_name="Test-init-known-pop-greater-size",
         )
         es1.run()
         dirname = es1.logger.dirname
@@ -133,7 +133,7 @@ class TestInitialPopulation(unittest.TestCase):
             llm,
             n_parents=2,
             budget=5,
-            experiment_name="Test-init-known-pop-same-size",
+            experiment_name="Test-init-known-pop-greater-size",
         )
         es2.run(dirname)
         dirname2 = es2.logger.dirname
@@ -174,7 +174,7 @@ class TestInitialPopulation(unittest.TestCase):
             llm,
             n_parents=1,
             budget=1,
-            experiment_name="Test-init-known-pop-same-size",
+            experiment_name="Test-init-known-pop-less-size",
         )
         es1.run()
         dirname = es1.logger.dirname
@@ -186,7 +186,7 @@ class TestInitialPopulation(unittest.TestCase):
             llm,
             n_parents=2,
             budget=1,
-            experiment_name="Test-init-known-pop-same-size",
+            experiment_name="Test-init-known-pop-less-size",
         )
         es2.run(dirname)
         dirname2 = es2.logger.dirname

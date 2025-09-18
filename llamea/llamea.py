@@ -12,7 +12,7 @@ import re
 import traceback
 import warnings
 from typing import Callable, Optional
-import pickle, pickletools
+import pickle
 import jsonlines
 
 import numpy as np
@@ -211,15 +211,30 @@ Space: <configuration_space>"""
         else:
             self.output_format_prompt = output_format_prompt
         self.diff_output_format_prompt = """
-Provide only the unified diff patch for the requested changes. Begin with
-`--- original.py` and `+++ updated.py` headers and enclose the patch in a
-markdown code block labelled as diff:
-# Description: <short-description>
-```diff
---- original.py
-+++ updated.py
-@@
-<patch>
+        ---
+You MUST use the exact SEARCH/REPLACE diff format shown below to indicate changes:
+```
+<<<<<<< SEARCH
+# Original code to find and replace (must match exactly)
+=======
+# New replacement code
+>>>>>>> REPLACE
+```
+
+Example of valid diff format:
+```
+<<<<<<< SEARCH
+for i in range(m):
+    for j in range(p):
+        for k in range(n):
+            C[i, j] += A[i, k] * B[k, j]
+=======
+# Reorder loops for better memory access pattern
+for i in range(m):
+    for k in range(n):
+        for j in range(p):
+            C[i, j] += A[i, k] * B[k, j]
+>>>>>>> REPLACE
 ```
 """
         self.mutation_prompts = mutation_prompts
@@ -452,8 +467,10 @@ With code:
 {feedback}
 
 {mutation_operator}
+
 {self.diff_output_format_prompt if self.diff_mode else self.output_format_prompt}
 """
+
         session_messages = [
             {"role": "user", "content": self.role_prompt + final_prompt},
         ]
