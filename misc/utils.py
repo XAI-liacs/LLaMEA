@@ -1,3 +1,4 @@
+from venv import logger
 import numpy as np
 import re
 
@@ -5,10 +6,16 @@ from difflib import SequenceMatcher
 
 try:
     from ioh import LogInfo
-    from ioh.logger import AbstractLogger
+    try:
+        from ioh.logger import AbstractLogger
+    except ImportError:
+        from ioh import logger as iohLogger
+        AbstractLogger = iohLogger.AbstractLogger
 except ImportError:
     LogInfo = None
     AbstractLogger = object
+
+
 
 
 class ThresholdReachedException(Exception):
