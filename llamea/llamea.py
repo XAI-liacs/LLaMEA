@@ -581,8 +581,13 @@ With code:
             except Exception as e:
                 print("Parallel time out .")
 
-            for p in new_population_gen:
-                new_population.append(p)
+            try:
+                for p in new_population_gen:
+                    new_population.append(p)
+            except Exception as e:
+                print(f"Exception in collecting new population: {e}")
+                if len(new_population) == 0:
+                    new_population = new_offspring_population #just continue with the unevolved individuals
 
             if self.evaluate_population:
                 new_population = self.evaluate_population_fitness(new_population)

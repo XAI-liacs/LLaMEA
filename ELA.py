@@ -260,22 +260,22 @@ class ELAproblem:
     """
 
     def __init__(
-        self, logger=None, name="ELA", features=["Basins", "Separable"], eval_timeout=360
+        self, logger=None, name="ELA", features=["Basins", "Separable"], dims=[2,5,10], eval_timeout=360
     ):
-
+        self.dims = dims
         self.features = features # choice from ["Basins", "Separable", "GlobalLocal", "Multimodality", "Structure", "Homogeneous"]
         self.feature_descriptions = {
             "Basins": "Basin size homogeneity, meaning the size relation (largest to smallest) of all basins of attraction should be homogeneous.",
             "Separable": "Separable, meaning independent functions per dimension. Meaning, a problem may be partitioned into subproblems which are then of lower dimensionality and should be considerably easier to solve.",
-            "GlobalLocal": "It should have a global local optima contrast, GlobalLocal refers to the difference between global and local peaks in comparison to the average fitness level of a problem. It thus determines if very good peaks are easily recognized as such.",
-            "Multimodality": "it should be multimodal, Multimodality refers to the number of local optima of a problem.",
+            "GlobalLocal": "It should have a global local minima contrast, GlobalLocal refers to the difference between global and local peaks in comparison to the average fitness level of a problem. It thus determines if very good peaks are easily recognized as such.",
+            "Multimodality": "it should be multimodal, Multimodality refers to the number of local minima of a problem.",
             "Structure": "It should have a clear global structure. Global structure is what remains after deleting all non-optimal points.",
             "Homogeneous": "The search space should be homogeneous. Which refers to a search space without phase transitions. Its overall appearance is similar in different search space areas.",
         }
         self.task_prompt = f"""
 You are a highly skilled computer scientist in the field optimization and benchmarking. Your task is to design novel mathematical functions to be used as black-box optimization benchmark landscapes.
 The code you need to write is a class with a function `f` with one parameter `x` which is a realvalued sample (numpy array). 
-The optimization function should have the following properties:"""
+The optimization function should have the following properties: \n- it will be used as minimization problem (so the global optimum should be the minimum value of the function)."""
         for feature in self.features:
             self.task_prompt += f"\n- {self.feature_descriptions[feature]} ({feature})"
         self.task_prompt += """
@@ -322,7 +322,7 @@ Give a novel Python class with an optimization landscape function and a short de
         # Final validation
         feature_results = {}
         results = []
-        for DIM in [2, 5, 10]:
+        for DIM in self.dims:
             #DIM = 5 #change to appropriate dimensionality
             algorithm = globals()[algorithm_name](DIM)
             f = algorithm.f
@@ -371,7 +371,7 @@ Give a novel Python class with an optimization landscape function and a short de
             for feature in self.features:
                 if feature == "Separable":
                     bounds = (-5.0, 5.0)
-                    report = evaluate_separability(problem, 5, bounds=bounds, samples=1024)
+                    report = evaluate_separability(problem, DIM, bounds=bounds, samples=1024)
                     feature_results[f"{feature} - {DIM}D"] = 1 - (report.percent_noncompliance / 100.0)
                 else:
                     model = xgb.XGBClassifier(objective="binary:logistic")
@@ -391,8 +391,9 @@ Give a novel Python class with an optimization landscape function and a short de
         )
         return solution
 
+# "not homogeneous", "not basins"
 
-budget = 24
+budget = 50
 if __name__ == "__main__":
     # use argparse to select the LLM.
     import os
@@ -435,23 +436,20 @@ if __name__ == "__main__":
     
     #llm = Gemini_LLM(api_key, ai_model)
 
-    feature_combinations = [ #Homogeneous, GlobalLocal
-        ["Homogeneous"],
-        ["GlobalLocal"],
-        ["Basins"],
-        ["Separable"],
-        ["Multimodality"],
-        ["Structure"]
-    ]
-
+    all_features = ["Basins", "Separable", "GlobalLocal", "Multimodality",  "Homogeneous"] #"Structure",
+    feature_combinations = []
+    for i in range(len(all_features)):
+        for j in range(i+1, len(all_features)):
+            feature_combinations.append([all_features[i], all_features[j]])
+        feature_combinations.append([all_features[i]])
     
-    for combi in feature_combinations:
+    for combi in feature_combinations[3:]:
         niching=None
         experiment_name = f"ELA-{'_'.join([f for f in combi])}"
         if args.share:
             niching="sharing"
             experiment_name = f"ELA-{'_'.join([f for f in combi])}-sharing"
-        problem = ELAproblem(name=f"ELA_{'_'.join(combi)}", features=combi, eval_timeout=600)
+        problem = ELAproblem(name=f"ELA_{'_'.join(combi)}", features=combi, dims=[2,5,10], eval_timeout=600)
 
         mutation_prompts = []
         for feature in problem.features:
@@ -471,14 +469,15 @@ if __name__ == "__main__":
                 output_format_prompt=problem.format_prompt,
                 mutation_prompts=mutation_prompts,
                 experiment_name=experiment_name,
-                elitism=True,
+                elitism=False,
                 HPO=False,
                 budget=budget,
-                max_workers=4,
-                parallel_backend="threading",
+                max_workers=8,
+                parallel_backend="loky",
                 niching=niching,
                 distance_metric=ela_distance,
                 niche_radius=0.5,
                 adaptive_niche_radius=True,
+                eval_timeout=3600,
             )
             print(es.run())
