@@ -11,8 +11,8 @@ Recent features include:
 * **Niching** – enable ``niching="sharing"`` or ``niching="clearing"`` to
   maintain diversity. ``distance_metric``, ``niche_radius``,
   ``adaptive_niche_radius`` and ``clearing_interval`` further tune the niches.
-* **Unified diff mode** – set ``diff_mode=True`` to request unified diff patches
-  instead of entire source files from the LLM.
+* **Diff mode** – set ``diff_mode=True`` to request SEARCH/REPLACE patches
+  instead of entire source files from the LLM. This is more token efficient for large code bases.
 * **Population evaluation** – with ``evaluate_population=True`` the evaluation
   function ``f`` operates on lists of solutions, allowing batch evaluations.
 * **Warm start** -With every iteration, **LLaMEA** archives its latest run in

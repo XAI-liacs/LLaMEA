@@ -219,7 +219,15 @@ class LLM(ABC):
         """
         match = re.search(self.code_pattern, message, re.DOTALL | re.IGNORECASE)
         if match:
-            return match.group(1)
+            code = match.group(1)
+            main_guard_pattern = re.compile(
+                r"^\s*if __name__\s*={1,2}\s*['\"]__main__['\"]\s*:\s*$",
+                re.MULTILINE,
+            )
+            guard_match = main_guard_pattern.search(code)
+            if guard_match:
+                code = code[: guard_match.start()].rstrip()
+            return code
         else:
             raise NoCodeException
 

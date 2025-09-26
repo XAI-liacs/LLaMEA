@@ -52,23 +52,24 @@ def test_evolve_solution_with_diff():
         experiment_name="diff",
         log=False,
         diff_mode=True,
-        evaluate_population=True,
+        evaluate_population=False,
     )
 
     base = Solution(code="class MyAlgo:\n    pass\n", name="MyAlgo", description="d")
     optimizer.population = [base]
-    diff_reply = (
-        "# Description: Modified\n"
-        "```diff\n"
-        "--- original.py\n"
-        "+++ updated.py\n"
-        "@@ -1,2 +1,3 @@\n"
-        " class MyAlgo:\n"
-        "-    pass\n"
-        "+    def run(self):\n"
-        "+        return 42\n"
-        "```"
-    )
+    diff_reply = """
+```
+<<<<<<< SEARCH
+    pass
+=======
+    # Added loops
+    for i in range(m):
+        for k in range(n):
+            for j in range(p):
+                C[i, j] += A[i, k] * B[k, j]
+>>>>>>> REPLACE
+```"""
     optimizer.llm.query = MagicMock(return_value=diff_reply)
     evolved = optimizer.evolve_solution(base)
-    assert "return 42" in evolved.code
+    assert "# Added loops" in evolved.code, evolved.code + " does not contain added code '# Added loops'"
+    assert "pass" not in evolved.code, evolved.code + " contains code 'pass'"
