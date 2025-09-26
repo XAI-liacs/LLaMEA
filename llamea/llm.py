@@ -10,9 +10,6 @@ import re
 import time
 from abc import ABC, abstractmethod
 
-from misc.utils import apply_code_delta
-
-
 try:
     import google.generativeai as genai
 except ModuleNotFoundError:  # pragma: no cover - optional dependency
@@ -34,8 +31,7 @@ except ModuleNotFoundError:  # pragma: no cover - optional dependency
     ConfigurationSpace = None
 
 from .solution import Solution
-from .loggers import ExperimentLogger
-from .utils import NoCodeException, apply_unified_diff
+from .utils import NoCodeException, apply_code_delta
 
 
 class LLM(ABC):
@@ -223,7 +219,15 @@ class LLM(ABC):
         """
         match = re.search(self.code_pattern, message, re.DOTALL | re.IGNORECASE)
         if match:
-            return match.group(1)
+            code = match.group(1)
+            main_guard_pattern = re.compile(
+                r"^\s*if __name__\s*={1,2}\s*['\"]__main__['\"]\s*:\s*$",
+                re.MULTILINE,
+            )
+            guard_match = main_guard_pattern.search(code)
+            if guard_match:
+                code = code[: guard_match.start()].rstrip()
+            return code
         else:
             raise NoCodeException
 

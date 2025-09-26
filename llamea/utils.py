@@ -1,10 +1,8 @@
 import ast
 import re
 from difflib import SequenceMatcher
-from typing import List
 import numpy as np
-import subprocess
-import os
+from difflib import SequenceMatcher
 
 
 class NoCodeException(Exception):
@@ -18,92 +16,76 @@ def handle_timeout(signum, frame):
     raise TimeoutError
 
 
-def apply_unified_diff(text: str, diff: str) -> str:
+def _code_updater(code: str, lines_to_change: list[str], updated_lines: list[str]):
+    """Line by line update code, and return the update.
+    Args:
+        code: Current code in the individual.
+        lines_to_change: A list of lines to be changed by the LLM.
+        updated_lines: Lines to replace the `lines_to_update`.
+
     """
-    Apply a unified diff to the given text using the system `patch` command.
+    if len(lines_to_change) != len(lines_to_change):
+        raise ValueError
+    for i in range(len(lines_to_change)):
+        code = code.replace(
+            lines_to_change[i], updated_lines[i], 1
+        )  # Update one occurance of lines_to_change, to corresponding change.
+    return code
 
-    This delegates all parsing and application logic to the external `patch`
-    utility, which is far more robust than a hand-rolled parser. It handles
-    context mismatches, fuzz factors, and edge cases like missing EOF newlines.
 
-    ```text
-    ┌─────────────┐
-    │   INPUT     │
-    │  text:str   │──┐
-    └─────────────┘  │
-                     ▼
-               ┌───────────┐
-               │ tempfile  │  → holds original text
-               └───────────┘
-                     │
-                     ▼
-              ┌──────────────┐
-              │  patch cmd   │ ← receives unified diff on stdin
-              └──────────────┘
-                     │
-                     ▼
-               ┌───────────┐
-               │ tempfile  │ → now contains patched text
-               └───────────┘
-                     │
-                     ▼
-                patched:str
+def apply_code_delta(text: str, base_code: str) -> tuple[str, bool, float]:
+    """
+    Assuming the LLM follows the intructions properly, following format of response is expected.
+    ```diff <- (diff may appear sometimes.)
+    # A series of following search replace pattern will appear.
+    <<<<<<< SEARCH
+    for i in range(m):
+        for j in range(p):
+            for k in range(n):
+                C[i, j] += A[i, k] * B[k, j]
+    =======
+    # Reorder loops for better memory access pattern
+    for i in range(m):
+        for k in range(n):
+            for j in range(p):
+                C[i, j] += A[i, k] * B[k, j]
+    >>>>>>> REPLACE
     ```
 
     Args:
-        text: The original text to patch.
-        diff: The unified diff (as produced by `git diff`, `difflib.unified_diff`, etc.).
-        strip: Optional `-p` value to pass to `patch` (number of path segments to strip).
-               Useful if the diff contains file paths you want ignored.
-
+        text: LLM response.text.
+        base_code: Base code to be mutated.
     Returns:
-        The patched text as a string.
-
-    Raises:
-        subprocess.CalledProcessError: If `patch` fails and returns a nonzero exit code.
-        FileNotFoundError: If `patch` is not installed.
+        Code: updated code, after applying diff.
+        bool: Success of diff mode implementation.
+        float: Ratio of code changed.
     """
-    import tempfile
-
-    # check that the text ends in a newline
-
-    if not text.endswith("\n"):
-        text += "\n"
-
-    d = diff.lstrip()
-    if not d.startswith("--- "):
-        diff = f"--- a\n+++ a\n{diff}"
-
-    # Ensure diff ends with a newline too
-    if not diff.endswith("\n"):
-        diff += "\n"
-
-    tf = tempfile.NamedTemporaryFile("w+", delete=False)
+    outLines = []
+    inLines = []
     try:
-        tf.write(text)
-        tf.flush()
-        path = tf.name
-    finally:
-        tf.close()  # critical: allow patch to replace the file
-
-    try:
-        proc = subprocess.run(
-            ["patch", "-u", path],
-            input=diff.encode("utf-8"),
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
+        pattern = re.compile(
+            r"(?s)<{3,}\s*SEARCH\s*\n(.*?)\n={3,}\s*\n(.*?)(?=\n>{3,}\s*REPLACE)"
         )
-        # Now read the (possibly replaced) file from disk
-        with open(path, "r", encoding="utf-8") as f:
-            newcode = f.read()
-            # finally, remove the temporary file
-    finally:
-        # Clean up even if patch failed
-        try:
-            os.unlink(path)
-        except FileNotFoundError:
-            pass
-    return newcode
+        matches = pattern.findall(text)
+        if len(matches) == 0:
+            print(
+                "WARNING: LLM didn't adhere to search replace pattern. Try bigger model."
+            )
+            raise ValueError
+
+        for search, replace in matches:
+            outLines.append(search)
+            inLines.append(replace)
+
+        code = _code_updater(base_code, outLines, inLines)
+
+        seq_match = SequenceMatcher(None, code, base_code)
+        ratio = seq_match.ratio()
+
+        return code, True, ratio
+
+    except Exception:
+        return base_code, False, 1.0
 
 
 def discrete_power_law_distribution(n, beta):

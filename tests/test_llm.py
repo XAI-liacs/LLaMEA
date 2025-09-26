@@ -112,32 +112,25 @@ def test_llm_sample_solution_good_code():
     assert sol.name == "MyAlgo"
     assert "class MyAlgo" in sol.code
 
-
-def test_llm_sample_solution_diff_patch():
+def test_extract_algorithm_code_strips_main_block():
     class DummyLLM(LLM):
-        def query(self, session: list):
-            return (
-                "# Description: Modified\n"
-                "```diff\n"
-                "--- original.py\n"
-                "+++ updated.py\n"
-                "@@ -1,2 +1,3 @@\n"
-                " class MyAlgo:\n"
-                "-    pass\n"
-                "+    def run(self):\n"
-                "+        return 42\n"
-                "```"
-            )
+        def query(self, session: list):  # pragma: no cover - helper for direct method call
+            return ""
 
-    base = "class MyAlgo:\n    pass\n"
     llm = DummyLLM(api_key="x", model="y")
-    sol = llm.sample_solution(
-        [{"role": "client", "content": "test"}],
-        base_code=base,
-        diff_mode=True,
+    message = (
+        "```python\n"
+        "class Foo:\n"
+        "    pass\n\n"
+        "if __name__ == '__main__':\n"
+        "    print('hi')\n"
+        "```"
     )
-    assert "return 42" in sol.code
-    assert sol.name == "MyAlgo"
+
+    code = llm.extract_algorithm_code(message)
+    assert "if __name__" not in code
+    assert "print('hi')" not in code
+
 
 
 def test_openai_llm_init():
