@@ -4,6 +4,7 @@ from difflib import SequenceMatcher
 import numpy as np
 from difflib import SequenceMatcher
 
+
 class NoCodeException(Exception):
     """Could not extract generated code."""
 
