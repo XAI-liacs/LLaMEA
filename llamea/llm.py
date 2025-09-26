@@ -10,9 +10,6 @@ import re
 import time
 from abc import ABC, abstractmethod
 
-from misc.utils import apply_code_delta
-
-
 try:
     import google.generativeai as genai
 except ModuleNotFoundError:  # pragma: no cover - optional dependency
@@ -34,8 +31,7 @@ except ModuleNotFoundError:  # pragma: no cover - optional dependency
     ConfigurationSpace = None
 
 from .solution import Solution
-from .loggers import ExperimentLogger
-from .utils import NoCodeException, apply_unified_diff
+from .utils import NoCodeException, apply_code_delta
 
 
 class LLM(ABC):

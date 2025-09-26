@@ -1,6 +1,6 @@
 [project]
 name = "llamea-lite"
-version = "1.1.6"
+version = "1.1.7"
 description = "LLaMEA without bundled LLM or HPO dependencies"
 authors = [{ name = "Niki van Stein", email = "n.van.stein@liacs.leidenuniv.nl" }]
 requires-python = ">=3.11, <4"
