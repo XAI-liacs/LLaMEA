@@ -423,7 +423,7 @@ Provide an improved / rephrased / augmented task prompt only. The intent of the 
             self.logevent(f"Prompt optimization failed: {e}")
             return individual.task_prompt
 
-    def construct_prompt(self, individual):
+    def construct_prompt(self, individual: Solution):
         """
         Constructs a new session prompt for the language model based on a selected individual.
 
@@ -462,9 +462,15 @@ The selected solution to update is:
 {description}
 
 With code:
-{solution}
 
-{feedback}
+```python
+{solution}
+```
+
+
+Feedback:
+
+{individual.feedback}
 
 {mutation_operator}
 

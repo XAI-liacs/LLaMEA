@@ -115,6 +115,7 @@ class Solution:
             operator=self.operator,
             task_prompt=self.task_prompt,
         )
+        new_solution.feedback = self.feedback
         new_solution.metadata = self.metadata.copy()  # Copy the metadata as well
         return new_solution
 
