@@ -1,7 +1,8 @@
 import json
 import uuid
-
 import numpy as np
+import traceback
+from typing import Optional
 
 
 class Solution:
@@ -84,10 +85,30 @@ class Solution:
         """
         return self.metadata[key] if key in self.metadata.keys() else None
 
-    def set_scores(self, fitness, feedback="", error=""):
+    def set_scores(self, fitness: float, feedback="", error: Optional[Exception] = None):
+        """
+            Set the score of current instance of individual.
+        Args:
+            `fitness: float`: Fitness/Score of the individual.
+            `Feedback: str` feedback for the LLM, suggest improvements or target score.
+            `error: Exception`: Exception object encountered during `exec` of the code block.
+        """
         self.fitness = fitness
         self.feedback = feedback
-        self.error = error
+
+        if error:
+            tb = traceback.extract_tb(error.__traceback__)[-1]
+            line_no = tb.lineno
+            code_line = ""
+            
+            code_lines = self.code.split("\n")
+            if line_no and len(code_lines) >= line_no:
+                code_line = code_lines[line_no - 1]
+            error_type = type(error).__name__
+            error_msg = str(error)
+            self.error = f"{error_type}: {error_msg}.\n"
+            if code_lines:
+                self.error += f"On line {line_no}: {code_line}.\n"
 
     def get_summary(self):
         """
@@ -116,6 +137,7 @@ class Solution:
             task_prompt=self.task_prompt,
         )
         new_solution.feedback = self.feedback
+        new_solution.error = self.error
         new_solution.metadata = self.metadata.copy()  # Copy the metadata as well
         return new_solution
 

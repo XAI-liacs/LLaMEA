@@ -326,8 +326,8 @@ for i in range(m):
         except Exception as e:
             new_individual.set_scores(
                 self.worst_value,
-                f"An exception occured: {traceback.format_exc()}.",
-                repr(e) + traceback.format_exc(),
+                "",
+                e
             )
             self.logevent(f"An exception occured: {traceback.format_exc()}.")
             if hasattr(self.f, "log_individual"):
@@ -412,6 +412,7 @@ You are tasked with refining the instructions (task prompt) that guides an LLM t
 ----
 {individual.feedback}
 ----
+{"### Error Encountered:\n" + individual.error if individual.error else "" }
 
 Provide an improved / rephrased / augmented task prompt only. The intent of the task prompt should stay the same.
 """
@@ -471,6 +472,8 @@ With code:
 Feedback:
 
 {individual.feedback}
+
+{"Error Encountered:\n" + individual.error if individual.error else "" }
 
 {mutation_operator}
 
@@ -598,10 +601,9 @@ Feedback:
             if not self.evaluate_population:
                 evolved_individual = self.evaluate_fitness(evolved_individual)
         except Exception as e:
-            error = repr(e)
             evolved_individual.generation = self.generation
             evolved_individual.set_scores(
-                self.worst_value, f"An exception occurred: {error}.", error
+                self.worst_value, f"An exception occurred: {e.__repr__()}.", e
             )
             if hasattr(self.f, "log_individual"):
                 self.f.log_individual(evolved_individual)
