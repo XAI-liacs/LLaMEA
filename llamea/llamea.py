@@ -472,7 +472,9 @@ Feedback:
 
 {individual.feedback}
 
-{"Error Encountered:\n" + individual.error if individual.error else "" }
+Error Encountered:
+
+{individual.error if individual.error else "" }
 
 {mutation_operator}
 
