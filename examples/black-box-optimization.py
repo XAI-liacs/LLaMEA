@@ -11,7 +11,7 @@ import numpy as np
 from ioh import get_problem, logger
 import traceback
 
-from llamea import Gemini_LLM, Ollama_LLM, LLaMEA
+from llamea import Gemini_LLM, LLaMEA
 from llamea.utils import prepare_namespace, clean_local_namespace
 from misc import OverBudgetException, aoc_logger, correct_aoc
 
@@ -20,7 +20,7 @@ if __name__ == "__main__":
     api_key = os.getenv("GOOGLE_API_KEY")
     ai_model = "gemini-2.5-flash"
     experiment_name = "pop1-5"
-    llm = Gemini_LLM(api_key)
+    llm = Gemini_LLM(api_key, ai_model)
 
     # We define the evaluation function that executes the generated algorithm (solution.code) on the BBOB test suite.
     # It should set the scores and feedback of the solution based on the performance metric, in this case we use mean AOCC.
