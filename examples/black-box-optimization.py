@@ -33,8 +33,12 @@ if __name__ == "__main__":
         feedback=""
         possible_issue = None
         local_ns = {}
+        dir_name = getattr(explogger, "dirname")
         try:
-            global_ns, possible_issue = prepare_namespace(code, allowed=["numpy", "scipy", "sklearn"])
+            if dir_name:
+                global_ns, possible_issue = prepare_namespace(code, allowed=["numpy"], log_directory=dir_name)
+            else:  
+                global_ns, possible_issue = prepare_namespace(code, allowed=[])
             exec(code, global_ns, local_ns)
             local_ns = clean_local_namespace(local_ns, global_ns)
 

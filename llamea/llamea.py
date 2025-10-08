@@ -324,11 +324,7 @@ for i in range(m):
             if not self.evaluate_population:
                 new_individual = self.evaluate_fitness(new_individual)
         except Exception as e:
-            new_individual.set_scores(
-                self.worst_value,
-                "",
-                e
-            )
+            new_individual.set_scores(self.worst_value, "", e)
             self.logevent(f"An exception occured: {traceback.format_exc()}.")
             if hasattr(self.f, "log_individual"):
                 self.f.log_individual(new_individual)
@@ -801,6 +797,29 @@ Feedback:
 
         return self.best_so_far
 
+    def _find_unpicklable(self, obj, path="root"):
+        try:
+            pickle.dumps(obj)
+            return None  # This object is fine
+        except Exception:
+            pass
+
+            # Inspect containers
+            if isinstance(obj, dict):
+                for k, v in obj.items():
+                    bad = self._find_unpicklable(v, f"{path}[{k!r}]")
+                    if bad:
+                        return bad
+            elif isinstance(obj, (list, tuple, set)):
+                for i, v in enumerate(obj):
+                    bad = self._find_unpicklable(v, f"{path}[{i}]")
+                    if bad:
+                        return bad
+            else:
+                # It's a leaf object that failed
+                return path
+        return None
+
     def pickle_archive(self):
         """
         Store the llmea object, into a file, using pickle, to support warm start.
@@ -810,4 +829,7 @@ Feedback:
                 with open(f"{self.logger.dirname}/llamea_config.pkl", "wb") as file:
                     pickle.dump(self, file)
         except Exception as e:
-            print("Error archiving LLaMEA object for restarting: " + e.__repr__())
+            print(f"\tPickle error type: {type(e).__name__}, finding reason....")
+            bad_path = self._find_unpicklable(self, "llamea")
+            if bad_path:
+                print(f"\t❗ First unpicklable element at: {bad_path}.")

@@ -85,7 +85,9 @@ class Solution:
         """
         return self.metadata[key] if key in self.metadata.keys() else None
 
-    def set_scores(self, fitness: float, feedback="", error: Optional[Exception] = None):
+    def set_scores(
+        self, fitness: float, feedback="", error: Optional[Exception] = None
+    ):
         """
             Set the score of current instance of individual.
         Args:
@@ -100,7 +102,7 @@ class Solution:
             tb = traceback.extract_tb(error.__traceback__)[-1]
             line_no = tb.lineno
             code_line = ""
-            
+
             code_lines = self.code.split("\n")
             if line_no and len(code_lines) >= line_no:
                 code_line = code_lines[line_no - 1]
