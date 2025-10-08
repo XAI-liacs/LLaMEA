@@ -408,7 +408,10 @@ You are tasked with refining the instructions (task prompt) that guides an LLM t
 ----
 {individual.feedback}
 ----
-{"### Error Encountered:\n" + individual.error if individual.error else "" }
+
+"### Error Encountered: "
+
+{individual.error if individual.error else "" }
 
 Provide an improved / rephrased / augmented task prompt only. The intent of the task prompt should stay the same.
 """
