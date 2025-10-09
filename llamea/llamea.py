@@ -266,7 +266,7 @@ for i in range(m):
         self.adaptive_niche_radius = adaptive_niche_radius
         self.clearing_interval = clearing_interval
         self.best_so_far = Solution(name="", code="")
-        self.best_so_far.set_scores(self.worst_value, "", "")
+        self.best_so_far.set_scores(self.worst_value, "")
         self.experiment_name = experiment_name
         self.parent_selection = parent_selection  # "random" | "roulette" | "tournament"
         self.tournament_size = tournament_size
@@ -299,6 +299,12 @@ for i in range(m):
                 f"Error unarchiving object from {path_to_archive_dir}/llamea_config.pkl: {e.__repr__()}"
             )
             return None
+
+    def __getstate__(self):
+        return self.__dict__
+
+    def __setstate__(self, to_state):
+        self.__dict__.update(to_state)
 
     def logevent(self, event):
         print(event)
@@ -392,6 +398,15 @@ for i in range(m):
 
     def optimize_task_prompt(self, individual):
         """Use the LLM to improve the task prompt for a given individual."""
+
+        error_message = ""
+        if individual.error:
+            error_message = f"""
+### Error Encountered
+{individual.error}
+
+"""
+
         prompt = f"""{self.role_prompt}
 You are tasked with refining the instructions (task prompt) that guides an LLM to generate algorithms.
 ### Current task prompt:
@@ -409,9 +424,7 @@ You are tasked with refining the instructions (task prompt) that guides an LLM t
 {individual.feedback}
 ----
 
-"### Error Encountered: "
-
-{individual.error if individual.error else "" }
+{error_message}
 
 Provide an improved / rephrased / augmented task prompt only. The intent of the task prompt should stay the same.
 """
@@ -438,6 +451,13 @@ Provide an improved / rephrased / augmented task prompt only. The intent of the 
         solution = individual.code
         description = individual.description
         feedback = individual.feedback
+        error_message = ""
+        if individual.error:
+            error_message = f"""
+### Error Encountered
+{individual.error}
+
+"""
         if self.adaptive_mutation == True:
             num_lines = len(solution.split("\n"))
             prob = discrete_power_law_distribution(num_lines, 1.5)
@@ -470,11 +490,9 @@ With code:
 
 Feedback:
 
-{individual.feedback}
+{feedback}
 
-Error Encountered:
-
-{individual.error if individual.error else "" }
+{error_message}
 
 {mutation_operator}
 

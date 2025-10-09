@@ -191,7 +191,7 @@ def _add_builtins_into(allowed_list: list[str]):
 
 
 def prepare_namespace(
-    code: str, allowed: list[str], log_directory: str | None = None
+    code: str, allowed: list[str], logger: Any = None
 ) -> tuple[dict[str, Any], Optional[str]]:
     """Prepare exec global_namespace, with the libraries imported in the text, `code` parameter accepts.
         If the imports are not allowed in the environment, a generic object is provided.
@@ -199,7 +199,7 @@ def prepare_namespace(
     Args:
         `code: str`: Code parameter that is to be passed to `exec` function.
         `allowed: list[str]`: A list of allowed pip installable libraries, that are acceptable to be imported.
-        `log_directory: str | None`: Current logging folder, set to log un-allowed libraries that `code` tried to import.
+        `logger: Any`: Logger with `log_import_fail(list[str])` method in it, LLaMEA has this feature in llamea.loggers.ExperimentLogger.
     Returns:
         Returns a prepared global_namespace dictionary for exec, of type `dict[str, Any]`, along with an str,
         `potential_issue`, which can be passed out to feedback to LLM when `exec` throws.
@@ -241,11 +241,11 @@ def prepare_namespace(
 
     potential_issue = None
 
-    if log_directory:
-        with jsonlines.open(
-            os.path.join(log_directory, "import_failures.jsonl"), "a"
-        ) as writer:
-            writer.write({"import_misses": not_allowed})
+    if logger:
+        try:
+            logger.log_import_fails(not_allowed)
+        except Exception as e:
+            print("Provided logger doesn't have log_import_fail", e.__repr__())
 
     if len(not_allowed) > 0:
         potential_issue = (

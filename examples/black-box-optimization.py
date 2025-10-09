@@ -5,11 +5,10 @@
 # - An LLM instance that will generate the code based on the task prompt.
 
 import os
-import re
+import pickle
 
 import numpy as np
 from ioh import get_problem, logger
-import traceback
 
 from llamea import Gemini_LLM, LLaMEA
 from llamea.utils import prepare_namespace, clean_local_namespace
@@ -33,12 +32,8 @@ if __name__ == "__main__":
         feedback=""
         possible_issue = None
         local_ns = {}
-        dir_name = getattr(explogger, "dirname")
         try:
-            if dir_name:
-                global_ns, possible_issue = prepare_namespace(code, allowed=["numpy"], log_directory=dir_name)
-            else:  
-                global_ns, possible_issue = prepare_namespace(code, allowed=[])
+            global_ns, possible_issue = prepare_namespace(code, allowed=["numpy"], logger=explogger)
             exec(code, global_ns, local_ns)
             local_ns = clean_local_namespace(local_ns, global_ns)
 

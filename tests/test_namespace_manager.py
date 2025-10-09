@@ -1,7 +1,9 @@
 import pytest
 import os
 import jsonlines
+import time
 from llamea.utils import prepare_namespace, clean_local_namespace, _add_builtins_into
+from llamea.loggers import ExperimentLogger
 
 def test_prepare_namespace_imports_all():
     # Test 1: All libraries are available.
@@ -91,40 +93,30 @@ import math""",
         "import_failure" : ["scipy", "sklearn", "Qiskit.Aer", "shapely"]
     }
 
-    path = os.path.join(os.getcwd(), "exp-Test-Import-Failiure-Logging")
-    os.makedirs(path, exist_ok=True)
+    logger = ExperimentLogger("test-prepare-namespace")
+
 
     potential_issues = []
 
-    try:
-        ns, potential_issue = prepare_namespace(test1["code"], test1["allowed"], path)
-        potential_issues.append(potential_issue)
-        for key in ns:
-            assert key in test1["namespace_keys"]
-
-        ns, potential_issue = prepare_namespace(test2["code"], test2["allowed"], path)
-        potential_issues.append(potential_issue)
-        for key in ns:
-            assert key in test2["namespace_keys"]
-        
-        with jsonlines.open(os.path.join(path, "import_failures.jsonl"), "r") as reader:
-            count = 0
-            logged_objects = []
-            for obj in reader:
-                logged_objects.append(obj)
-                count += 1
-
-        assert count == 2
-
-        for rejected_library in logged_objects[0]["import_misses"]:
-            assert rejected_library in test1["import_failure"]
-        
-        for rejected_library in logged_objects[1]["import_misses"]:
-            assert rejected_library in test2["import_failure"]
-
-    finally:
-        # cleanup always runs
-        import_failures_file = os.path.join(path, "import_failures.jsonl")
-        if os.path.exists(import_failures_file):
-            os.remove(import_failures_file)
-            os.removedirs(path)
+    
+    ns, potential_issue = prepare_namespace(test1["code"], test1["allowed"], logger)
+    potential_issues.append(potential_issue)
+    for key in ns:
+        assert key in test1["namespace_keys"]
+    ns, potential_issue = prepare_namespace(test2["code"], test2["allowed"], logger)
+    potential_issues.append(potential_issue)
+    for key in ns:
+        assert key in test2["namespace_keys"]
+    
+    with jsonlines.open(os.path.join(logger.dirname, "import_failures.jsonl"), "r") as reader:
+        count = 0
+        logged_objects = []
+        for obj in reader:
+            logged_objects.append(obj)
+            count += 1
+    assert count == 2
+    for rejected_library in logged_objects[0]["import_misses"]:
+        assert rejected_library in test1["import_failure"]
+    
+    for rejected_library in logged_objects[1]["import_misses"]:
+        assert rejected_library in test2["import_failure"]
