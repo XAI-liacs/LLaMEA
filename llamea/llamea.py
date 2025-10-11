@@ -81,6 +81,7 @@ class LLaMEA:
         diff_mode: bool = False,
         parent_selection: str = "random",
         tournament_size: int = 3,
+        provide_errors = True,
     ):
         """
         Initializes the LLaMEA instance with provided parameters. Note that by default LLaMEA maximizes the objective.
@@ -139,6 +140,7 @@ class LLaMEA:
         self.llm = llm
         self.model = llm.model
         self.diff_mode = diff_mode
+        self.provide_errors = provide_errors
 
         self.eval_timeout = eval_timeout
         self.f = f  # evaluation function, provides an individual as output.
@@ -400,7 +402,7 @@ for i in range(m):
         """Use the LLM to improve the task prompt for a given individual."""
 
         error_message = ""
-        if individual.error:
+        if individual.error and self.provide_errors:
             error_message = f"""
 ### Error Encountered
 {individual.error}
@@ -452,7 +454,7 @@ Provide an improved / rephrased / augmented task prompt only. The intent of the 
         description = individual.description
         feedback = individual.feedback
         error_message = ""
-        if individual.error:
+        if individual.error and self.provide_errors:
             error_message = f"""
 ### Error Encountered
 {individual.error}
