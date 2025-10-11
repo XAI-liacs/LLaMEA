@@ -94,3 +94,48 @@ def test_random_selection_count():
     )
     selected = algo._select_parents()
     assert len(selected) == 7
+
+def test_error_translates_to_appropriate_prompt():
+
+    # Write an error prone code with trace.
+    import traceback
+
+    code = """
+class UnhandledCalculator():
+    
+    @classmethod
+    def divide(cls, x, y):
+        return x/y
+    
+    @classmethod
+    def evaluate(cls, x, y):
+        return cls.divide(x, y)
+    """
+
+
+    solution = Solution(code=code, 
+                name="UnhandledCalculator")
+    
+    try:
+        local_ns = {}
+
+        exec(code, {}, local_ns)
+        local_ns["UnhandledCalculator"].evaluate(10, 0)
+    except Exception as e:
+        solution.set_scores(float("-inf"), 
+                            feedback="Error in code.",
+                            error=e)
+        
+        # Follow the same logic as solution code
+        code_lines = code.split("\n")
+        tb = traceback.extract_tb(e.__traceback__)[-1]
+        line_no = tb.lineno
+        error_type = type(e).__name__
+        error_msg = str(e)
+        error = f"{error_type}: {error_msg}.\n"
+        line = 0
+        if line_no:
+            line = line_no
+            error += f"On line {line_no}: {code_lines[line_no]}.\n"
+        assert solution.error == f"{error_type}: {error_msg}.\nOn line {line_no}: {code_lines[line - 1]}.\n"
+        

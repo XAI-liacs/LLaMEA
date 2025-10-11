@@ -380,6 +380,29 @@ class Gemini_LLM(LLM):
             system_instruction="You are a computer scientist and excellent Python programmer.",
         )
 
+    def __getstate__(self):
+        """Return the picklable part of the instance."""
+        state = self.__dict__.copy()
+        state.pop("client", None)  # the client itself is NOT picklable
+        return state  # everything else is fine
+
+    def __setstate__(self, state):
+        """Restore from a pickled state."""
+        self.__dict__.update(state)  # put back the simple stuff
+        generation_config = {
+            "temperature": 1,
+            "top_p": 0.95,
+            "top_k": 64,
+            "max_output_tokens": 65536,
+            "response_mime_type": "text/plain",
+        }
+
+        self.client = genai.GenerativeModel(
+            model_name=self.model,  # "gemini-1.5-flash","gemini-2.0-flash",
+            generation_config=generation_config,
+            system_instruction="You are a computer scientist and excellent Python programmer.",
+        )
+
     def query(self, session_messages, max_retries: int = 5, default_delay: int = 10):
         """
         Sends the conversation history to Gemini, retrying on 429 ResourceExhausted exceptions.

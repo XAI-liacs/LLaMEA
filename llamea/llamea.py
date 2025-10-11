@@ -266,7 +266,7 @@ for i in range(m):
         self.adaptive_niche_radius = adaptive_niche_radius
         self.clearing_interval = clearing_interval
         self.best_so_far = Solution(name="", code="")
-        self.best_so_far.set_scores(self.worst_value, "", "")
+        self.best_so_far.set_scores(self.worst_value, "")
         self.experiment_name = experiment_name
         self.parent_selection = parent_selection  # "random" | "roulette" | "tournament"
         self.tournament_size = tournament_size
@@ -300,6 +300,12 @@ for i in range(m):
             )
             return None
 
+    def __getstate__(self):
+        return self.__dict__
+
+    def __setstate__(self, to_state):
+        self.__dict__.update(to_state)
+
     def logevent(self, event):
         print(event)
 
@@ -324,11 +330,7 @@ for i in range(m):
             if not self.evaluate_population:
                 new_individual = self.evaluate_fitness(new_individual)
         except Exception as e:
-            new_individual.set_scores(
-                self.worst_value,
-                f"An exception occured: {traceback.format_exc()}.",
-                repr(e) + traceback.format_exc(),
-            )
+            new_individual.set_scores(self.worst_value, "", e)
             self.logevent(f"An exception occured: {traceback.format_exc()}.")
             if hasattr(self.f, "log_individual"):
                 self.f.log_individual(new_individual)
@@ -396,6 +398,15 @@ for i in range(m):
 
     def optimize_task_prompt(self, individual):
         """Use the LLM to improve the task prompt for a given individual."""
+
+        error_message = ""
+        if individual.error:
+            error_message = f"""
+### Error Encountered
+{individual.error}
+
+"""
+
         prompt = f"""{self.role_prompt}
 You are tasked with refining the instructions (task prompt) that guides an LLM to generate algorithms.
 ### Current task prompt:
@@ -412,6 +423,8 @@ You are tasked with refining the instructions (task prompt) that guides an LLM t
 ----
 {individual.feedback}
 ----
+
+{error_message}
 
 Provide an improved / rephrased / augmented task prompt only. The intent of the task prompt should stay the same.
 """
@@ -438,6 +451,13 @@ Provide an improved / rephrased / augmented task prompt only. The intent of the 
         solution = individual.code
         description = individual.description
         feedback = individual.feedback
+        error_message = ""
+        if individual.error:
+            error_message = f"""
+### Error Encountered
+{individual.error}
+
+"""
         if self.adaptive_mutation == True:
             num_lines = len(solution.split("\n"))
             prob = discrete_power_law_distribution(num_lines, 1.5)
@@ -470,7 +490,9 @@ With code:
 
 Feedback:
 
-{individual.feedback}
+{feedback}
+
+{error_message}
 
 {mutation_operator}
 
@@ -598,10 +620,9 @@ Feedback:
             if not self.evaluate_population:
                 evolved_individual = self.evaluate_fitness(evolved_individual)
         except Exception as e:
-            error = repr(e)
             evolved_individual.generation = self.generation
             evolved_individual.set_scores(
-                self.worst_value, f"An exception occurred: {error}.", error
+                self.worst_value, f"An exception occurred: {e.__repr__()}.", e
             )
             if hasattr(self.f, "log_individual"):
                 self.f.log_individual(evolved_individual)
@@ -799,6 +820,29 @@ Feedback:
 
         return self.best_so_far
 
+    def _find_unpicklable(self, obj, path="root"):
+        try:
+            pickle.dumps(obj)
+            return None  # This object is fine
+        except Exception:
+            pass
+
+            # Inspect containers
+            if isinstance(obj, dict):
+                for k, v in obj.items():
+                    bad = self._find_unpicklable(v, f"{path}[{k!r}]")
+                    if bad:
+                        return bad
+            elif isinstance(obj, (list, tuple, set)):
+                for i, v in enumerate(obj):
+                    bad = self._find_unpicklable(v, f"{path}[{i}]")
+                    if bad:
+                        return bad
+            else:
+                # It's a leaf object that failed
+                return path
+        return None
+
     def pickle_archive(self):
         """
         Store the llmea object, into a file, using pickle, to support warm start.
@@ -808,4 +852,7 @@ Feedback:
                 with open(f"{self.logger.dirname}/llamea_config.pkl", "wb") as file:
                     pickle.dump(self, file)
         except Exception as e:
-            print("Error archiving LLaMEA object for restarting: " + e.__repr__())
+            print(f"\tPickle error type: {type(e).__name__}, finding reason....")
+            bad_path = self._find_unpicklable(self, "llamea")
+            if bad_path:
+                print(f"\t❗ First unpicklable element at: {bad_path}.")

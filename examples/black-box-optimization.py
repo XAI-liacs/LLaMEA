@@ -5,18 +5,19 @@
 # - An LLM instance that will generate the code based on the task prompt.
 
 import os
-import re
+import pickle
 
 import numpy as np
 from ioh import get_problem, logger
 
 from llamea import Gemini_LLM, LLaMEA
+from llamea.utils import prepare_namespace, clean_local_namespace
 from misc import OverBudgetException, aoc_logger, correct_aoc
 
 if __name__ == "__main__":
     # Execution code starts here
-    api_key = os.getenv("GEMINI_API_KEY")
-    ai_model = "gemini-1.5-flash"
+    api_key = os.getenv("GOOGLE_API_KEY")
+    ai_model = "gemini-2.5-flash"
     experiment_name = "pop1-5"
     llm = Gemini_LLM(api_key, ai_model)
 
@@ -28,9 +29,19 @@ if __name__ == "__main__":
 
         code = solution.code
         algorithm_name = solution.name
-        exec(code, globals())
+        feedback=""
+        possible_issue = None
+        local_ns = {}
+        try:
+            global_ns, possible_issue = prepare_namespace(code, allowed=["numpy"], logger=explogger)
+            exec(code, global_ns, local_ns)
+            local_ns = clean_local_namespace(local_ns, global_ns)
 
-        error = ""
+        except Exception as e:
+            if possible_issue:
+                feedback = f" {possible_issue}."
+            solution.set_scores(float("-inf"), feedback, e)
+            return solution
 
         aucs = []
 
@@ -46,7 +57,7 @@ if __name__ == "__main__":
                     for rep in range(3):
                         np.random.seed(rep)
                         try:
-                            algorithm = globals()[algorithm_name](
+                            algorithm = local_ns[algorithm_name](
                                 budget=budget, dim=dim
                             )
                             algorithm(problem)
@@ -60,7 +71,7 @@ if __name__ == "__main__":
         auc_mean = np.mean(aucs)
         auc_std = np.std(aucs)
 
-        feedback = f"The algorithm {algorithm_name} got an average Area over the convergence curve (AOCC, 1.0 is the best) score of {auc_mean:0.2f} with standard deviation {auc_std:0.2f}."
+        feedback = f"The algorithm {algorithm_name} got an average Area over the convergence curve (AOCC, 1.0 is the best) score of {auc_mean:0.4f} with standard deviation {auc_std:0.4f}."
 
         print(algorithm_name, algorithm, auc_mean, auc_std)
         solution.add_metadata("aucs", aucs)

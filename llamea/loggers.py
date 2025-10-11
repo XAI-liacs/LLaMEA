@@ -139,3 +139,16 @@ class ExperimentLogger:
             else:
                 file.write("Failed to extract config space")
         self.attempt = attempt
+
+    def log_import_fails(self, import_fails: list[str]):
+        """
+            Logs import failures, which happens when llm generated code tries to import un-available or not allowed to import libraries.
+
+        Args:
+            `import_fails: list[str]`: List of libraries needed to import.
+        """
+
+        with jsonlines.open(
+            os.path.join(self.dirname, "import_failures.jsonl"), "a"
+        ) as writer:
+            writer.write({"import_misses": import_fails})

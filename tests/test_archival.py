@@ -12,6 +12,11 @@ def evaluationFunction(solution, explogger=None):
     return solution
 
 
+
+class Bad:
+    def __getstate__(self):
+        raise TypeError("Can't pickle me")
+
 class TestArchival(unittest.TestCase):
     def test_archival(self):
         llm = Dummy_LLM()
@@ -28,7 +33,7 @@ class TestArchival(unittest.TestCase):
             budget=200,
         )
         dirname = es.logger.dirname
-        time.sleep(4)  # Wait for archival to reflect on storage.
+        time.sleep(4)  # Wait for archival to reflect on storage, generating new logger immediately, will lead to log folder name conflicts.
         es_start_archive = LLaMEA.warm_start(dirname)  # Warm start.
 
         archived_es = es_start_archive.__dict__
@@ -39,3 +44,16 @@ class TestArchival(unittest.TestCase):
                 pass
             else:
                 self.assertEqual(archived_es[key], value)
+
+    def test_archival_diagnostics(self):
+        es = LLaMEA(evaluationFunction, 
+                    llm=Dummy_LLM(),
+                    n_parents=1)
+
+        data = {
+            "a": 1,
+            "b": [1, 2, Bad()],
+            "c": {"x": "ok"}
+        }
+
+        assert es._find_unpicklable(data) == "root['b'][2]"
