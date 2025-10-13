@@ -271,6 +271,8 @@ class ELAproblem:
             "Multimodality": "it should be multimodal, Multimodality refers to the number of local minima of a problem.",
             "Structure": "It should have a clear global structure. Global structure is what remains after deleting all non-optimal points.",
             "Homogeneous": "The search space should be homogeneous. Which refers to a search space without phase transitions. Its overall appearance is similar in different search space areas.",
+            "NOT Homogeneous": "The search space should be not homogeneous. Which refers to a search space with phase transitions. Its overall appearance is different in different search space areas.",
+            "NOT Basins": "The search space should be not have basin size homogeneity. Which refers to a search space where the size relation (largest to smallest) of all basins of attraction is not homogeneous.",
         }
         self.task_prompt = f"""
 You are a highly skilled computer scientist in the field optimization and benchmarking. Your task is to design novel mathematical functions to be used as black-box optimization benchmark landscapes.
@@ -374,10 +376,19 @@ Give a novel Python class with an optimization landscape function and a short de
                     report = evaluate_separability(problem, DIM, bounds=bounds, samples=1024)
                     feature_results[f"{feature} - {DIM}D"] = 1 - (report.percent_noncompliance / 100.0)
                 else:
+                    inverse = False
+                    if feature in ["NOT Homogeneous", "NOT Basins"]:
+                        feature_key = feature.replace("NOT ", "")
+                        inverse = True
+                    else:
+                        feature_key = feature
                     model = xgb.XGBClassifier(objective="binary:logistic")
-                    model.load_model(f"dimensions/model_Groups_{feature}_scaled_new.json")
-                    feature_results[f"{feature} - {DIM}D"] = model.predict_proba(all_features_scaled)[0][1]
-                
+                    model.load_model(f"dimensions/model_Groups_{feature_key}_scaled_new.json")
+                    if inverse:
+                        feature_results[f"{feature} - {DIM}D"] = 1 - model.predict_proba(all_features_scaled)[0][1]
+                    else:
+                        feature_results[f"{feature} - {DIM}D"] = model.predict_proba(all_features_scaled)[0][1]
+
                 temp_res = feature_results[f"{feature} - {DIM}D"]
                 results.append(temp_res)
                 solution.add_metadata(f"score_{feature}_{DIM}D", temp_res)
@@ -436,14 +447,15 @@ if __name__ == "__main__":
     
     #llm = Gemini_LLM(api_key, ai_model)
 
-    all_features = ["Basins", "Separable", "GlobalLocal", "Multimodality",  "Homogeneous"] #"Structure",
+    not_features = ["NOT Homogeneous", "NOT Basins"]
+    all_features = ["Separable", "GlobalLocal", "Multimodality"] #"Structure","Basins", "Homogeneous"
     feature_combinations = []
-    for i in range(len(all_features)):
-        for j in range(i+1, len(all_features)):
-            feature_combinations.append([all_features[i], all_features[j]])
-        feature_combinations.append([all_features[i]])
+    for i in range(len(not_features)):
+        for j in range(len(all_features)):
+            feature_combinations.append([not_features[i], all_features[j]])
+        feature_combinations.append([not_features[i]])
     
-    for combi in feature_combinations[3:]:
+    for combi in feature_combinations:
         niching=None
         experiment_name = f"ELA-{'_'.join([f for f in combi])}"
         if args.share:
