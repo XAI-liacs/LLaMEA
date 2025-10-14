@@ -5,6 +5,8 @@ import json
 import analyze_basins
 import tqdm
 
+import sys
+sys.setrecursionlimit(10000)
 
 utils.good_plt_config()
 os.makedirs("outputs", exist_ok=True)
@@ -54,7 +56,7 @@ for exp_dir in experiment_dirs:
         exec(row["code"], ns)                      # defines class with same name as row["name"]
         F   = getattr(ns[row["name"]](dim=2), "f")      # instantiate & grab its .f method
 
-        n = 15
+        n = 10
         x1 = np.linspace(-5, 5, n)
         x2 = np.linspace(-5, 5, n)
         X1, X2 = np.meshgrid(x1, x2)
@@ -94,13 +96,12 @@ for exp_dir in experiment_dirs:
         #print(f"Number of basins: {len(unique_basins)}")
         for basin_id, size in zip(unique_basins, counts):
             #print(f"Basin {basin_id}: size={size}, f(x)={F(bloc.X[basin_id]):.4f}")
-            basin_info.append((size, bloc.X[basin_id], F(bloc.X[basin_id])))
+            basin_info.append((int(size), bloc.X[basin_id].tolist(), float(F(bloc.X[basin_id]))))
         row["basin_info"] = basin_info
-        row["nr_of_basins"] = nr_of_optima
+        row["nr_of_basins"] = int(nr_of_optima)
         
 
         #fig, ax = bloc.plot_attraction_basins(F, X=X_data)
-    with open(f"outputs/{exp_dir}.jsonl", "w") as f_out:
-        for row in data:
+        with open(f"outputs/{exp_dir}.jsonl", "a") as f_out:
             json.dump(row, f_out)
             f_out.write("\n")

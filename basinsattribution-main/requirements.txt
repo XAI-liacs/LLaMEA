@@ -1,0 +1,5 @@
+matplotlib==3.9.2
+numpy==1.26.4
+pybind11==2.13.6
+torch==2.8.0
+jax==0.7.2
