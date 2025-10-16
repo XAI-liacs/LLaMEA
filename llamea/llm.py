@@ -147,6 +147,7 @@ class LLM(ABC):
             self.logger.log_conversation(self.model, message)
 
         code_block = self.extract_algorithm_code(message)
+        code = ""
         success = False  # <- Flag to Implement fall back to code block update, when LLM fails to adhere to diff mode.
         if diff_mode:
             if base_code is None:
@@ -164,7 +165,7 @@ class LLM(ABC):
             code = code_block
 
         name = re.findall(
-            "class\\s*(\\w*)(?:\\(\\w*\\))?\\:",
+            r"(?:def|class)\s*(\w*).*\:",
             code,
             re.IGNORECASE,
         )[0]
