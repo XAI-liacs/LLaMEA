@@ -196,11 +196,14 @@ def prepare_namespace(
     """Prepare exec global_namespace, with the libraries imported in the text, `code` parameter accepts.
         If the imports are not allowed in the environment, a generic object is provided.
 
-    Args:
+    ### Args:
         `code: str`: Code parameter that is to be passed to `exec` function.
+
         `allowed: list[str]`: A list of allowed pip installable libraries, that are acceptable to be imported.
+
         `logger: Any`: Logger with `log_import_fail(list[str])` method in it, LLaMEA has this feature in llamea.loggers.ExperimentLogger.
-    Returns:
+
+    ### Returns:
         Returns a prepared global_namespace dictionary for exec, of type `dict[str, Any]`, along with an str,
         `potential_issue`, which can be passed out to feedback to LLM when `exec` throws.
 
