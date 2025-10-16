@@ -112,6 +112,17 @@ def test_llm_sample_solution_good_code():
     assert sol.name == "MyAlgo"
     assert "class MyAlgo" in sol.code
 
+def test_llm_sample_solution_func():
+    class DummyLLM(LLM):
+        def query(self, session: list):
+            return "# Description: MyAlgo\n```python\ndef MyAlgo(parm1, param2):\n  pass\n```"
+
+    llm = DummyLLM(api_key="x", model="y")
+    sol = llm.sample_solution([{"role": "client", "content": "test"}])
+    assert sol.name == "MyAlgo"
+    assert "MyAlgo" in sol.code
+
+
 def test_extract_algorithm_code_strips_main_block():
     class DummyLLM(LLM):
         def query(self, session: list):  # pragma: no cover - helper for direct method call
@@ -130,7 +141,6 @@ def test_extract_algorithm_code_strips_main_block():
     code = llm.extract_algorithm_code(message)
     assert "if __name__" not in code
     assert "print('hi')" not in code
-
 
 
 def test_openai_llm_init():
