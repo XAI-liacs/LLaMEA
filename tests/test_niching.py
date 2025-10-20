@@ -1,3 +1,5 @@
+import random
+
 import numpy as np
 import pytest
 
@@ -65,3 +67,50 @@ def test_adaptive_niche_radius_updates_to_mean_distance():
     expected = code_distance("a=1", "b=1")
     optimizer.apply_niching([s1, s2])
     assert optimizer.niche_radius == pytest.approx(expected)
+
+
+def descriptor_by_code_length(solution: Solution) -> tuple[float, ...]:
+    return (float(len(solution.code)),)
+
+
+def test_map_elites_keeps_best_individual_per_cell():
+    optimizer = LLaMEA(
+        f=identity_f,
+        llm=DummyLLM(),
+        niching="map_elites",
+        behavior_descriptor=descriptor_by_code_length,
+        map_elites_bins=(3,),
+        log=False,
+    )
+    weak = make_solution("ab", 1.0)
+    strong = make_solution("ab", 5.0)
+    elites = optimizer.apply_niching([weak, strong])
+
+    assert len(optimizer.map_elites_archive) == 1
+    assert optimizer.map_elites_archive[(0,)] is strong
+    assert strong in elites
+
+
+def test_map_elites_selection_draws_from_archive():
+    random.seed(0)
+    optimizer = LLaMEA(
+        f=identity_f,
+        llm=DummyLLM(),
+        niching="map_elites",
+        behavior_descriptor=descriptor_by_code_length,
+        map_elites_bins=(3,),
+        n_parents=2,
+        elitism=True,
+        log=False,
+    )
+    individuals = [
+        make_solution("a", 1.0),
+        make_solution("bb", 2.0),
+        make_solution("ccc", 3.0),
+    ]
+    selected = optimizer.selection([], individuals)
+
+    assert len(optimizer.map_elites_archive) == 3
+    assert len(selected) == 2
+    archive_values = set(optimizer.map_elites_archive.values())
+    assert all(ind in archive_values for ind in selected)
