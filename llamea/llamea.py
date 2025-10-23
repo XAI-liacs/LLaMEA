@@ -77,6 +77,8 @@ class LLaMEA:
         niche_radius: Optional[float] = None,
         adaptive_niche_radius: bool = False,
         clearing_interval: Optional[int] = None,
+        behavior_descriptor: Optional[Callable[[Solution], tuple]] = None,
+        map_elites_bins: Optional[tuple[int, ...] | int] = None,
         evaluate_population=False,
         diff_mode: bool = False,
         parent_selection: str = "random",
@@ -110,8 +112,8 @@ class LLaMEA:
             log (bool): Flag to switch of the logging of experiments.
             minimization (bool): Whether we minimize or maximize the objective function. Defaults to False.
             _random (bool): Flag to switch to random search (purely for debugging).
-            niching (str | None): Niching strategy to use. Supports "sharing" and
-                "clearing". If ``None``, niching is disabled.
+            niching (str | None): Niching strategy to use. Supports "sharing",
+                "clearing", and "map_elites". If ``None``, niching is disabled.
             distance_metric (callable | None): Function that computes a distance
                 between two :class:`Solution` objects. Defaults to a simple AST
                 based distance if not supplied.
@@ -122,6 +124,12 @@ class LLaMEA:
                 the population each generation.
             clearing_interval (int | None): Interval (in generations) at which
                 clearing is applied when ``niching`` is set to ``"clearing"``.
+            behavior_descriptor (callable | None): Function returning a tuple
+                that characterizes a :class:`Solution` for MAP-Elites. If not
+                provided the descriptor is derived from basic code statistics.
+            map_elites_bins (tuple[int, ...] | int | None): Number of bins per
+                dimension for the MAP-Elites archive. If ``None`` a default of
+                ten bins per descriptor dimension is used.
             evaluate_population (bool): If True, the evaluation function `f` should
                 accept a list with the new population and a list of parents (optionally, to deal with elitism)
                 and return a list of solutions that are evaluated, also the parents may receive new fitness values and should be returned.
@@ -265,6 +273,12 @@ for i in range(m):
         self.niche_radius = niche_radius if niche_radius is not None else 0.5
         self.adaptive_niche_radius = adaptive_niche_radius
         self.clearing_interval = clearing_interval
+        self.behavior_descriptor = behavior_descriptor
+        self.map_elites_bins = map_elites_bins
+        self.map_elites_archive = {}
+        self.map_elites_bounds = None
+        self.map_elites_descriptor_cache = {}
+        self.map_elites_solutions = {}
         self.best_so_far = Solution(name="", code="")
         self.best_so_far.set_scores(self.worst_value, "")
         self.experiment_name = experiment_name
@@ -536,8 +550,130 @@ Feedback:
         if dists:
             self.niche_radius = float(np.mean(dists))
 
+    def _ensure_map_elites_bins(self, descriptor: tuple[float, ...]):
+        """Ensure the MAP-Elites bin configuration matches the descriptor."""
+
+        if self.map_elites_bins is None:
+            self.map_elites_bins = tuple(10 for _ in descriptor)
+        elif isinstance(self.map_elites_bins, int):
+            self.map_elites_bins = tuple(self.map_elites_bins for _ in descriptor)
+        elif len(self.map_elites_bins) != len(descriptor):
+            if len(self.map_elites_bins) == 1:
+                self.map_elites_bins = tuple(
+                    self.map_elites_bins[0] for _ in descriptor
+                )
+            else:
+                raise ValueError(
+                    "MAP-Elites bin configuration must match descriptor dimensionality."
+                )
+
+    def _update_map_bounds(self, descriptor: tuple[float, ...]) -> bool:
+        """Update descriptor bounds and indicate if the archive needs rebuilding."""
+
+        if self.map_elites_bounds is None:
+            self.map_elites_bounds = [(value, value) for value in descriptor]
+            return False
+
+        changed = False
+        bounds = list(self.map_elites_bounds)
+        for i, value in enumerate(descriptor):
+            min_val, max_val = bounds[i]
+            if value < min_val:
+                min_val = value
+                changed = True
+            if value > max_val:
+                max_val = value
+                changed = True
+            bounds[i] = (min_val, max_val)
+        self.map_elites_bounds = bounds
+        return changed
+
+    def _descriptor_to_cell(self, descriptor: tuple[float, ...]) -> tuple[int, ...]:
+        """Convert a descriptor into a MAP-Elites grid cell index."""
+
+        if self.map_elites_bounds is None:
+            self.map_elites_bounds = [(value, value) for value in descriptor]
+
+        coords: list[int] = []
+        for i, value in enumerate(descriptor):
+            min_val, max_val = self.map_elites_bounds[i]
+            bins = self.map_elites_bins[i]
+            if max_val - min_val <= 1e-12 or bins <= 1:
+                coords.append(0)
+                continue
+            ratio = (value - min_val) / (max_val - min_val)
+            ratio = max(0.0, min(1.0, ratio))
+            index = int(round(ratio * (bins - 1)))
+            index = min(bins - 1, max(0, index))
+            coords.append(index)
+        return tuple(coords)
+
+    def _rebuild_map_archive(self):
+        """Recompute archive cell assignments after bounds change."""
+
+        new_archive: dict[tuple[int, ...], Solution] = {}
+        for sol_id, descriptor in self.map_elites_descriptor_cache.items():
+            solution = self.map_elites_solutions.get(sol_id)
+            if solution is None:
+                continue
+            cell = self._descriptor_to_cell(descriptor)
+            incumbent = new_archive.get(cell)
+            if incumbent is None or self._is_better(solution, incumbent):
+                new_archive[cell] = solution
+        self.map_elites_archive = new_archive
+
+    def get_behavior_descriptor(self, solution: Solution) -> tuple[float, ...]:
+        """Return the behavior descriptor used for MAP-Elites."""
+
+        descriptor = None
+        if self.behavior_descriptor is not None:
+            descriptor = self.behavior_descriptor(solution)
+        elif solution.get_metadata("behavior_descriptor") is not None:
+            descriptor = solution.get_metadata("behavior_descriptor")
+
+        if descriptor is None:
+            code = solution.code or ""
+            lines = len(code.splitlines())
+            tokens = re.findall(r"\w+", code)
+            descriptor = (float(lines), float(len(set(tokens))))
+
+        descriptor_tuple = tuple(float(x) for x in descriptor)
+        if not descriptor_tuple:
+            descriptor_tuple = (0.0,)
+        return descriptor_tuple
+
+    def _apply_map_elites(self, population):
+        """Update the MAP-Elites archive with ``population`` and return elites."""
+
+        elites: list[Solution] = []
+        for individual in population:
+            descriptor = self.get_behavior_descriptor(individual)
+            self._ensure_map_elites_bins(descriptor)
+            bounds_changed = self._update_map_bounds(descriptor)
+            if bounds_changed:
+                self._rebuild_map_archive()
+            cell = self._descriptor_to_cell(descriptor)
+            self.map_elites_descriptor_cache[individual.id] = descriptor
+            self.map_elites_solutions[individual.id] = individual
+            incumbent = self.map_elites_archive.get(cell)
+            if incumbent is None or self._is_better(individual, incumbent):
+                self.map_elites_archive[cell] = individual
+
+        elites = list(self.map_elites_archive.values())
+        return elites if elites else population
+
+    def _is_better(self, candidate: Solution, incumbent: Solution) -> bool:
+        """Return ``True`` if ``candidate`` dominates ``incumbent``."""
+
+        if self.minimization:
+            return candidate.fitness < incumbent.fitness
+        return candidate.fitness > incumbent.fitness
+
     def apply_niching(self, population):
         """Apply the configured niching strategy to ``population``."""
+        if self.niching == "map_elites":
+            return self._apply_map_elites(population)
+
         if self.niching not in {"sharing", "clearing"}:
             return population
 
@@ -584,7 +720,18 @@ Feedback:
             list: List of new selected population.
         """
         reverse = self.minimization == False
-        if self.elitism:
+        if self.niching == "map_elites":
+            pool = parents + offspring if self.elitism else list(offspring)
+            elites = self.apply_niching(pool)
+            if len(elites) < self.n_parents:
+                remaining = [ind for ind in pool if ind not in elites]
+                remaining.sort(key=lambda x: x.fitness, reverse=reverse)
+                elites = elites + remaining[: self.n_parents - len(elites)]
+            if len(elites) <= self.n_parents:
+                new_population = elites
+            else:
+                new_population = random.sample(elites, self.n_parents)
+        elif self.elitism:
             combined_population = parents + offspring
             combined_population = self.apply_niching(combined_population)
             combined_population.sort(key=lambda x: x.fitness, reverse=reverse)
