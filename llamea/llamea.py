@@ -79,6 +79,8 @@ class LLaMEA:
         clearing_interval: Optional[int] = None,
         behavior_descriptor: Optional[Callable[[Solution], tuple]] = None,
         map_elites_bins: Optional[tuple[int, ...] | int] = None,
+        novelty_k: int = 5,
+        novelty_archive_size: Optional[int] = 100,
         evaluate_population=False,
         diff_mode: bool = False,
         parent_selection: str = "random",
@@ -130,6 +132,12 @@ class LLaMEA:
             map_elites_bins (tuple[int, ...] | int | None): Number of bins per
                 dimension for the MAP-Elites archive. If ``None`` a default of
                 ten bins per descriptor dimension is used.
+            novelty_k (int): Number of nearest neighbours considered when
+                computing novelty scores if ``niching`` is set to
+                ``"novelty"``.
+            novelty_archive_size (int | None): Maximum size of the novelty
+                archive when ``niching`` is set to ``"novelty"``. ``None``
+                keeps all past individuals.
             evaluate_population (bool): If True, the evaluation function `f` should
                 accept a list with the new population and a list of parents (optionally, to deal with elitism)
                 and return a list of solutions that are evaluated, also the parents may receive new fitness values and should be returned.
@@ -268,6 +276,8 @@ for i in range(m):
         self.worst_value = -np.inf
         if minimization:
             self.worst_value = np.inf
+        if niching == "novelty":
+            self.worst_value = -np.inf
         self.niching = niching
         self.distance_metric = distance_metric or code_distance
         self.niche_radius = niche_radius if niche_radius is not None else 0.5
@@ -279,6 +289,11 @@ for i in range(m):
         self.map_elites_bounds = None
         self.map_elites_descriptor_cache = {}
         self.map_elites_solutions = {}
+        self.novelty_k = max(1, int(novelty_k))
+        self.novelty_archive_size = (
+            None if novelty_archive_size is None else max(1, int(novelty_archive_size))
+        )
+        self.novelty_archive: list[Solution] = []
         self.best_so_far = Solution(name="", code="")
         self.best_so_far.set_scores(self.worst_value, "")
         self.experiment_name = experiment_name
@@ -379,6 +394,9 @@ for i in range(m):
 
         for p in population:
             self.run_history.append(p)
+
+        if self.niching == "novelty":
+            population = self.apply_niching(population)
 
         self.generation += 1
         self.population = population  # Save the entire population
@@ -528,7 +546,7 @@ Feedback:
         """
         Update the best individual in the new population
         """
-        if self.minimization == False:
+        if self.niching == "novelty" or self.minimization == False:
             best_individual = max(self.population, key=lambda x: x.fitness)
 
             if best_individual.fitness > self.best_so_far.fitness:
@@ -669,10 +687,66 @@ Feedback:
             return candidate.fitness < incumbent.fitness
         return candidate.fitness > incumbent.fitness
 
+    def _update_novelty_archive(self, candidates: list[Solution]):
+        """Update the novelty archive with ``candidates``."""
+
+        if not candidates:
+            return
+
+        unique: dict[str, Solution] = {ind.id: ind for ind in self.novelty_archive}
+        for individual in candidates:
+            unique[individual.id] = individual
+
+        archive = list(unique.values())
+        archive.sort(
+            key=lambda x: x.get_metadata("novelty_score")
+            if x.get_metadata("novelty_score") is not None
+            else -np.inf,
+            reverse=True,
+        )
+
+        if self.novelty_archive_size is not None and len(archive) > self.novelty_archive_size:
+            archive = archive[: self.novelty_archive_size]
+        self.novelty_archive = archive
+
+    def _apply_novelty(self, population: list[Solution]):
+        """Compute novelty scores for ``population`` and update the archive."""
+
+        if not population:
+            return population
+
+        reference = list(population)
+        reference.extend(self.novelty_archive)
+
+        for individual in population:
+            distances = [
+                self.distance_metric(individual, other)
+                for other in reference
+                if other.id != individual.id
+            ]
+
+            if not distances:
+                novelty_score = 0.0
+            else:
+                distances.sort()
+                k = min(self.novelty_k, len(distances))
+                novelty_score = float(np.mean(distances[:k]))
+
+            if individual.get_metadata("raw_fitness") is None:
+                individual.add_metadata("raw_fitness", individual.fitness)
+            individual.add_metadata("novelty_score", novelty_score)
+            individual.fitness = novelty_score
+
+        self._update_novelty_archive(population)
+        return population
+
     def apply_niching(self, population):
         """Apply the configured niching strategy to ``population``."""
         if self.niching == "map_elites":
             return self._apply_map_elites(population)
+
+        if self.niching == "novelty":
+            return self._apply_novelty(population)
 
         if self.niching not in {"sharing", "clearing"}:
             return population
@@ -720,6 +794,8 @@ Feedback:
             list: List of new selected population.
         """
         reverse = self.minimization == False
+        if self.niching == "novelty":
+            reverse = True
         if self.niching == "map_elites":
             pool = parents + offspring if self.elitism else list(offspring)
             elites = self.apply_niching(pool)
