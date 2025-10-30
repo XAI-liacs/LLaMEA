@@ -276,8 +276,8 @@ for i in range(m):
         self.worst_value = -np.inf
         if minimization:
             self.worst_value = np.inf
-        if niching == "novelty":
-            self.worst_value = -np.inf
+        if niching == "novelty" and self.minimization:
+            raise ValueError("Novelty niching only supports maximization.")
         self.niching = niching
         self.distance_metric = distance_metric or code_distance
         self.niche_radius = niche_radius if niche_radius is not None else 0.5
@@ -705,7 +705,10 @@ Feedback:
             reverse=True,
         )
 
-        if self.novelty_archive_size is not None and len(archive) > self.novelty_archive_size:
+        if (
+            self.novelty_archive_size is not None
+            and len(archive) > self.novelty_archive_size
+        ):
             archive = archive[: self.novelty_archive_size]
         self.novelty_archive = archive
 
