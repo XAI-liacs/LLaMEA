@@ -447,14 +447,20 @@ if __name__ == "__main__":
     
     #llm = Gemini_LLM(api_key, ai_model)
 
-    not_features = ["NOT Homogeneous", "NOT Basins"]
-    all_features = ["Separable", "GlobalLocal", "Multimodality"] #"Structure","Basins", "Homogeneous"
+    all_features = ["Separable", "GlobalLocal", "Multimodality", "Basins", "Homogeneous"] 
     feature_combinations = []
-    for i in range(len(not_features)):
-        for j in range(len(all_features)):
-            feature_combinations.append([not_features[i], all_features[j]])
-        feature_combinations.append([not_features[i]])
+    for i in range(len(all_features)):
+        for j in range(i+1, len(all_features)):
+            feature_combinations.append([all_features[i], all_features[j]])
+        feature_combinations.append([all_features[i]])
     
+    not_features = ["NOT Basins", "NOT Homogeneous"] 
+    rest_features = ["Separable", "GlobalLocal", "Multimodality"] 
+    for i in range(len(not_features)):
+        for j in range(len(rest_features)):
+            feature_combinations.append([not_features[i], rest_features[j]])
+        feature_combinations.append([not_features[i]])
+
     for combi in feature_combinations:
         niching=None
         experiment_name = f"ELA-{'_'.join([f for f in combi])}"
