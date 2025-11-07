@@ -199,6 +199,8 @@ def preprocess_data(data):
         data["group"] = group
     return(data)
 
+
+
 # def preprocess_data(data):
 #     has_group = False
 #     if "group" in data:
@@ -356,7 +358,10 @@ Give a novel Python class with an optimization landscape function and a short de
                 pca_scaled = calculate_pca(X_scaled, y_scaled)
                 
                 ic_scaled = calculate_information_content(X_scaled, y_scaled)
-
+                
+                all_features_scaled = {**ela_meta_scaled, **ela_distr_scaled, **nbc_scaled, **disp_scaled, **pca_scaled, **ic_scaled}
+                
+                
                 all_features_scaled = {k:[v] for k,v in all_features_scaled.items()} 
                 all_features_scaled = pd.DataFrame.from_dict(all_features_scaled)
                 
@@ -390,10 +395,12 @@ Give a novel Python class with an optimization landscape function and a short de
                         feature_key = feature
                     model = xgb.XGBClassifier(objective="binary:logistic")
                     model.load_model(f"dimensions/model_Groups_{feature_key}_scaled_new.json")
+
+                    input_df = pd.DataFrame([all_features_mean], columns=all_features_pandas.columns)
                     if inverse:
-                        feature_results[f"{feature} - {DIM}D"] = 1 - model.predict_proba(all_features_mean)[0][1]
+                        feature_results[f"{feature} - {DIM}D"] = 1 - model.predict_proba(input_df)[0][1]
                     else:
-                        feature_results[f"{feature} - {DIM}D"] = model.predict_proba(all_features_mean)[0][1]
+                        feature_results[f"{feature} - {DIM}D"] = model.predict_proba(input_df)[0][1]
 
                 temp_res = feature_results[f"{feature} - {DIM}D"]
                 results.append(temp_res)
