@@ -330,42 +330,48 @@ Give a novel Python class with an optimization landscape function and a short de
             f = algorithm.f
 
             problem = f
-            X = create_initial_sample(DIM,n=250*DIM, lower_bound = -5, upper_bound = 5)
-            y = X.apply(problem, axis = 1)
-            
-            y[y==0] = 0.1**100 #since y=0 breaks log
-            if y.max() == y.min():
-                for i in range(len(y)):
-                    y[i] = 0
-            else:
-                X_scaled=(X-X.min())/(X.max()-X.min())
-                y_scaled=(y-y.min())/(y.max()-y.min())
-            
-            
-            ela_meta_scaled = calculate_ela_meta(X_scaled, y_scaled)
-            #ela_level = calculate_ela_level(X, y)
-            ela_distr_scaled = calculate_ela_distribution(X_scaled, y_scaled)
-            
-            nbc_scaled = calculate_nbc(X_scaled, y_scaled)
-            
-            disp_scaled = calculate_dispersion(X_scaled, y_scaled)
-            
-            pca_scaled = calculate_pca(X_scaled, y_scaled)
-            
-            ic_scaled = calculate_information_content(X_scaled, y_scaled)
+
+            all_features = []
+            for seed in range(5):
+                X = create_initial_sample(DIM,n=250*DIM, lower_bound = -5, upper_bound = 5)
+                y = X.apply(problem, axis = 1)
+                
+                
+                y[y==0] = 0.1**100 #since y=0 breaks log
+                if y.max() == y.min():
+                    for i in range(len(y)):
+                        y[i] = 0
+                else:
+                    X_scaled=(X-X.min())/(X.max()-X.min())
+                    y_scaled=(y-y.min())/(y.max()-y.min())
+
+                ela_meta_scaled = calculate_ela_meta(X_scaled, y_scaled)
+                #ela_level = calculate_ela_level(X, y)
+                ela_distr_scaled = calculate_ela_distribution(X_scaled, y_scaled)
+                
+                nbc_scaled = calculate_nbc(X_scaled, y_scaled)
+                
+                disp_scaled = calculate_dispersion(X_scaled, y_scaled)
+                
+                pca_scaled = calculate_pca(X_scaled, y_scaled)
+                
+                ic_scaled = calculate_information_content(X_scaled, y_scaled)
+
+                all_features_scaled = {k:[v] for k,v in all_features_scaled.items()} 
+                all_features_scaled = pd.DataFrame.from_dict(all_features_scaled)
+                
+                all_features_scaled = preprocess_data(all_features_scaled)
+                all_features.append(all_features_scaled)
+                
+            all_features_pandas = pd.concat(all_features)
+            all_features_mean = all_features_pandas.mean()
             
             d =  {"dim": DIM} 
-            all_features_scaled = {**ela_meta_scaled, **ela_distr_scaled, **nbc_scaled, **disp_scaled, **pca_scaled, **ic_scaled}
             
-            
-            all_features_scaled = {k:[v] for k,v in all_features_scaled.items()} 
-            all_features_scaled = pd.DataFrame.from_dict(all_features_scaled)
-            
-            all_features_scaled = preprocess_data(all_features_scaled)
             if DIM == 5:
-                solution.add_metadata("ela_features", all_features_scaled.to_numpy())
+                solution.add_metadata("ela_features", all_features_mean.to_numpy())
             else:
-                solution.add_metadata(f"ela_features_{DIM}D", all_features_scaled.to_numpy())
+                solution.add_metadata(f"ela_features_{DIM}D", all_features_mean.to_numpy())
 
 
             
@@ -385,9 +391,9 @@ Give a novel Python class with an optimization landscape function and a short de
                     model = xgb.XGBClassifier(objective="binary:logistic")
                     model.load_model(f"dimensions/model_Groups_{feature_key}_scaled_new.json")
                     if inverse:
-                        feature_results[f"{feature} - {DIM}D"] = 1 - model.predict_proba(all_features_scaled)[0][1]
+                        feature_results[f"{feature} - {DIM}D"] = 1 - model.predict_proba(all_features_mean)[0][1]
                     else:
-                        feature_results[f"{feature} - {DIM}D"] = model.predict_proba(all_features_scaled)[0][1]
+                        feature_results[f"{feature} - {DIM}D"] = model.predict_proba(all_features_mean)[0][1]
 
                 temp_res = feature_results[f"{feature} - {DIM}D"]
                 results.append(temp_res)
@@ -467,7 +473,7 @@ if __name__ == "__main__":
         if args.share:
             niching="sharing"
             experiment_name = f"ELA-{'_'.join([f for f in combi])}-sharing"
-        problem = ELAproblem(name=f"ELA_{'_'.join(combi)}", features=combi, dims=[2,5,10], eval_timeout=600)
+        problem = ELAproblem(name=f"ELA_{'_'.join(combi)}", features=combi, dims=[2,5,10], eval_timeout=1200)
 
         mutation_prompts = []
         for feature in problem.features:
