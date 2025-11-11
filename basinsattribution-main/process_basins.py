@@ -123,30 +123,31 @@ if __name__ == "__main__":
     #utils.good_plt_config()
     os.makedirs("outputs", exist_ok=True)
 
-    base_dir = "./"
+    base_dir = "/home/neocortex/repos/LLaMEA-ELA/LLaMEA/"
     experiment_dirs = [
-        "exp-09-25_114848-LLaMEA-gpt-5-nano-ELA-Separable_GlobalLocal-sharing",
-        "exp-09-25_115914-LLaMEA-gpt-5-nano-ELA-Separable_Multimodality-sharing",
-        "exp-09-25_121517-LLaMEA-gpt-5-nano-ELA-Separable_Homogeneous-sharing",
-        "exp-09-25_122101-LLaMEA-gpt-5-nano-ELA-Separable-sharing",
-        "exp-09-25_122848-LLaMEA-gpt-5-nano-ELA-GlobalLocal_Multimodality-sharing",
-        "exp-09-25_132136-LLaMEA-gpt-5-nano-ELA-GlobalLocal_Homogeneous-sharing",
-        "exp-09-25_144046-LLaMEA-gpt-5-nano-ELA-GlobalLocal-sharing",
-        "exp-09-25_145409-LLaMEA-gpt-5-nano-ELA-Multimodality_Homogeneous-sharing",
-        "exp-09-25_165258-LLaMEA-gpt-5-nano-ELA-Multimodality-sharing",
-        "exp-09-25_165843-LLaMEA-gpt-5-nano-ELA-Homogeneous-sharing",
-        "exp-09-26_120435-LLaMEA-gpt-5-nano-ELA-NOT Homogeneous_Separable-sharing",
-        "exp-09-26_121734-LLaMEA-gpt-5-nano-ELA-NOT Homogeneous_GlobalLocal-sharing",
-        "exp-09-26_122528-LLaMEA-gpt-5-nano-ELA-NOT Homogeneous_Multimodality-sharing",
-        "exp-09-26_123417-LLaMEA-gpt-5-nano-ELA-NOT Homogeneous-sharing",
-        "exp-10-30_094616-LLaMEA-gpt-5-nano-ELA-NOT Basins_Separable-sharing",
-        "exp-10-30_103416-LLaMEA-gpt-5-nano-ELA-NOT Basins_GlobalLocal-sharing",
-        "exp-10-30_115015-LLaMEA-gpt-5-nano-ELA-NOT Basins_Multimodality-sharing", 
-        "exp-10-30_120126-LLaMEA-gpt-5-nano-ELA-NOT Basins-sharing" ,
-        "exp-10-30_121257-LLaMEA-gpt-5-nano-ELA-Basins_Separable-sharing" ,
-        "exp-10-30_123650-LLaMEA-gpt-5-nano-ELA-Basins_GlobalLocal-sharing", 
-        "exp-10-30_150153-LLaMEA-gpt-5-nano-ELA-Basins_Multimodality-sharing", 
-        "exp-10-30_182432-LLaMEA-gpt-5-nano-ELA-Basins-sharing"
+        "exp-11-07_095145-LLaMEA-gpt-5-nano-ELA-Separable_GlobalLocal-sharing",
+        "exp-11-07_100349-LLaMEA-gpt-5-nano-ELA-Separable_Multimodality-sharing",
+        "exp-11-07_101329-LLaMEA-gpt-5-nano-ELA-Separable_Basins-sharing",
+        "exp-11-07_102426-LLaMEA-gpt-5-nano-ELA-Separable_Homogeneous-sharing",
+        "exp-11-07_103559-LLaMEA-gpt-5-nano-ELA-Separable-sharing",
+        "exp-11-07_104417-LLaMEA-gpt-5-nano-ELA-GlobalLocal_Multimodality-sharing",
+        "exp-11-07_105439-LLaMEA-gpt-5-nano-ELA-GlobalLocal_Basins-sharing",
+        "exp-11-07_131500-LLaMEA-gpt-5-nano-ELA-GlobalLocal_Homogeneous-sharing",
+        "exp-11-07_151340-LLaMEA-gpt-5-nano-ELA-GlobalLocal-sharing",
+        "exp-11-07_153338-LLaMEA-gpt-5-nano-ELA-Multimodality_Basins-sharing",
+        "exp-11-07_191623-LLaMEA-gpt-5-nano-ELA-Multimodality_Homogeneous-sharing",
+        "exp-11-07_192657-LLaMEA-gpt-5-nano-ELA-Multimodality-sharing",
+        "exp-11-08_121302-LLaMEA-gpt-5-nano-ELA-Basins_Homogeneous-sharing",
+        "exp-11-08_135452-LLaMEA-gpt-5-nano-ELA-Basins-sharing",
+        "exp-11-08_175315-LLaMEA-gpt-5-nano-ELA-Homogeneous-sharing",
+        "exp-11-08_182445-LLaMEA-gpt-5-nano-ELA-NOT Basins_Separable-sharing",
+        "exp-11-08_191508-LLaMEA-gpt-5-nano-ELA-NOT Basins_GlobalLocal-sharing",
+        "exp-11-08_195321-LLaMEA-gpt-5-nano-ELA-NOT Basins_Multimodality-sharing",
+        "exp-11-08_222921-LLaMEA-gpt-5-nano-ELA-NOT Basins-sharing",
+        "exp-11-08_230434-LLaMEA-gpt-5-nano-ELA-NOT Homogeneous_Separable-sharing",
+        "exp-11-08_234910-LLaMEA-gpt-5-nano-ELA-NOT Homogeneous_GlobalLocal-sharing",
+        "exp-11-09_003403-LLaMEA-gpt-5-nano-ELA-NOT Homogeneous_Multimodality-sharing",
+        "exp-11-09_010643-LLaMEA-gpt-5-nano-ELA-NOT Homogeneous-sharing",
     ]
 
 

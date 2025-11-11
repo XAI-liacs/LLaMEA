@@ -474,7 +474,9 @@ if __name__ == "__main__":
             feature_combinations.append([not_features[i], rest_features[j]])
         feature_combinations.append([not_features[i]])
 
-    for combi in feature_combinations:
+    # print(len(feature_combinations))
+    # exit()
+    for combi in feature_combinations[12:]:
         niching=None
         experiment_name = f"ELA-{'_'.join([f for f in combi])}"
         if args.share:
@@ -503,7 +505,7 @@ if __name__ == "__main__":
                 elitism=False,
                 HPO=False,
                 budget=budget,
-                max_workers=8,
+                max_workers=4,
                 parallel_backend="loky",
                 niching=niching,
                 distance_metric=ela_distance,
