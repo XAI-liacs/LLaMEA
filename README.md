@@ -15,6 +15,8 @@ LLaMEA couples large-language-model reasoning with an evolutionary loop to **inv
 
 In this work we extended LLaMEA with a niching approach for the automatic evolution of diverse black-box continuous problem landscapes.
 
+All generated problems and their 2d visualisations can be found in the `landscapes` folder.
+
 
 ## 🎁 Installation
 
