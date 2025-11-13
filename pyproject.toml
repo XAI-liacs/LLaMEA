@@ -18,6 +18,7 @@ dependencies = [
     "joblib>=1.4.2,<2",
     "xgboost>=3.0.3",
     "pflacco>=1.2.2",
+    "seaborn>=0.13.2",
 ]
 
 [project.urls]

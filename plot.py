@@ -7,33 +7,34 @@ import math
 import textwrap
 import re
 import os
-from IPython.display import display, Markdown
+#from IPython.display import display, Markdown
 from itertools import product
 import itertools
 
 output_files = [
-        "exp-09-25_114848-LLaMEA-gpt-5-nano-ELA-Separable_GlobalLocal-sharing",
-        "exp-09-25_115914-LLaMEA-gpt-5-nano-ELA-Separable_Multimodality-sharing",
-        "exp-09-25_121517-LLaMEA-gpt-5-nano-ELA-Separable_Homogeneous-sharing",
-        "exp-09-25_122101-LLaMEA-gpt-5-nano-ELA-Separable-sharing",
-        "exp-09-25_122848-LLaMEA-gpt-5-nano-ELA-GlobalLocal_Multimodality-sharing",
-        "exp-09-25_132136-LLaMEA-gpt-5-nano-ELA-GlobalLocal_Homogeneous-sharing",
-        "exp-09-25_144046-LLaMEA-gpt-5-nano-ELA-GlobalLocal-sharing",
-        "exp-09-25_145409-LLaMEA-gpt-5-nano-ELA-Multimodality_Homogeneous-sharing",
-        "exp-09-25_165258-LLaMEA-gpt-5-nano-ELA-Multimodality-sharing",
-        "exp-09-25_165843-LLaMEA-gpt-5-nano-ELA-Homogeneous-sharing",
-        "exp-09-26_120435-LLaMEA-gpt-5-nano-ELA-NOT Homogeneous_Separable-sharing",
-        "exp-09-26_121734-LLaMEA-gpt-5-nano-ELA-NOT Homogeneous_GlobalLocal-sharing",
-        "exp-09-26_122528-LLaMEA-gpt-5-nano-ELA-NOT Homogeneous_Multimodality-sharing",
-        "exp-09-26_123417-LLaMEA-gpt-5-nano-ELA-NOT Homogeneous-sharing",
-        "exp-10-30_094616-LLaMEA-gpt-5-nano-ELA-NOT Basins_Separable-sharing",
-        "exp-10-30_103416-LLaMEA-gpt-5-nano-ELA-NOT Basins_GlobalLocal-sharing",
-        "exp-10-30_115015-LLaMEA-gpt-5-nano-ELA-NOT Basins_Multimodality-sharing", 
-        "exp-10-30_120126-LLaMEA-gpt-5-nano-ELA-NOT Basins-sharing" ,
-        "exp-10-30_121257-LLaMEA-gpt-5-nano-ELA-Basins_Separable-sharing" ,
-        "exp-10-30_123650-LLaMEA-gpt-5-nano-ELA-Basins_GlobalLocal-sharing", 
-        "exp-10-30_150153-LLaMEA-gpt-5-nano-ELA-Basins_Multimodality-sharing", 
-        "exp-10-30_182432-LLaMEA-gpt-5-nano-ELA-Basins-sharing"
+        "exp-11-07_095145-LLaMEA-gpt-5-nano-ELA-Separable_GlobalLocal-sharing.jsonl",
+        "exp-11-07_100349-LLaMEA-gpt-5-nano-ELA-Separable_Multimodality-sharing.jsonl",
+        "exp-11-07_101329-LLaMEA-gpt-5-nano-ELA-Separable_Basins-sharing.jsonl",
+        "exp-11-07_102426-LLaMEA-gpt-5-nano-ELA-Separable_Homogeneous-sharing.jsonl",
+        "exp-11-07_103559-LLaMEA-gpt-5-nano-ELA-Separable-sharing.jsonl",
+        "exp-11-07_104417-LLaMEA-gpt-5-nano-ELA-GlobalLocal_Multimodality-sharing.jsonl",
+        "exp-11-07_105439-LLaMEA-gpt-5-nano-ELA-GlobalLocal_Basins-sharing.jsonl",
+        "exp-11-07_131500-LLaMEA-gpt-5-nano-ELA-GlobalLocal_Homogeneous-sharing.jsonl",
+        "exp-11-07_151340-LLaMEA-gpt-5-nano-ELA-GlobalLocal-sharing.jsonl",
+        "exp-11-07_153338-LLaMEA-gpt-5-nano-ELA-Multimodality_Basins-sharing.jsonl",
+        "exp-11-07_191623-LLaMEA-gpt-5-nano-ELA-Multimodality_Homogeneous-sharing.jsonl",
+        "exp-11-07_192657-LLaMEA-gpt-5-nano-ELA-Multimodality-sharing.jsonl",
+        "exp-11-08_121302-LLaMEA-gpt-5-nano-ELA-Basins_Homogeneous-sharing.jsonl",
+        "exp-11-08_135452-LLaMEA-gpt-5-nano-ELA-Basins-sharing.jsonl",
+        "exp-11-08_175315-LLaMEA-gpt-5-nano-ELA-Homogeneous-sharing.jsonl",
+        "exp-11-08_182445-LLaMEA-gpt-5-nano-ELA-NOT Basins_Separable-sharing.jsonl",
+        "exp-11-08_191508-LLaMEA-gpt-5-nano-ELA-NOT Basins_GlobalLocal-sharing.jsonl",
+        "exp-11-08_195321-LLaMEA-gpt-5-nano-ELA-NOT Basins_Multimodality-sharing.jsonl",
+        "exp-11-08_222921-LLaMEA-gpt-5-nano-ELA-NOT Basins-sharing.jsonl",
+        "exp-11-08_230434-LLaMEA-gpt-5-nano-ELA-NOT Homogeneous_Separable-sharing.jsonl",
+        "exp-11-08_234910-LLaMEA-gpt-5-nano-ELA-NOT Homogeneous_GlobalLocal-sharing.jsonl",
+        "exp-11-09_003403-LLaMEA-gpt-5-nano-ELA-NOT Homogeneous_Multimodality-sharing.jsonl",
+        "exp-11-09_010643-LLaMEA-gpt-5-nano-ELA-NOT Homogeneous-sharing.jsonl"
     ]
 
 
@@ -45,14 +46,15 @@ grid_points = 200  # resolution
 
 
 for f in output_files:
-    file_path = f"/home/neocortex/repos/LLaMEA-ELA/LLaMEA/basinsattribution-main/outputs/{f}.jsonl" 
+    file_path = f"landscapes/{f}" 
 
     filename = os.path.basename(file_path)
     match = re.search(r"-ELA-(.*?)(?:-|\-sharing\.jsonl$)", filename)
     title = match.group(1).replace("_", " ") if match else filename
 
     # --- DISPLAY MARKDOWN TITLE ---
-    display(Markdown(f"## {title}"))
+    #display(Markdown(f"## {title}"))
+    print(f"Processing file: {file_path}")
 
     # --- LOAD JSON LINES ---
     with open(file_path, "r") as f:
@@ -88,7 +90,25 @@ for f in output_files:
                     Z[iy, ix] = func([X[iy, ix], Y[iy, ix]])
 
             # Plot
-            cs = ax.contourf(X, Y, Z, levels=50, cmap="viridis")
+            #sns.kdeplot(x=x, y=y, fill=False, cmap="viridis", thresh=0, levels=100, ax=ax)
+            #cs = ax.contourf(X, Y, Z, levels=50, cmap="viridis")
+            cs = ax.contourf(
+                X, Y, Z,
+                levels=50,
+                cmap="inferno",
+                alpha=0.75,   # partial transparency,
+                antialiased=True
+            )
+
+            cl = ax.contour(
+                X, Y, Z,
+                levels=15,    # fewer, clean lines
+                colors="black",
+                linewidths=0.5,
+                alpha=0.7,
+                antialiased=True
+            )
+            ax.set_frame_on(False)
             #ax.set_title(textwrap.shorten(entry["description"], width=60, placeholder="…"), fontsize=9)
             ax.set_xticks([])
             ax.set_yticks([])
@@ -103,5 +123,5 @@ for f in output_files:
 
     #fig.suptitle(f"2D Contour Landscapes - {title}", fontsize=14)
     plt.tight_layout()
-    plt.show()
-            
+    plt.savefig(f"landscapes/{title.replace(' ', '_')}_landscapes.png")
+    plt.close()

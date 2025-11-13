@@ -1743,6 +1743,7 @@ dependencies = [
     { name = "openai" },
     { name = "pandas" },
     { name = "pflacco" },
+    { name = "seaborn" },
     { name = "tqdm" },
     { name = "xgboost" },
 ]
@@ -1802,6 +1803,7 @@ requires-dist = [
     { name = "openai", specifier = ">=1.25.2,<2" },
     { name = "pandas", specifier = "==2.0.3" },
     { name = "pflacco", specifier = ">=1.2.2" },
+    { name = "seaborn", specifier = ">=0.13.2" },
     { name = "tqdm", specifier = ">=4.66.4,<5" },
     { name = "xgboost", specifier = ">=3.0.3" },
 ]
