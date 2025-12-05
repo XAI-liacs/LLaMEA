@@ -511,7 +511,6 @@ With code:
 {solution}
 ```
 
-
 Feedback:
 
 {feedback}

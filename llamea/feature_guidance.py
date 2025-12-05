@@ -94,7 +94,7 @@ def compute_feature_guidance(
     """Return guidance extracted from an archive of evaluated solutions."""
 
     try:
-        from treeshap import TreeExplainer
+        from .treeshap import TreeExplainer
     except Exception:  # pragma: no cover - handled gracefully in production
         return None
 
