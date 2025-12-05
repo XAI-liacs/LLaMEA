@@ -147,9 +147,9 @@ Space: <configuration_space>"""
         self._random = _random
         self.HPO = HPO
         self.minimization = minimization
-        self.worst_value = -np.Inf
+        self.worst_value = -np.inf
         if minimization:
-            self.worst_value = np.Inf
+            self.worst_value = np.inf
         self.best_so_far = Solution(name="", code="")
         self.best_so_far.set_scores(self.worst_value, "", "")
         self.experiment_name = experiment_name

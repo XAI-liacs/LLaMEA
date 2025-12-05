@@ -37,7 +37,7 @@ class Solution:
         self.description = description
         self.configspace = configspace
         self.generation = generation
-        self.fitness = -np.Inf
+        self.fitness = -np.inf
         self.feedback = ""
         self.error = ""
         self.parent_ids = parent_ids
