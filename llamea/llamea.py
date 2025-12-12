@@ -551,6 +551,9 @@ Feedback:
                 "Archive guidance suggests to "
                 f"{guidance.action} {guidance.feature_name}."
             )
+        if parent and guidance:
+            parent.add_metadata("guidance_action", guidance.action)
+            parent.add_metadata("guidance_feature_name", guidance.feature_name)
 
     def update_best(self):
         """
