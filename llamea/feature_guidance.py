@@ -23,8 +23,7 @@ class FeatureGuidance:
 def _prepare_training_data(
     solutions: Iterable[Solution], minimization: bool
 ) -> (
-    tuple[np.ndarray, np.ndarray, list[str], np.ndarray]
-    | tuple[None, None, None, None]
+    tuple[np.ndarray, np.ndarray, list[str], np.ndarray] | tuple[None, None, None, None]
 ):
     feature_dicts: list[dict[str, float]] = []
     targets: list[float] = []
@@ -107,12 +106,7 @@ def compute_feature_guidance(
     matrix, targets, feature_names, col_means = _prepare_training_data(
         solutions, minimization
     )
-    if (
-        matrix is None
-        or targets is None
-        or feature_names is None
-        or col_means is None
-    ):
+    if matrix is None or targets is None or feature_names is None or col_means is None:
         return None
 
     try:
@@ -163,15 +157,11 @@ def compute_feature_guidance(
     parent_vector: np.ndarray | None = None
     if parent_features:
         parent_vector = np.array(
-            [
-                [float(parent_features.get(name, np.nan)) for name in feature_names]
-            ],
+            [[float(parent_features.get(name, np.nan)) for name in feature_names]],
             dtype=float,
         )
         parent_vector = np.where(np.isfinite(parent_vector), parent_vector, col_means)
-        parent_vector = np.nan_to_num(
-            parent_vector, nan=0.0, posinf=0.0, neginf=0.0
-        )
+        parent_vector = np.nan_to_num(parent_vector, nan=0.0, posinf=0.0, neginf=0.0)
 
     parent_shap: np.ndarray | None = None
     if parent_vector is not None and parent_vector.shape[1] == len(feature_names):
