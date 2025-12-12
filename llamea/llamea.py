@@ -469,6 +469,8 @@ Provide an improved / rephrased / augmented task prompt only. The intent of the 
         """
         # Generate the current population summary
         population_summary = "\n".join([ind.get_summary() for ind in self.population])
+        if self.feature_guided_mutation and self.run_history:
+            self._update_feature_guidance(parent=individual)
         solution = individual.code
         description = individual.description
         feedback = individual.feedback
@@ -533,17 +535,25 @@ Feedback:
         # Logic to construct the new prompt based on current evolutionary state.
         return session_messages
 
-    def _update_feature_guidance(self) -> None:
+    def _update_feature_guidance(self, parent: Solution | None = None) -> None:
         """Train the archive model and refresh mutation guidance."""
 
-        guidance = compute_feature_guidance(self.run_history, self.minimization)
+        guidance = compute_feature_guidance(
+            self.run_history, self.minimization, parent=parent
+        )
         self.feature_guidance = guidance
-        self.feature_guidance_message = guidance.message if guidance else ""
+        if guidance:
+            self.feature_guidance_message = guidance.message
+        elif parent is None:
+            self.feature_guidance_message = ""
         if guidance:
             self.logevent(
                 "Archive guidance suggests to "
                 f"{guidance.action} {guidance.feature_name}."
             )
+        if parent and guidance:
+            parent.add_metadata("guidance_action", guidance.action)
+            parent.add_metadata("guidance_feature_name", guidance.feature_name)
 
     def update_best(self):
         """

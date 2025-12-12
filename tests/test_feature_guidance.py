@@ -12,6 +12,13 @@ def _make_solution(code: str, fitness: float) -> Solution:
     return sol
 
 
+def _make_feature_solution(features: dict[str, float], fitness: float) -> Solution:
+    sol = Solution(code="pass", name="Algo", description="Feature test")
+    sol.set_scores(fitness, "feedback")
+    sol.add_metadata("ast_features", features)
+    return sol
+
+
 SIMPLE_BODY = """
             candidate = [0.0] * self.dim
             value = func(candidate)
@@ -130,3 +137,46 @@ def test_feature_guidance_message_used_in_prompt():
     prompt = optimizer.construct_prompt(sol)
     assert isinstance(prompt, list)
     assert any("Increase testing metric" in item["content"] for item in prompt)
+
+
+def test_parent_specific_shap_guidance_prefers_parent_action():
+    solutions = [
+        _make_feature_solution({"edges": 0.0}, 3.0),
+        _make_feature_solution({"edges": 1.0}, 2.5),
+        _make_feature_solution({"edges": 2.0}, 2.0),
+        _make_feature_solution({"edges": 3.0}, 1.5),
+    ]
+
+    parent = _make_feature_solution({"edges": 5.0}, 1.0)
+
+    guidance = compute_feature_guidance(
+        solutions,
+        minimization=False,
+        parent=parent,
+    )
+
+    assert guidance is not None
+    assert guidance.action == "decrease"
+    assert guidance.feature_name == "edges"
+    assert "parent" in guidance.message.lower()
+
+
+def test_parent_guidance_handles_extreme_feature_values():
+    solutions = [
+        _make_feature_solution({"Nodes": 1.0, "Edges": 0.0}, 1.0),
+        _make_feature_solution({"Nodes": 2.0, "Edges": 1.0}, 2.0),
+        _make_feature_solution({"Nodes": 3.0, "Edges": 1.5}, 3.0),
+        _make_feature_solution({"Nodes": 4.0, "Edges": 2.0}, 3.5),
+    ]
+
+    parent = _make_feature_solution({"Nodes": 10.0, "Edges": 5.0}, 0.5)
+
+    guidance = compute_feature_guidance(
+        solutions,
+        minimization=False,
+        parent=parent,
+    )
+
+    assert guidance is not None
+    assert guidance.feature_name in {"Nodes", "Edges"}
+    assert guidance.message
