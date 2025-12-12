@@ -20,6 +20,7 @@ from joblib import Parallel, delayed
 
 from .llm import LLM
 from .feature_guidance import FeatureGuidance, compute_feature_guidance
+from .ast_features import extract_ast_features
 
 try:
     from ConfigSpace import ConfigurationSpace
@@ -551,9 +552,6 @@ Feedback:
                 "Archive guidance suggests to "
                 f"{guidance.action} {guidance.feature_name}."
             )
-        if parent and guidance:
-            parent.add_metadata("guidance_action", guidance.action)
-            parent.add_metadata("guidance_feature_name", guidance.feature_name)
 
     def update_best(self):
         """
@@ -795,6 +793,22 @@ Feedback:
             )
             evolved_individual.generation = self.generation
             evolved_individual.task_prompt = individual_copy.task_prompt
+
+            # enhance the individual with AST features and feature guidance metadata (before logging).
+            if self.feature_guided_mutation:
+                try:
+                    ast_features = extract_ast_features(evolved_individual.code)
+                    evolved_individual.add_metadata("ast_features", dict(ast_features))
+                    evolved_individual.add_metadata(
+                        "feature_guidance_action", self.feature_guidance.action
+                    )
+                    evolved_individual.add_metadata(
+                        "feature_guidance_feature_name",
+                        self.feature_guidance.feature_name,
+                    )
+                except Exception:
+                    pass
+
             if not self.evaluate_population:
                 evolved_individual = self.evaluate_fitness(evolved_individual)
         except Exception as e:
