@@ -41,7 +41,7 @@ class Solution:
         self.description = description
         self.configspace = configspace
         self.generation = generation
-        self.fitness = -np.inf
+        self.fitness: dict[str, float] | float = -np.inf
         self.feedback = ""
         self.error = ""
         self.parent_ids = parent_ids
@@ -86,16 +86,23 @@ class Solution:
         return self.metadata[key] if key in self.metadata.keys() else None
 
     def set_scores(
-        self, fitness: float, feedback="", error: Optional[Exception] = None
+        self, fitness: float, feedback="", evaluator_id: None|str=None, error: Optional[Exception] = None
     ):
         """
             Set the score of current instance of individual.
         Args:
             `fitness: float`: Fitness/Score of the individual.
+            `evaluator_id: str | None`: An evaluator id, to identify fitness in multi-objective evaluation. MOO Fitness is stored as 
+            {`evaluator_id`: `fitness_for_evaluation_with_id`}. If None, fitness is stored as `float`.
             `Feedback: str` feedback for the LLM, suggest improvements or target score.
             `error: Exception`: Exception object encountered during `exec` of the code block.
         """
-        self.fitness = fitness
+        if evaluator_id is not None:
+            if not isinstance(self.fitness, dict):
+                self.fitness = {}
+            self.fitness[evaluator_id] = fitness
+        else:
+            self.fitness = fitness
         self.feedback = feedback
 
         if error:
@@ -111,6 +118,15 @@ class Solution:
             self.error = f"{error_type}: {error_msg}.\n"
             if code_lines:
                 self.error += f"On line {line_no}: {code_line}.\n"
+
+    def get_fitness_vector(self) -> list[float]:
+        if isinstance(self.fitness, dict):
+            vector = []
+            for key in sorted(self.fitness):
+                vector.append(self.fitness[key])
+            return vector
+        else:
+            return [self.fitness]
 
     def get_summary(self):
         """

@@ -27,7 +27,7 @@ def _code_updater(code: str, lines_to_change: list[str], updated_lines: list[str
         updated_lines: Lines to replace the `lines_to_update`.
 
     """
-    if len(lines_to_change) != len(lines_to_change):
+    if len(lines_to_change) != len(updated_lines):
         raise ValueError
     for i in range(len(lines_to_change)):
         code = code.replace(

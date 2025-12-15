@@ -8,7 +8,7 @@ from llamea import LLaMEA, Dummy_LLM, ExperimentLogger, Solution
 
 def evaluationFunction(solution, explogger=None):
     score = random.random()
-    solution.set_score(score, f"Score was {score}.")
+    solution.set_scores(score, feedback=f"Score was {score}.")
     return solution
 
 
