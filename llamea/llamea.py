@@ -377,6 +377,7 @@ for i in range(m):
             timeout = self.eval_timeout
             population_gen = Parallel(
                 n_jobs=self.max_workers,
+                verbose=10,
                 backend=self.parallel_backend,
                 timeout=timeout + 15,
                 return_as="generator_unordered",
@@ -1010,6 +1011,7 @@ Feedback:
                 timeout = self.eval_timeout
                 new_population_gen = Parallel(
                     n_jobs=self.max_workers,
+                    verbose=10,
                     timeout=timeout + 15,
                     backend=self.parallel_backend,
                     return_as="generator_unordered",
