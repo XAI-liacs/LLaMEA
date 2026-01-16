@@ -62,7 +62,11 @@ examples = [
 ]
 llm-extras = [
     "torch>=2.6.0,<3",
-    "transformers>=4.49.0,<5",
+    "transformers>=4.49.0,<=5",
+]
+apple-silicon = [
+    "lmstudio>=1.5.0,<2; platform_system == 'Darwin' and platform_machine == 'arm64'",
+    "mlx_lm>=0.29.1,<1; platform_system == 'Darwin' and platform_machine == 'arm64'",
 ]
 
 [tool.uv]

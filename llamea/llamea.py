@@ -302,6 +302,7 @@ for i in range(m):
 
         if self.log:
             modelname = self.model.replace(":", "_")
+            modelname = self.model.replace("/", "_")
             self.logger = ExperimentLogger(f"LLaMEA-{modelname}-{experiment_name}")
             self.llm.set_logger(self.logger)
         else:
