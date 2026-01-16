@@ -182,7 +182,7 @@ def test_logger_ignore_solution_without_code():
     )
 
     test = {
-        "solution" : soln.copy(),
+        "solution" : solution,
         "output" : [[0.63557142, 0.2780757 ],
                     [0.41179303, 0.6500378 ],
                     [0.71410244, 0.29145972],
