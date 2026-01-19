@@ -1,4 +1,5 @@
 from llamea.solution import Solution
+from llamea.multi_objective_fitness import Fitness
 
 class ParetoArchive:
 
@@ -38,7 +39,7 @@ class ParetoArchive:
         ## Args:
         `solution: Solution`: A multi-objective solution, that is being added to pareto front archive.
         """
-        assert isinstance(solution.fitness, dict)
+        assert isinstance(solution.fitness, Fitness)
         if solution.id in [indv.id for indv in self.archive]:
             return
         

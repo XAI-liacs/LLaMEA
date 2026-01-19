@@ -17,8 +17,8 @@ import jsonlines
 
 import numpy as np
 from joblib import Parallel, delayed
-
 from .llm import LLM
+from .multi_objective_fitness import Fitness
 
 try:
     from ConfigSpace import ConfigurationSpace
@@ -60,6 +60,8 @@ class LLaMEA:
         task_prompt="",
         example_prompt=None,
         output_format_prompt=None,
+        multi_objective=False,
+        multi_objective_keys: list[str] = [],
         experiment_name="",
         elitism=True,
         HPO=False,
@@ -310,11 +312,11 @@ for i in range(m):
             max_workers = self.n_offspring
         self.max_workers = max_workers
         
-        self.multi_objective = False
-        self.best_so_far = self.evaluate_fitness(self.best_so_far)
-        if isinstance(self.best_so_far.fitness, dict):
-            self.best_so_far = ParetoArchive(minimisation=minimization)
-            self.multi_objective = True
+        self.multi_objective = multi_objective
+        self.multi_objective_keys = []
+        if self.multi_objective:
+            self.best_so_far = ParetoArchive(minimisation=self.minimization)
+            self.multi_objective_keys = multi_objective_keys
         self.pickle_archive()
 
     @classmethod
@@ -366,7 +368,11 @@ for i in range(m):
                 new_individual = self.evaluate_fitness(new_individual)
         except Exception as e:
             if self.multi_objective:
-                new_individual.set_scores(self.worst_value, feedback="", evaluator_id="error", error=e)
+                fitness = Fitness()
+                for key in self.multi_objective_keys:
+                    fitness[key] = self.worst_value
+                new_individual.set_scores(fitness, feedback="", error=e)
+            else:
                 new_individual.set_scores(self.worst_value, feedback="", error=e)
             self.logevent(f"An exception occured: {traceback.format_exc()}.")
             if hasattr(self.f, "log_individual"):
@@ -554,19 +560,16 @@ Feedback:
         """
         Update the best individual in the new population
         """
-        if isinstance(self.best_so_far, ParetoArchive):
-            for indv in self.population:
-                self.best_so_far.add_solution(indv)
-            return
-        if self.niching == "novelty" or self.minimization == False:
-            best_individual = max(self.population, key=lambda x: np.mean(x.get_fitness_vector()))
 
-            if np.mean(best_individual.get_fitness_vector()) > np.mean(self.best_so_far.get_fitness_vector()):
+        if self.niching == "novelty" or self.minimization == False:
+            best_individual = max(self.population, key=lambda x: x.fitness)
+
+            if best_individual.fitness > self.best_so_far.fitness:
                 self.best_so_far = best_individual
         else:
-            best_individual = min(self.population, key=lambda x: np.mean(x.get_fitness_vector()))
+            best_individual = min(self.population, key=lambda x: x.fitness)
 
-            if np.mean(best_individual.get_fitness_vector()) < np.mean(self.best_so_far.get_fitness_vector()):
+            if best_individual.fitness < self.best_so_far.fitness:
                 self.best_so_far = best_individual
 
     def adapt_niche_radius(self, population):
@@ -694,24 +697,11 @@ Feedback:
 
     def _is_better(self, candidate: Solution, incumbent: Solution) -> bool:
         """Return ``True`` if ``candidate`` dominates ``incumbent``."""
-        # Multi-Objective implementation, check for domination instead.
-        if isinstance(candidate.fitness, dict) and isinstance(incumbent.fitness, dict):
-            if self.minimization:
-                for key in candidate.fitness:
-                    if candidate.fitness[key] > incumbent.fitness[key]:
-                        return False
-                return True
-            else:
-                for key in candidate.fitness:
-                    if candidate.fitness[key] < incumbent.fitness[key]:
-                        return False
-                return True
-        elif isinstance(candidate.fitness, float) and not isinstance(candidate.fitness, float):
-            if self.minimization:
-                return candidate.fitness < incumbent.fitness
-            return candidate.fitness > incumbent.fitness
-        return False
 
+        if self.minimization:
+            return candidate.fitness < incumbent.fitness
+        return candidate.fitness > incumbent.fitness
+    
     def _update_novelty_archive(self, candidates: list[Solution]):
         """Update the novelty archive with ``candidates``."""
 

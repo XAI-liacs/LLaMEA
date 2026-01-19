@@ -3,6 +3,7 @@ import random
 import pytest
 
 from pymoo.util.nds.non_dominated_sorting import NonDominatedSorting
+from llamea.multi_objective_fitness import Fitness
 from llamea.pareto_archive import ParetoArchive
 from llamea.solution import Solution
 
@@ -25,18 +26,18 @@ def test_dominates_stub_works_as_expected():
     solution1 = Solution()
     solution2 = Solution()
     solution3 = Solution()
-    solution1.fitness = {
+    solution1.fitness = Fitness(value={
         'f(1)': 10,
         'f(2)': 30
-    }
-    solution2.fitness = {
+    })
+    solution2.fitness = Fitness(value={
         'f(1)': 20,
         'f(2)': 40
-    }
-    solution3.fitness = {
+    })
+    solution3.fitness = Fitness(value={
         'f(1)': 8,
         'f(2)': 32
-    }
+    })
     archieve = ParetoArchive(minimisation=True)
     assert archieve._dominates(solution1, solution2) == True
     assert archieve._dominates(solution2, solution1) == False
@@ -45,7 +46,7 @@ def test_dominates_stub_works_as_expected():
 def test_pareto_saves_first_front():
 
     def evaluate(solution: Solution) -> Solution:
-        fitness = {}
+        fitness = Fitness()
         for i in range(1, 3):
             fitness[f'f({i})'] = random.random()
         solution.fitness = fitness
