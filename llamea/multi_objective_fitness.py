@@ -1,6 +1,14 @@
 class Fitness:
     """
     A class for multi_objective fitness management.
+    Meant for easy comparison, between fitness value.
+    `Note`: Do NOT use sort on this value, sorting makes certain assumptions that cannot be guaranteed by multi-objective fitnesses.
+    `Usage`: Init with a `Dictionary<String, Float>` type multi-objective fitness. Comparisons are not associated with dominance:
+        * `a < b` : `a` strictly dominates `b` in mininimsation task, and visa-versa in maximisation task.
+        * `a > b` : `a` strictly dominates `b` in maximisation task, and visa-versa in minimisation task.
+        * `a ≤ b` : `a` either dominates or belong to same pareto-front for minimisation task for `b`.
+        * `a ≥ b` : `a` either dominates or belong to same pareto-front for maximisation task for `b`.
+        * `a == b` : `a` and `b` have exact same fitness for all .
     """
     def __init__(self, value: dict[str, float] | None = None):
         if value is None:
@@ -25,7 +33,7 @@ class Fitness:
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, Fitness):
             return False
-        return not (self < other) and not (other < self)
+        return self._fitness == other._fitness
 
     def __lt__(self, other: "Fitness") -> bool:
         if not isinstance(other, Fitness):
@@ -42,13 +50,20 @@ class Fitness:
     def __le__(self, other: "Fitness") -> bool:
         if not isinstance(other, Fitness):
             return NotImplemented
-        a = self < other
-        b = self == other
-        return a or b
+        be, sb = self._dominates(other)
+        return be or sb
 
     def __ge__(self, other: "Fitness") -> bool:
         if not isinstance(other, Fitness):
             return NotImplemented
-        a = self > other
-        b = self == other
-        return a or b
+        be, sb = other._dominates(self)
+        return be or sb
+    
+    def to_vector(self) -> list[float]:
+        vector = []
+        for objective in sorted(self.keys()):
+            vector.append(self[objective])
+        return vector
+
+    def __repr__(self) -> str:
+        return f'Fitness: ({[(key, value) for key, value in self._fitness.items()]})'

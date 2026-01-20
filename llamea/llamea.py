@@ -42,6 +42,9 @@ logging.basicConfig(
     datefmt="%Y-%m-%d %H:%M:%S",
 )
 
+from pymoo.util.nds.non_dominated_sorting import NonDominatedSorting
+from pymoo.operators.survival.rank_and_crowding.metrics import calc_crowding_distance
+
 
 class LLaMEA:
     """
@@ -560,17 +563,20 @@ Feedback:
         """
         Update the best individual in the new population
         """
+        if isinstance(self.best_so_far, Solution):
+            if self.niching == "novelty" or self.minimization == False:
+                best_individual = max(self.population, key=lambda x: x.fitness)
 
-        if self.niching == "novelty" or self.minimization == False:
-            best_individual = max(self.population, key=lambda x: x.fitness)
+                if best_individual.fitness > self.best_so_far.fitness:
+                    self.best_so_far = best_individual
+            else:
+                best_individual = min(self.population, key=lambda x: x.fitness)
 
-            if best_individual.fitness > self.best_so_far.fitness:
-                self.best_so_far = best_individual
+                if best_individual.fitness < self.best_so_far.fitness:
+                    self.best_so_far = best_individual
         else:
-            best_individual = min(self.population, key=lambda x: x.fitness)
-
-            if best_individual.fitness < self.best_so_far.fitness:
-                self.best_so_far = best_individual
+            for soln in self.population:
+                self.best_so_far.add_solution(soln)
 
     def adapt_niche_radius(self, population):
         """Adapt the niche radius based on the current population."""
@@ -811,31 +817,53 @@ Feedback:
         Returns:
             list: List of new selected population.
         """
-        reverse = self.minimization == False
-        if self.niching == "novelty":
-            reverse = True
-        if self.niching == "map_elites":
-            pool = parents + offspring if self.elitism else list(offspring)
-            elites = self.apply_niching(pool)
-            if len(elites) < self.n_parents:
-                remaining = [ind for ind in pool if ind not in elites]
-                remaining.sort(key=lambda x: x.fitness, reverse=reverse)
-                elites = elites + remaining[: self.n_parents - len(elites)]
-            if len(elites) <= self.n_parents:
-                new_population = elites
+        if not self.multi_objective:
+            reverse = self.minimization == False
+            if self.niching == "novelty":
+                reverse = True
+            if self.niching == "map_elites":
+                pool = parents + offspring if self.elitism else list(offspring)
+                elites = self.apply_niching(pool)
+                if len(elites) < self.n_parents:
+                    remaining = [ind for ind in pool if ind not in elites]
+                    remaining.sort(key=lambda x: x.fitness, reverse=reverse)
+                    elites = elites + remaining[: self.n_parents - len(elites)]
+                if len(elites) <= self.n_parents:
+                    new_population = elites
+                else:
+                    new_population = random.sample(elites, self.n_parents)
+            elif self.elitism:
+                combined_population = parents + offspring
+                combined_population = self.apply_niching(combined_population)
+                combined_population.sort(key=lambda x: x.fitness, reverse=reverse)
+                new_population = combined_population[: self.n_parents]
             else:
-                new_population = random.sample(elites, self.n_parents)
-        elif self.elitism:
-            combined_population = parents + offspring
-            combined_population = self.apply_niching(combined_population)
-            combined_population.sort(key=lambda x: x.fitness, reverse=reverse)
-            new_population = combined_population[: self.n_parents]
-        else:
-            offspring = self.apply_niching(list(offspring))
-            offspring.sort(key=lambda x: x.fitness, reverse=reverse)
-            new_population = offspring[: self.n_parents]
+                offspring = self.apply_niching(list(offspring))
+                offspring.sort(key=lambda x: x.fitness, reverse=reverse)
+                new_population = offspring[: self.n_parents]
 
-        return new_population
+            return new_population
+        else:
+            pool: list[Solution] = offspring + parents if self.elitism else offspring
+            fitness_vector = list(map(lambda x: x.fitness.to_vector(), pool))
+            nds = NonDominatedSorting()
+            sorted_pool = []
+            fronts = nds.do(fitness_vector, only_non_dominated_front=False)
+            if not self.minimization:
+                fronts = reversed(fronts)
+            for front in fronts:
+                if len(front) <= self.n_offspring - len(sorted_pool):
+                    sorted_pool += list(map(lambda x: pool[x], front))
+                else:
+                    final_front = list(map(lambda x: pool[x], front))
+                    fitness_vector = list(map(lambda x: x.fitness.to_vector(), final_front))
+                    crowding_distance = list(enumerate(calc_crowding_distance(fitness_vector)))
+                    crowding_distance = sorted(crowding_distance, key=lambda x: x[1], reverse=True)
+                    
+                    sorted_front = [final_front[idx] for idx, _ in crowding_distance]
+                    sorted_pool += sorted_front[:self.n_offspring - len(sorted_pool)]
+                    break
+            return sorted_pool
 
     def evolve_solution(self, individual):
         """

@@ -92,8 +92,6 @@ class Solution:
             Set the score of current instance of individual.
         Args:
             `fitness: float | Fitness`: Fitness/Score of the individual. It is of type `float` when single objective, or `Fitness` when multi-objective.
-            `evaluator_id: str | None`: An evaluator id, to identify fitness in multi-objective evaluation. MOO Fitness is stored as 
-            {`evaluator_id`: `fitness_for_evaluation_with_id`}. If None, fitness is stored as `float`.
             `Feedback: str` feedback for the LLM, suggest improvements or target score.
             `error: Exception`: Exception object encountered during `exec` of the code block.
         """
