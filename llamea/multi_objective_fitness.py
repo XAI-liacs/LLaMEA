@@ -65,5 +65,17 @@ class Fitness:
             vector.append(self[objective])
         return vector
 
+    def to_dict(self) -> dict[str, float]:
+        return self._fitness
+    
+    @classmethod
+    def from_dict(cls, data: dict[str, float]) -> "Fitness":
+        """Construct Fitness from a dict (e.g., after json.loads)."""
+        return cls(value=data)
+
     def __repr__(self) -> str:
-        return f'Fitness: ({[(key, value) for key, value in self._fitness.items()]})'
+        repr_str = ""
+        for key, value in self._fitness.items():
+            repr_str += f"{key} : {value}, "
+        repr_str = repr_str[:-2]
+        return repr_str

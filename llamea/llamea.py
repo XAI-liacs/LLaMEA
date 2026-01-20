@@ -845,7 +845,7 @@ Feedback:
             return new_population
         else:
             pool: list[Solution] = offspring + parents if self.elitism else offspring
-            fitness_vector = list(map(lambda x: x.fitness.to_vector(), pool))
+            fitness_vector = np.array([x.fitness.to_vector() for x in pool])
             nds = NonDominatedSorting()
             sorted_pool = []
             fronts = nds.do(fitness_vector, only_non_dominated_front=False)
@@ -856,7 +856,7 @@ Feedback:
                     sorted_pool += list(map(lambda x: pool[x], front))
                 else:
                     final_front = list(map(lambda x: pool[x], front))
-                    fitness_vector = list(map(lambda x: x.fitness.to_vector(), final_front))
+                    fitness_vector = np.array([x.fitness.to_vector() for x in final_front])
                     crowding_distance = list(enumerate(calc_crowding_distance(fitness_vector)))
                     crowding_distance = sorted(crowding_distance, key=lambda x: x[1], reverse=True)
                     
@@ -1043,6 +1043,7 @@ Feedback:
 
         self.logevent(
             f"Started evolutionary loop, best so far: {self.best_so_far.fitness}"
+
         )
         while len(self.run_history) < self.budget:
             # pick a new offspring population using random sampling
@@ -1086,8 +1087,10 @@ Feedback:
 
             ## Archive progress.
             self.pickle_archive()
-
-        return self.best_so_far
+        if self.multi_objective:
+            return self.best_so_far.get_best()
+        else:
+            return self.best_so_far
 
     def _find_unpicklable(self, obj, path="root"):
         try:

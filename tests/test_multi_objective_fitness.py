@@ -124,3 +124,9 @@ def test_vectorisation():
     # Sorts key for consistenty.
     f3 = Fitness({'Fuel': 228, 'Distance': 110})
     assert f3.to_vector() == [110, 228]
+
+def test_is_json_serialisable():
+    import json
+    data = json.dumps(o, default=Fitness.to_dict)
+    data = json.loads(data, object_hook=Fitness.from_dict)
+    assert isinstance(data, Fitness)
