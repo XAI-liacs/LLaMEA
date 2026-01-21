@@ -1042,7 +1042,8 @@ Feedback:
             self.logger.log_population(self.population)
 
         self.logevent(
-            f"Started evolutionary loop, best so far: {self.best_so_far.fitness}"
+            f"Started evolutionary loop, best so far: {self.best_so_far.fitness}" if isinstance(self.best_so_far, Solution) else 
+            f"Started evolutionary loop, best so far: {'\n'.join([str(individual.fitness) for individual in self.best_so_far.get_best()])}"
 
         )
         while len(self.run_history) < self.budget:
@@ -1089,8 +1090,7 @@ Feedback:
             self.pickle_archive()
         if self.multi_objective:
             return self.best_so_far.get_best()
-        else:
-            return self.best_so_far
+        return self.best_so_far
 
     def _find_unpicklable(self, obj, path="root"):
         try:
