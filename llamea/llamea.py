@@ -409,6 +409,8 @@ for i in range(m):
         if self.evaluate_population:
             population = self.evaluate_population_fitness(population)
 
+        self._ensure_fitness_evaluates(population)
+
         for p in population:
             self.run_history.append(p)
 
@@ -418,6 +420,19 @@ for i in range(m):
         self.generation += 1
         self.population = population  # Save the entire population
         self.update_best()
+
+    def _ensure_fitness_evaluates(self, population: list[Solution]):
+        for individual in population:
+            if self.multi_objective:
+                if not isinstance(individual.fitness, Fitness):
+                    fitness = {}
+                    for key in self.multi_objective_keys:
+                        fitness[key] = self.worst_value
+                    individual.fitness = Fitness(fitness)
+            else:
+                if self.minimization:
+                    if individual.fitness == float('-inf'):
+                        individual.fitness = float('inf')
 
     def evaluate_fitness(self, individual):
         """
@@ -1044,7 +1059,6 @@ Feedback:
         self.logevent(
             f"Started evolutionary loop, best so far: {self.best_so_far.fitness}" if isinstance(self.best_so_far, Solution) else 
             f"Started evolutionary loop, best so far: {'\n'.join([str(individual.fitness) for individual in self.best_so_far.get_best()])}"
-
         )
         while len(self.run_history) < self.budget:
             # pick a new offspring population using random sampling
@@ -1071,6 +1085,7 @@ Feedback:
             if self.evaluate_population:
                 new_population = self.evaluate_population_fitness(new_population)
 
+            self._ensure_fitness_evaluates(new_population)
             for p in new_population:
                 self.run_history.append(p)
 
@@ -1083,7 +1098,8 @@ Feedback:
             self.population = self.selection(self.population, new_population)
             self.update_best()
             self.logevent(
-                f"Generation {self.generation}, best so far: {self.best_so_far.fitness}"
+                f"Started evolutionary loop, best so far: {self.best_so_far.fitness}" if isinstance(self.best_so_far, Solution) else 
+                f"Started evolutionary loop, best so far: {'\n'.join([str(individual.fitness) for individual in self.best_so_far.get_best()])}"
             )
 
             ## Archive progress.

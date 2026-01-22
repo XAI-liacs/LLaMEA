@@ -5,7 +5,7 @@ from dataclasses import dataclass
 
 from llamea import LLaMEA
 from llamea import Solution
-from llamea.llm import Ollama_LLM
+from llamea.llm import Ollama_LLM, Gemini_LLM
 from llamea.pareto_archive import ParetoArchive
 from llamea.loggers import ExperimentLogger
 from llamea.utils import prepare_namespace
@@ -20,6 +20,9 @@ class Location:
 
     def vectorise(self):
         return [self.id, self.x, self.y, self.weight]
+    
+    def __repr__(self):
+        return f"Location(id: {self.id}, coordinates: ({self.x}, {self.y}), weight: {self.weight})"
 
 
 def generate_tsp_test(seed: Optional[int] = None, size: int = 10):
@@ -34,83 +37,123 @@ def generate_tsp_test(seed: Optional[int] = None, size: int = 10):
         customers.append(Location(id + 1, x, y, weight))
     return depot, customers
 
-def evaluate(solution: Solution, explogger: Optional[ExperimentLogger]=None):
-    depot, customers = generate_tsp_test(seed=69, size=32)
-    
-    referable_dict = {}
-    referable_dict[0] = depot
+depot, customers = generate_tsp_test(seed=69, size=32)
 
-    for customer in customers:
-        referable_dict[customer.id] = customer
-    path_index = []
+referable_dict = {}
+referable_dict[0] = depot
+
+for customer in customers:
+    referable_dict[customer.id] = customer
+
+def evaluate(solution: Solution, explogger: Optional[ExperimentLogger] = None):
+    code = solution.code
+
+    global_ns, issues = prepare_namespace(
+        code,
+        ['numpy', 'pymoo', 'typing'],
+        explogger
+    )
+    local_ns = {}
+
+    global_ns['Location'] = Location
+
+    feedback = ""
+    if issues:
+        feedback += f"Import issues: {issues}. "
+        print(f"Potential Issues {issues}.")
+
+    compiled = compile(code, "<llm_code>", "exec")
+    exec(compiled, global_ns, local_ns)
+
+    cls = local_ns[solution.name]
     try:
-        code = solution.code
-        global_ns, issues = prepare_namespace(code, ['numpy', 'pymoo', 'typing'], explogger)
-        local_ns = {}
-        global_ns['Location'] = Location
+        path_index = cls(
+            depot.vectorise(),
+            [customer.vectorise() for customer in customers]
+        )()
 
-        if issues:
-            print(f"Potential Issues {issues}.")
-        exec(code, global_ns, local_ns)
-        
-        cls = global_ns[solution.name]
-        path_index = cls(depot.vectorise(), [customer.vectorise() for customer in customers])()
     except Exception as e:
-        solution.set_scores(Fitness({
-            "Distance": float('inf'),
-            "Fuel": float('inf')
-        }), feedback=f"Got error {e}", error=e)
-        print(e.__repr__())
-    
-    if len(path_index) != len(customers):
-        solution.fitness = Fitness({
-            "Distance": float('inf'),
-            "Fuel": float('inf')
-        })
-    print(f"Path Index returned by LLM program: {path_index}")
-    path : list[Location] = customers
-    ## transpose path_index : [int] to path : [Location]
-    for index in path_index:
-        path.append(referable_dict[index])
+        solution.set_scores(
+            Fitness({"Distance": float('inf'), "Fuel": float('inf')}),
+            feedback=f"Runtime error: {e}",
+            error=e
+        )
+        return solution
 
-    # Evaluate Distance:
+    # ---- Validate output ----
+    if not isinstance(path_index, (list, tuple)):
+        solution.set_scores(
+            Fitness({"Distance": float('inf'), "Fuel": float('inf')}),
+            feedback="Solver did not return a list of indices"
+        )
+        return solution
+
+    if len(path_index) != len(customers):
+        solution.set_scores(
+            Fitness({"Distance": float('inf'), "Fuel": float('inf')}),
+            feedback="Path length does not match number of customers"
+        )
+        return solution
+
+    if len(set(path_index)) != len(path_index):
+        solution.set_scores(
+            Fitness({"Distance": float('inf'), "Fuel": float('inf')}),
+            feedback="Path contains duplicate customer indices"
+        )
+        return solution
+
+    if not all(idx in referable_dict for idx in path_index):
+        solution.set_scores(
+            Fitness({"Distance": float('inf'), "Fuel": float('inf')}),
+            feedback="Path contains invalid customer indices"
+        )
+        return solution
+
+    print(f"Path Index returned by LLM program: {path_index}")
+
+    path: list[Location] = [referable_dict[idx] for idx in path_index]
+
     distance = 0.0
     previous = depot
-    for individual in path + [depot]:
-        x1, y1 = previous.x, previous.y
-        x2, y2 = individual.x, individual.y
-        distance += ((x2 - x1) ** 2 + (y2 - y1) ** 2) ** 0.5
-        previous = individual
 
-    remianing = sum(map(lambda customer: customer.weight, customers))
-    capacity = 1.1 * remianing      # Assume assigning slightly bigger truck than required.
+    for current in path + [depot]:
+        dx = current.x - previous.x
+        dy = current.y - previous.y
+        distance += (dx * dx + dy * dy) ** 0.5
+        previous = current
 
-    # Evalute Fuel
+    remaining = sum(c.weight for c in path)
+    capacity = 1.1 * remaining
+
     fuel = 0.0
     previous = depot
-    for individual in path + [depot]:
-        x1, y1 = previous.x, previous.y
-        x2, y2 = individual.x, individual.y
-        dist = ((x2 - x1) ** 2 + (y2 - y1) ** 2) ** 0.5
 
-        consumption_rate = 1.0 + (remianing / capacity)
-        fuel += (dist * consumption_rate)
-        remianing -= individual.weight
-        previous = individual
-    
+    for current in path + [depot]:
+        dx = current.x - previous.x
+        dy = current.y - previous.y
+        dist = (dx * dx + dy * dy) ** 0.5
+
+        consumption_rate = 1.0 + (remaining / capacity)
+        fuel += dist * consumption_rate
+
+        remaining -= current.weight
+        previous = current
+
     fitness = Fitness({
         "Distance": distance,
-        "Fuel" : fuel
+        "Fuel": fuel
     })
 
     solution.set_scores(
         fitness,
-        f"Got fitness evaluation {fitness} with path {path_index}, try for better solutions."
+        feedback=f"Fitness {fitness} for path {path_index}"
     )
     return solution
 
 if __name__ == "__main__":
+    # key = os.getenv("GOOGLE_API__KEY")
     llm = Ollama_LLM("gemma3:12b")
+    # llm = Gemini_LLM(key)
 
     role_prompt = "You are an excellent Scientific Programmer, who can write novel solution to solve optimisation problem."
 
@@ -140,22 +183,23 @@ class Multi_Objective_TSP:
     llamea_inst = LLaMEA(f=evaluate, 
            llm=llm,
            multi_objective=True,
-           max_workers=1,
+           max_workers=3,
+           n_offspring=3,
+           n_parents=3,
            multi_objective_keys=['Distance', 'Fuel'],
            role_prompt=role_prompt,
            task_prompt=task_prompt,
-           n_parents=1,
-           n_offspring=1,
            example_prompt=example_prompt,
             experiment_name="MOO-TSP",
             minimization=True,
-            budget=30
+            budget=27
            )
 
     solutions = llamea_inst.run()
     if isinstance(solutions, ParetoArchive):
         solutions = solutions.get_best()
 
+    import matplotlib.pyplot as plt
     for index, solution in enumerate(solutions):
         print(index + 1)
         print(solutions.name)
