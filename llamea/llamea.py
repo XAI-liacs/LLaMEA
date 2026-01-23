@@ -590,8 +590,7 @@ Feedback:
                 if best_individual.fitness < self.best_so_far.fitness:
                     self.best_so_far = best_individual
         else:
-            for soln in self.population:
-                self.best_so_far.add_solution(soln)
+            self.best_so_far.add_solutions(self.population)
 
     def adapt_niche_radius(self, population):
         """Adapt the niche radius based on the current population."""
@@ -1098,8 +1097,8 @@ Feedback:
             self.population = self.selection(self.population, new_population)
             self.update_best()
             self.logevent(
-                f"Started evolutionary loop, best so far: {self.best_so_far.fitness}" if isinstance(self.best_so_far, Solution) else 
-                f"Started evolutionary loop, best so far: {'\n'.join([str(individual.fitness) for individual in self.best_so_far.get_best()])}"
+                f"Generation {self.generation}, best so far: {self.best_so_far.fitness}" if isinstance(self.best_so_far, Solution) else 
+                f"Generation {self.generation}, best so far: {'\n'.join([str(individual.fitness) for individual in self.best_so_far.get_best()])}"
             )
 
             ## Archive progress.

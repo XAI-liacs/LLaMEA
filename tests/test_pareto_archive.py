@@ -19,29 +19,7 @@ def test_pareto_archive_fails_on_single_objective_solutions():
     archieve = ParetoArchive(minimisation=True)
 
     with pytest.raises(AssertionError):
-        archieve.add_solution(solution)
-    
-def test_dominates_stub_works_as_expected():
-    
-    solution1 = Solution()
-    solution2 = Solution()
-    solution3 = Solution()
-    solution1.fitness = Fitness(value={
-        'f(1)': 10,
-        'f(2)': 30
-    })
-    solution2.fitness = Fitness(value={
-        'f(1)': 20,
-        'f(2)': 40
-    })
-    solution3.fitness = Fitness(value={
-        'f(1)': 8,
-        'f(2)': 32
-    })
-    archieve = ParetoArchive(minimisation=True)
-    assert archieve._dominates(solution1, solution2) == True
-    assert archieve._dominates(solution2, solution1) == False
-    assert archieve._dominates(solution1, solution3) == False
+        archieve.add_solutions([solution])
 
 def test_pareto_saves_first_front():
 
@@ -55,9 +33,10 @@ def test_pareto_saves_first_front():
     solutions = [Solution() for _ in range(30)]
     solutions = [evaluate(solution) for solution in solutions]
     archieve = ParetoArchive(minimisation=True)
-    for solution in solutions:
-        dominated = archieve.add_solution(solution)
-        print(len(archieve.archive), solution.get_fitness_vector(), dominated)
+    archieve.add_solutions(solutions)
+    print(f"Archieve size: {len(archieve.archive)}")
+    for solution in archieve.archive:
+        print(solution.fitness)
     
     all_solution_fitness = np.asarray([solution.get_fitness_vector() for solution in solutions], dtype=float)
     nds = NonDominatedSorting()
@@ -69,4 +48,36 @@ def test_pareto_saves_first_front():
         assert front_solution in pf
     
     assert len(archieved_front) == len(pf)
+
+def test_pareto_does_not_copy_solution_across_iterations():
+    def evaluate(solution: Solution) -> Solution:
+        fitness = Fitness()
+        for i in range(1, 3):
+            fitness[f'f({i})'] = random.random()
+        solution.fitness = fitness
+        return solution
+    
+    solutions = [Solution() for _ in range(40)]
+    solutions = [evaluate(solution) for solution in solutions]
+    archieve = ParetoArchive(minimisation=True)
+    archieve.add_solutions(solutions)
+    archieve.add_solutions(solutions[:])
+    print(f"Archieve size: {len(archieve.archive)}")
+    for solution in archieve.archive:
+        print(solution.fitness)
+    
+    all_solution_fitness = np.asarray([solution.get_fitness_vector() for solution in solutions], dtype=float)
+    nds = NonDominatedSorting()
+    pf_index = nds.do(all_solution_fitness)[0]
+    pf = [solutions[index] for index in pf_index]
+
+    archieved_front = set(archieve.get_best())
+    for front_solution in archieved_front:
+        assert front_solution in pf
+    
+    assert len(archieved_front) == len(pf)
+    
+    for soln1 in archieved_front:
+        for soln2 in archieved_front - set([soln1]):
+            assert soln1.id != soln2.id
 

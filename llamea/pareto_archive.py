@@ -1,5 +1,7 @@
+import numpy as np
 from llamea.solution import Solution
 from llamea.multi_objective_fitness import Fitness
+from pymoo.util.nds.non_dominated_sorting import NonDominatedSorting
 
 class ParetoArchive:
 
@@ -15,48 +17,32 @@ class ParetoArchive:
         self.minimisation = minimisation
         self.archive :list[Solution] = []
 
-    def _dominates(self, a: Solution, b: Solution) -> bool:
-        """Returns True if solution `a` dominates solution `b`."""
-        v1 = a.get_fitness_vector()
-        v2 = b.get_fitness_vector()
 
-        if self.minimisation:
-            better_or_equal = all(x <= y for x, y in zip(v1, v2))
-            strictly_better = any(x < y for x, y in zip(v1, v2))
-        else:
-            better_or_equal = all(x >= y for x, y in zip(v1, v2))
-            strictly_better = any(x > y for x, y in zip(v1, v2))
-
-        return better_or_equal and strictly_better
-
-
-    def add_solution(self, solution: Solution):
+    def add_solutions(self, solutions: list[Solution]):
         """
         Updates the pareto-front archive with current solution. First checks for solutions in the 
         front that may be dominated. If dominated solutions in front are found, then append the `solution` into
         archive and removed the dominated solutions from archive, else do nothing.
         
         ## Args:
-        `solution: Solution`: A multi-objective solution, that is being added to pareto front archive.
+        `solutions: list[Solution]`: An array of multi-objective solution, that is being added to pareto front archive.
         """
-        assert isinstance(solution.fitness, Fitness)
-        if solution.id in [indv.id for indv in self.archive]:
-            return
+
+        assert all(isinstance(solution.fitness, Fitness) for solution in solutions)
+        candidates = list(set(self.archive[:] + solutions))
         
-        for m in self.archive:
-            if self._dominates(m, solution):
-                return  # discard incoming solution
+        nds = NonDominatedSorting()
 
-        to_remove = []
-        for m in self.archive:
-            if self._dominates(solution, m):
-                to_remove.append(m)
+        dominant_index = nds.do(np.array([candidate.fitness.to_vector() for candidate in candidates]), 
+               only_non_dominated_front=True)
+        
+        new_archieve = [candidates[index] for index in dominant_index]
 
-        for m in to_remove:
-            self.archive.remove(m)
-
-        self.archive.append(solution)
-
+        avaiable_id = [solution.id for solution in self.archive]
+        ## Clean recurring solutions.
+        new_archieve = list(filter(lambda solution: solution.id not in avaiable_id, new_archieve))
+        
+        self.archive += new_archieve
 
     def get_best(self) -> list[Solution]:
         """
