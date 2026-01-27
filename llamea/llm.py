@@ -553,6 +553,7 @@ class DeepSeek_LLM(OpenAI_LLM):
         self._client_kwargs["base_url"] = self.base_url
         self.client = openai.OpenAI(**self._client_kwargs)
 
+
 class LMStudio_LLM(LLM):
     """A manager for running MLX-Optimised LLM locally."""
 
@@ -568,7 +569,9 @@ class LMStudio_LLM(LLM):
         self.llm = lms.llm(model)
         self.config = config
 
-    def query(self, session: list[dict[str, str]], default_delay: int=5, max_tries: int = 5) -> str:
+    def query(
+        self, session: list[dict[str, str]], default_delay: int = 5, max_tries: int = 5
+    ) -> str:
         """
         Query stub for LMStudio class.
 
@@ -617,7 +620,14 @@ class LMStudio_LLM(LLM):
 class MLX_LM_LLM(LLM):
     """An mlx_lm implementation for running large LLMs locally."""
 
-    def __init__(self, model, config=None, max_tokens: int = 12000, chat_template_style=None, **kwargs):
+    def __init__(
+        self,
+        model,
+        config=None,
+        max_tokens: int = 12000,
+        chat_template_style=None,
+        **kwargs,
+    ):
         """
         Initialises the LMStudio LLM inteface.
 
@@ -668,7 +678,11 @@ class MLX_LM_LLM(LLM):
         return new
 
     def query(
-        self, session: list, max_tries: int = 5, default_delay: int = 5, add_generation_prompt: bool = False
+        self,
+        session: list,
+        max_tries: int = 5,
+        default_delay: int = 5,
+        add_generation_prompt: bool = False,
     ):
         """
         Query stub for LMStudio class.
@@ -681,7 +695,9 @@ class MLX_LM_LLM(LLM):
         """
         if self.chat_template_style is not None:
             prompt = self.tokenizer.apply_chat_template(
-                session, add_generation_prompt=add_generation_prompt, chat_template=self.chat_template_style
+                session,
+                add_generation_prompt=add_generation_prompt,
+                chat_template=self.chat_template_style,
             )
         else:
             prompt = self.tokenizer.apply_chat_template(
@@ -703,6 +719,7 @@ class MLX_LM_LLM(LLM):
                 time.sleep(default_delay)
                 pass
         return ""
+
 
 class Dummy_LLM(LLM):
     def __init__(self, model="DUMMY", **kwargs):
