@@ -19,6 +19,8 @@ import numpy as np
 from joblib import Parallel, delayed
 
 from .llm import LLM
+from .feature_guidance import FeatureGuidance, compute_feature_guidance
+from .ast_features import extract_ast_features
 
 try:
     from ConfigSpace import ConfigurationSpace
@@ -65,6 +67,7 @@ class LLaMEA:
         mutation_prompts=None,
         adaptive_mutation=False,
         adaptive_prompt=False,
+        feature_guided_mutation: bool = False,
         budget=100,
         eval_timeout=3600,
         max_workers=10,
@@ -107,6 +110,8 @@ class LLaMEA:
             adaptive_mutation (bool): If set to True, the mutation prompt 'Change X% of the lines of code' will be used in an adaptive control setting.
                 This overwrites mutation_prompts.
             adaptive_prompt (bool): If True, the task prompt is optimized before each mutation, allowing it to co-evolve with the individuals.
+            feature_guided_mutation (bool): Enable archive based mutation guidance that
+                augments mutation prompts using XGBoost and TreeSHAP insights.
             budget (int): The number of generations to run the evolutionary algorithm.
             eval_timeout (int): The number of seconds one evaluation can maximum take (to counter infinite loops etc.). Defaults to 1 hour.
             max_workers (int): The maximum number of parallel workers to use for evaluating individuals.
@@ -273,6 +278,9 @@ for i in range(m):
         self.minimization = minimization
         self.evaluate_population = evaluate_population
         self.adaptive_prompt = adaptive_prompt
+        self.feature_guided_mutation = feature_guided_mutation
+        self.feature_guidance: FeatureGuidance | None = None
+        self.feature_guidance_message = ""
         self.worst_value = -np.inf
         if minimization:
             self.worst_value = np.inf
@@ -480,6 +488,8 @@ Provide an improved / rephrased / augmented task prompt only. The intent of the 
         """
         # Generate the current population summary
         population_summary = "\n".join([ind.get_summary() for ind in self.population])
+        if self.feature_guided_mutation and self.run_history:
+            self._update_feature_guidance(parent=individual)
         solution = individual.code
         description = individual.description
         feedback = individual.feedback
@@ -501,6 +511,9 @@ This changing rate {(prob*100):.1f}% is a mandatory requirement, you cannot chan
             self.mutation_prompts = [new_mutation_prompt]
 
         mutation_operator = random.choice(self.mutation_prompts)
+        guidance_message = self.feature_guidance_message.strip()
+        if guidance_message:
+            mutation_operator = f"{mutation_operator}\n\n{guidance_message}"
         individual.set_operator(mutation_operator)
 
         task_prompt = (
@@ -518,7 +531,6 @@ With code:
 ```python
 {solution}
 ```
-
 
 Feedback:
 
@@ -541,6 +553,26 @@ Feedback:
             ]
         # Logic to construct the new prompt based on current evolutionary state.
         return session_messages
+
+    def _update_feature_guidance(self, parent: Solution | None = None) -> None:
+        """Train the archive model and refresh mutation guidance."""
+
+        guidance = compute_feature_guidance(
+            self.run_history, self.minimization, parent=parent
+        )
+        self.feature_guidance = guidance
+        if guidance:
+            self.feature_guidance_message = guidance.message
+        elif parent is None:
+            self.feature_guidance_message = ""
+        if guidance:
+            self.logevent(
+                "Archive guidance suggests to "
+                f"{guidance.action} {guidance.feature_name}."
+            )
+        if parent and guidance:
+            parent.add_metadata("guidance_action", guidance.action)
+            parent.add_metadata("guidance_feature_name", guidance.feature_name)
 
     def update_best(self):
         """
@@ -843,6 +875,22 @@ Feedback:
             )
             evolved_individual.generation = self.generation
             evolved_individual.task_prompt = individual_copy.task_prompt
+
+            # enhance the individual with AST features and feature guidance metadata (before logging).
+            if self.feature_guided_mutation:
+                try:
+                    ast_features = extract_ast_features(evolved_individual.code)
+                    evolved_individual.add_metadata("ast_features", dict(ast_features))
+                    evolved_individual.add_metadata(
+                        "feature_guidance_action", self.feature_guidance.action
+                    )
+                    evolved_individual.add_metadata(
+                        "feature_guidance_feature_name",
+                        self.feature_guidance.feature_name,
+                    )
+                except Exception:
+                    pass
+
             if not self.evaluate_population:
                 evolved_individual = self.evaluate_fitness(evolved_individual)
         except Exception as e:
@@ -1001,6 +1049,8 @@ Feedback:
         self.logevent(
             f"Started evolutionary loop, best so far: {self.best_so_far.fitness}"
         )
+        if self.feature_guided_mutation:
+            self._update_feature_guidance()
         while len(self.run_history) < self.budget:
             # pick a new offspring population using random sampling
             new_offspring_population = self._select_parents()
@@ -1040,6 +1090,9 @@ Feedback:
             self.logevent(
                 f"Generation {self.generation}, best so far: {self.best_so_far.fitness}"
             )
+
+            if self.feature_guided_mutation:
+                self._update_feature_guidance()
 
             ## Archive progress.
             self.pickle_archive()
