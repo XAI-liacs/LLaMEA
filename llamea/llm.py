@@ -27,7 +27,7 @@ except ModuleNotFoundError:  # pragma: no cover - optional dependency
 try:
     import lmstudio as lms
 except ModuleNotFoundError:
-    lms = None
+    lms = object
 try:
     from mlx_lm import load, generate
 except ModuleNotFoundError:

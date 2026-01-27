@@ -466,23 +466,26 @@ class AlwaysSucceedLMStudio:
         self.calls += 1
         return self.response
 
+import types, sys
 @pytest.fixture
 def fake_lms_llm(monkeypatch):
     calls = []
+
+    lms = types.ModuleType("llamea.llm.lms")
 
     def factory(model):
         client = AlwaysFailLMStudio()
         calls.append((model, client))
         return client
 
-    monkeypatch.setattr(
-        "llamea.llm.lms.llm",
-        factory,
-    )
+    lms.llm = factory
 
-    return {
-        "calls": calls,
-    }
+    monkeypatch.setitem(sys.modules, "llamea.llm.lms", lms)
+
+    import llamea.llm
+    monkeypatch.setattr(llamea.llm, "lms", lms, raising=False)
+
+    return {"calls": calls}
 
 def test_lms_query_fails_only_after_max_tries(fake_lms_llm):
     llm = LMStudio_LLM(
