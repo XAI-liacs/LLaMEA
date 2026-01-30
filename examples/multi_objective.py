@@ -50,7 +50,7 @@ def evaluate(solution: Solution, explogger: Optional[ExperimentLogger] = None):
 
     global_ns, issues = prepare_namespace(
         code,
-        ['numpy', 'pymoo', 'typing'],
+        ['numpy', 'pymoo', 'typing', 'scipy'],
         explogger
     )
     local_ns = {}
