@@ -217,13 +217,13 @@ def test_gemini_llm_retries_then_succeeds(monkeypatch):
     chat_ok.send_message.return_value = type("R", (), {"text": "OK-DONE"})
 
     fake_client = MagicMock()
-    fake_client.start_chat.side_effect = [chat_fail, chat_ok]
+    fake_client.chats.create.side_effect = [chat_fail, chat_ok]
     llm.client = fake_client
 
     reply = llm.query([{"role": "user", "content": "hello"}], max_retries=3)
 
     assert reply == "OK-DONE"
-    assert fake_client.start_chat.call_count == 2  # 1 failure + 1 success
+    assert fake_client.chats.create.call_count == 2  # 1 failure + 1 success
     slept.assert_called_once_with(3)  # 2 s + 1 s safety buffer
 
 
@@ -238,7 +238,7 @@ def test_gemini_llm_gives_up_after_max_retries(monkeypatch):
     chat_fail.send_message.side_effect = _resource_exhausted(1)
 
     fake_client = MagicMock()
-    fake_client.start_chat.return_value = chat_fail
+    fake_client.chats.create.return_value = chat_fail
     llm.client = fake_client
 
     with pytest.raises(Exception):

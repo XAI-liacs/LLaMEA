@@ -11,7 +11,8 @@ import time
 from abc import ABC, abstractmethod
 
 try:
-    import google.generativeai as genai
+    from google import genai
+    from google.genai import types
 except ModuleNotFoundError:  # pragma: no cover - optional dependency
     genai = None
 
@@ -363,22 +364,21 @@ class Gemini_LLM(LLM):
         """
         if genai is None:  # pragma: no cover - optional dependency
             raise ImportError(
-                "google-generativeai is required to use Gemini_LLM. Install the 'google-generativeai' package."
+                "google-genai is required to use Gemini_LLM. Install the 'google-genai' package."
             )
-        super().__init__(api_key, model, None, **kwargs)
-        genai.configure(api_key=api_key)
-        generation_config = {
-            "temperature": 1,
-            "top_p": 0.95,
-            "top_k": 64,
-            "max_output_tokens": 65536,
-            "response_mime_type": "text/plain",
-        }
+        super().__init__(api_key, model, None, **kwargs) 
 
-        self.client = genai.GenerativeModel(
-            model_name=self.model,  # "gemini-1.5-flash","gemini-2.0-flash",
-            generation_config=generation_config,
-            system_instruction="You are a computer scientist and excellent Python programmer.",
+        self.generation_config = {
+            "system_instruction":"You are a computer scientist and excellent Python programmer.",
+            "temperature":1,
+            "top_p":0.95,
+            "top_k":64,
+            "max_output_tokens":65536,
+            "response_mime_type":'text/plain',
+        }
+        self.api_key = api_key
+        self.client = genai.Client(
+            api_key=api_key,
         )
 
     def __getstate__(self):
@@ -390,21 +390,22 @@ class Gemini_LLM(LLM):
     def __setstate__(self, state):
         """Restore from a pickled state."""
         self.__dict__.update(state)  # put back the simple stuff
-        generation_config = {
-            "temperature": 1,
-            "top_p": 0.95,
-            "top_k": 64,
-            "max_output_tokens": 65536,
-            "response_mime_type": "text/plain",
-        }
 
-        self.client = genai.GenerativeModel(
-            model_name=self.model,  # "gemini-1.5-flash","gemini-2.0-flash",
-            generation_config=generation_config,
-            system_instruction="You are a computer scientist and excellent Python programmer.",
-        )
+        self.client = genai.Client(api_key=self.api_key) #expecting implicit pull for env var GOOGLE_API_KEY, too risky to pickle.
 
-    def query(self, session_messages, max_retries: int = 5, default_delay: int = 10):
+    def __deepcopy__(self, memo):
+        cls = self.__class__
+        new = cls.__new__(cls)
+        memo[id(self)] = new
+        for k, v in self.__dict__.items():
+            if k == "client":
+                continue
+            setattr(new, k, copy.deepcopy(v, memo))
+        new.client = genai.Client(api_key=new.api_key)
+        return new
+
+
+    def query(self, session_messages: list[dict[str, str]], max_retries: int = 5, default_delay: int = 10, **kwargs):
         """
         Sends the conversation history to Gemini, retrying on 429 ResourceExhausted exceptions.
 
@@ -424,14 +425,18 @@ class Gemini_LLM(LLM):
         attempt = 0
         while True:
             try:
-                chat = self.client.start_chat(history=history)
+                config = self.generation_config.copy()
+                config.update(**kwargs)
+                chat = self.client.chats.create(
+                    model=self.model, history=history, config=config
+                )
                 response = chat.send_message(last)
                 return response.text
 
             except Exception as err:
                 attempt += 1
                 if attempt > max_retries:
-                    raise  # bubble out after N tries
+                    raise err # bubble out after N tries
 
                 # Prefer the structured retry_delay field if present
                 delay = getattr(err, "retry_delay", None)
