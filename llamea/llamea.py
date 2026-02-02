@@ -6,6 +6,7 @@ algorithms to automatically evaluate (for example metaheuristics evaluated on BB
 import concurrent.futures
 import contextlib
 import logging
+import math
 import os
 import random
 import re
@@ -396,6 +397,8 @@ for i in range(m):
         except Exception as e:
             print(f"Parallel time out in initialization {e}, retrying.")
         for p in population_gen:
+            if math.isnan(p.fitness):
+                p.fitness = self.worst_value
             population.append(p)
 
         if self.evaluate_population:
@@ -1072,6 +1075,8 @@ Feedback:
                 print("Parallel time out .")
 
             for p in new_population_gen:
+                if math.isnan(p.fitness):
+                    p.fitness = self.worst_value
                 new_population.append(p)
 
             if self.evaluate_population:

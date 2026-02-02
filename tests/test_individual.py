@@ -3,6 +3,7 @@ import uuid
 
 import numpy as np
 import pytest
+import math
 
 from llamea import Solution
 
@@ -22,7 +23,7 @@ def test_individual_initialization():
     assert individual.name == "MySolution"
     assert individual.description == "This is a test solution."
     assert individual.generation == 1
-    assert individual.fitness == -np.inf  # Default should be -Inf
+    assert math.isnan(individual.fitness)  # Default should be nan.
     assert individual.feedback == ""  # Default should be empty string
     assert individual.error == ""  # Default should be empty string
     assert individual.task_prompt == ""  # Default task prompt
@@ -128,7 +129,7 @@ def test_default_values():
     assert individual.name == ""
     assert individual.description == ""
     assert individual.configspace is None
-    assert individual.fitness == -np.inf
+    assert math.isnan(individual.fitness)
     assert individual.feedback == ""
     assert individual.error == ""
     assert individual.parent_ids == []
