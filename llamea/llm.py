@@ -375,15 +375,15 @@ class Gemini_LLM(LLM):
             raise ImportError(
                 "google-genai is required to use Gemini_LLM. Install the 'google-genai' package."
             )
-        super().__init__(api_key, model, None, **kwargs) 
+        super().__init__(api_key, model, None, **kwargs)
 
         self.generation_config = {
-            "system_instruction":"You are a computer scientist and excellent Python programmer.",
-            "temperature":1,
-            "top_p":0.95,
-            "top_k":64,
-            "max_output_tokens":65536,
-            "response_mime_type":'text/plain',
+            "system_instruction": "You are a computer scientist and excellent Python programmer.",
+            "temperature": 1,
+            "top_p": 0.95,
+            "top_k": 64,
+            "max_output_tokens": 65536,
+            "response_mime_type": "text/plain",
         }
         self.api_key = api_key
         self.client = genai.Client(
@@ -400,7 +400,9 @@ class Gemini_LLM(LLM):
         """Restore from a pickled state."""
         self.__dict__.update(state)  # put back the simple stuff
 
-        self.client = genai.Client(api_key=self.api_key) #expecting implicit pull for env var GOOGLE_API_KEY, too risky to pickle.
+        self.client = genai.Client(
+            api_key=self.api_key
+        )  # expecting implicit pull for env var GOOGLE_API_KEY, too risky to pickle.
 
     def __deepcopy__(self, memo):
         cls = self.__class__
@@ -413,8 +415,13 @@ class Gemini_LLM(LLM):
         new.client = genai.Client(api_key=new.api_key)
         return new
 
-
-    def query(self, session_messages: list[dict[str, str]], max_retries: int = 5, default_delay: int = 10, **kwargs):
+    def query(
+        self,
+        session_messages: list[dict[str, str]],
+        max_retries: int = 5,
+        default_delay: int = 10,
+        **kwargs,
+    ):
         """
         Sends the conversation history to Gemini, retrying on 429 ResourceExhausted exceptions.
 
@@ -445,7 +452,7 @@ class Gemini_LLM(LLM):
             except Exception as err:
                 attempt += 1
                 if attempt > max_retries:
-                    raise err # bubble out after N tries
+                    raise err  # bubble out after N tries
 
                 # Prefer the structured retry_delay field if present
                 delay = getattr(err, "retry_delay", None)
