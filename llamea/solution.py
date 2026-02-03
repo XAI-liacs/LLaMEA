@@ -41,7 +41,7 @@ class Solution:
         self.description = description
         self.configspace = configspace
         self.generation = generation
-        self.fitness: Fitness | float = -np.inf
+        self.fitness = float("nan")
         self.feedback = ""
         self.error = ""
         self.parent_ids = parent_ids
