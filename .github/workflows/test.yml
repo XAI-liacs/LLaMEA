@@ -42,7 +42,7 @@ jobs:
       #----------------------------------------------
       - name: Install dependencies
         if: steps.cached-uv-dependencies.outputs.cache-hit != 'true'
-        run: uv sync --dev
+        run: uv sync --dev --no-group apple-silicon
       #----------------------------------------------
       #              run black
       #----------------------------------------------

@@ -5,6 +5,7 @@ import warnings
 from typing import Any
 import jsonlines
 import numpy as np
+import math
 
 from llamea.solution import Solution
 
@@ -169,11 +170,7 @@ class ExperimentLogger:
         with jsonlines.open(
             os.path.join(self.dirname, "solutions.jsonl"), "a"
         ) as writer:
-            if (
-                solution.code
-                and solution.fitness not in [float("inf"), -float("inf")]
-                and sol_data
-            ):
+            if solution.code and not math.isnan(solution.fitness) and sol_data:
                 writer.write(
                     {"id": solution.id, "fitness": solution.fitness, "output": sol_data}
                 )

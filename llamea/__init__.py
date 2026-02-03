@@ -1,5 +1,14 @@
 from .llamea import LLaMEA
-from .llm import LLM, Dummy_LLM, Gemini_LLM, Multi_LLM, Ollama_LLM, OpenAI_LLM
+from .llm import (
+    LLM,
+    Dummy_LLM,
+    Gemini_LLM,
+    Multi_LLM,
+    Ollama_LLM,
+    OpenAI_LLM,
+    LMStudio_LLM,
+    MLX_LM_LLM,
+)
 from .loggers import ExperimentLogger
 from .solution import Solution
 from .utils import (
