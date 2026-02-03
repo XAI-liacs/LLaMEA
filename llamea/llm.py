@@ -25,6 +25,15 @@ try:
     import openai
 except ModuleNotFoundError:  # pragma: no cover - optional dependency
     openai = None
+try:
+    import lmstudio as lms
+except ModuleNotFoundError:
+    lms = object
+try:
+    from mlx_lm import load, generate
+except ModuleNotFoundError:
+    load = None
+    generate = None
 
 try:
     from ConfigSpace import ConfigurationSpace
@@ -548,6 +557,173 @@ class DeepSeek_LLM(OpenAI_LLM):
         self.base_url = "https://api.deepseek.com"
         self._client_kwargs["base_url"] = self.base_url
         self.client = openai.OpenAI(**self._client_kwargs)
+
+
+class LMStudio_LLM(LLM):
+    """A manager for running MLX-Optimised LLM locally."""
+
+    def __init__(self, model, config=None, **kwargs):
+        """
+        Initialises the LMStudio LLM inteface.
+
+        :param model: Name of the model, to be initialised for interaction.
+        :param config: Configuration to be set for LLM chat.
+        :param kwargs: Keyed arguements for setting up the LLM chat.
+        """
+        super().__init__(api_key="", model=model, **kwargs)
+        self.llm = lms.llm(model)
+        self.config = config
+
+    def query(
+        self, session: list[dict[str, str]], default_delay: int = 5, max_tries: int = 5
+    ) -> str:
+        """
+        Query stub for LMStudio class.
+
+        ## Parameters
+        `session: list[dict[str, str]]`: A session message is a list of {'role' : 'user'|'system', 'content': 'content'} data, use to make LLM request.
+        `default_delay: int`: Amount of time to wait, before retrying a prompt on LLMs when exception occurs.
+        `max_tries: int`: A max count for the number of tries, to get a response.
+        """
+        request = session[-1]["content"]
+        for _ in range(max_tries):
+            try:
+                if self.config is not None:
+                    response = self.llm.respond(request, config=self.config)
+                else:
+                    response = self.llm.respond(request)
+                response = re.sub(  # Remove thinking section, if avaiable.
+                    r"<think>.*?</think>", "", str(response), flags=re.DOTALL
+                )
+                return response
+            except:
+                time.sleep(default_delay)
+                pass
+        return ""
+
+    def __getstate__(self):
+        state = self.__dict__.copy()
+        state.pop("llm", None)
+        return state
+
+    def __setstate__(self, state):
+        self.__dict__.update(state)
+        self.llm = lms.llm(self.model)
+
+    def __deepcopy__(self, memo):
+        cls = self.__class__
+        new = cls.__new__(cls)
+        memo[id(self)] = new
+        for k, v in self.__dict__.items():
+            if k == "llm":
+                continue
+            setattr(new, k, copy.deepcopy(v, memo))
+        new.llm = self.llm
+        return new
+
+
+class MLX_LM_LLM(LLM):
+    """An mlx_lm implementation for running large LLMs locally."""
+
+    def __init__(
+        self,
+        model,
+        config=None,
+        max_tokens: int = 12000,
+        chat_template_style=None,
+        **kwargs,
+    ):
+        """
+        Initialises the LMStudio LLM inteface.
+
+        :param model: Name of the model, to be initialised for interaction.
+        :param config: Configuration to be set for LLM chat.
+        :param max_tokens: Maximun number of tokens to be generated for a request.
+        :param chat_template_style: Some models require chat_template_style to be specify, refer to those model's docs in huggingface to set this parameter.
+        :param kwargs: Keyed arguements for setting up the LLM chat.
+        """
+        super().__init__(api_key="", model=model, **kwargs)
+        if config is not None:
+            llm, tokenizer = load(model, model_config=config)
+        else:
+            llm, tokenizer = load(model)
+        self.llm = llm
+        self.tokenizer = tokenizer
+        self.chat_template_style = chat_template_style
+        print(f"Init tokeniser object: {self.tokenizer}.")
+
+        self.config = config
+        self.max_tokens = max_tokens
+
+    def __getstate__(self) -> object:
+        state = self.__dict__.copy()
+        state.pop("tokenizer", None)
+        state.pop("llm", None)
+        return state
+
+    def __setstate__(self, state):
+        self.__dict__.update(state)
+        if self.config is None:
+            llm, tokenizer = load(self.model)
+        else:
+            llm, tokenizer = load(self.model, model_config=self.config)
+        self.llm = llm
+        self.tokenizer = tokenizer
+
+    def __deepcopy__(self, memo):
+        cls = self.__class__
+        new = cls.__new__(cls)
+        memo[id(self)] = new
+        for k, v in self.__dict__.items():
+            if k in ["llm", "tokenizer"]:
+                continue
+            setattr(new, k, copy.deepcopy(v, memo))
+        new.llm = self.llm  # <- reference symantics copy for massive object `llm`.
+        new.tokenizer = self.tokenizer
+        return new
+
+    def query(
+        self,
+        session: list,
+        max_tries: int = 5,
+        default_delay: int = 5,
+        add_generation_prompt: bool = False,
+    ):
+        """
+        Query stub for LMStudio class.
+
+        ## Parameters
+        `session: list[dict[str, str]]`: A session message is a list of {'role' : 'user'|'system', 'content': 'content'} data, use to make LLM request.
+        `max_tries: int`: A max count for the number of tries, to get a response.
+        `default_delay: int`: Amount of time to wait, before retrying a prompt on LLMs when exception occurs.
+        `add_generation_prompt: bool`: MLX_LM come with an option to add_generation_prompt to optimise prompts.
+        """
+        if self.chat_template_style is not None:
+            prompt = self.tokenizer.apply_chat_template(
+                session,
+                add_generation_prompt=add_generation_prompt,
+                chat_template=self.chat_template_style,
+            )
+        else:
+            prompt = self.tokenizer.apply_chat_template(
+                session, add_generation_prompt=add_generation_prompt
+            )
+        for _ in range(max_tries):
+            try:
+                response = generate(
+                    self.llm,
+                    self.tokenizer,
+                    prompt,
+                    max_tokens=self.max_tokens,  # Disable limit on token count.
+                )
+                response = re.sub(  # Remove thinking section, if avaiable.
+                    r"<think>.*?</think>", "", str(response), flags=re.DOTALL
+                )
+                return response
+            except:
+                time.sleep(default_delay)
+                pass
+        return ""
 
 
 class Dummy_LLM(LLM):
