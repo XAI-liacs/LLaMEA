@@ -3,46 +3,70 @@ from llamea.solution import Solution
 from llamea.multi_objective_fitness import Fitness
 from pymoo.util.nds.non_dominated_sorting import NonDominatedSorting
 
-class ParetoArchive:
 
+class ParetoArchive:
     def __init__(self, minimisation: bool):
         """
-        Generates a Pareto Archive Class, that iteratively takes in a multi-objective solution, and updates the overal 
-        pareto-front explored by an optimiser. 
-        
+        Generates a Pareto Archive Class, that iteratively takes in a multi-objective solution, and updates the overal
+        pareto-front explored by an optimiser.
+
         ## Params:
-        `minimisation: bool`: Assuming all the fitness are either to be minimised or maximised, set this flag to determine the 
+        `minimisation: bool`: Assuming all the fitness are either to be minimised or maximised, set this flag to determine the
         direction of optimality.
         """
         self.minimisation = minimisation
-        self.archive :list[Solution] = []
+        self.archive: list[Solution] = []
 
+    def _clear_to_consider(self, solution: Solution) -> bool:
+        """
+        Checks if the solution is valid to be considered for pareto-front archive update. If any of the fitness values
+        is NaN, then the solution is not considered for pareto-front update.
+
+        ## Args:
+        `solution: Solution`: A multi-objective solution that is being considered for pareto-front update.
+
+        ## Returns:
+        `consider: bool`: Returns True, if solution is valid to be considered for pareto-front update, else returns False.
+        """
+        if not isinstance(solution.fitness, Fitness):
+            return False
+
+        for key in solution.fitness.keys():
+            if np.isnan(solution.fitness[key]):
+                return False
+            if np.isinf(solution.fitness[key]):
+                return False
+        return True
 
     def add_solutions(self, solutions: list[Solution]):
         """
-        Updates the pareto-front archive with current solution. First checks for solutions in the 
+        Updates the pareto-front archive with current solution. First checks for solutions in the
         front that may be dominated. If dominated solutions in front are found, then append the `solution` into
         archive and removed the dominated solutions from archive, else do nothing.
-        
+
         ## Args:
         `solutions: list[Solution]`: An array of multi-objective solution, that is being added to pareto front archive.
         """
 
-        assert all(isinstance(solution.fitness, Fitness) for solution in solutions)
-        candidates = list(set(self.archive[:] + solutions))
-        
+        candidates = [
+            individual
+            for individual in self.archive + solutions
+            if self._clear_to_consider(individual)
+        ]
+
+        if len(candidates) == 0:
+            return
+
+        F = np.array([c.fitness.to_vector() for c in candidates])
+
+        # Handle maximisation by negating objectives
+        if not self.minimisation:
+            F = -F
+
         nds = NonDominatedSorting()
+        front_idx = nds.do(F, only_non_dominated_front=True)
 
-        dominant_index = nds.do(np.array([candidate.fitness.to_vector() for candidate in candidates]), 
-               only_non_dominated_front=True)
-        
-        new_archieve = [candidates[index] for index in dominant_index]
-
-        avaiable_id = [solution.id for solution in self.archive]
-        ## Clean recurring solutions.
-        new_archieve = list(filter(lambda solution: solution.id not in avaiable_id, new_archieve))
-        
-        self.archive += new_archieve
+        self.archive = [candidates[i] for i in front_idx]
 
     def get_best(self) -> list[Solution]:
         """

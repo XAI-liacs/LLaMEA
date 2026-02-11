@@ -7,19 +7,28 @@ from llamea.multi_objective_fitness import Fitness
 from llamea.pareto_archive import ParetoArchive
 from llamea.solution import Solution
 
-def test_pareto_archive_fails_on_single_objective_solutions():
-
-    def evaluate(solution: Solution) -> Solution:
-        fitness = random.random()
-        solution.fitness = fitness
-        return solution
+def test_pareto_archive_handles_invalid_solutions():
     
+    solutions = []
     solution = Solution()
-    solution = evaluate(solution)
+    solution.set_scores(Fitness({'obj1': float('nan'), 'obj2': 2.0}), "Invalid fitness")
+    solutions.append(solution)
+    solution = Solution()
+    solution.set_scores(Fitness({'obj1': 1.0, 'obj2': float('inf')}), "Invalid fitness")
+    solutions.append(solution)
+    solution = Solution()
+    solution.set_scores(float('nan'), feedback="Invalid fitness type")
+    solutions.append(solution)
+    solution = Solution()
+    solution.set_scores(float('inf'), feedback="Invalid fitness type")
+    solutions.append(solution)
+    solution = Solution()
+    solution.set_scores(Fitness({'obj1': 1.0, 'obj2': 2.0}), "Valid fitness")
+    solutions.append(solution)
     archieve = ParetoArchive(minimisation=True)
-
-    with pytest.raises(AssertionError):
-        archieve.add_solutions([solution])
+    print(solutions)
+    archieve.add_solutions(solutions)
+    assert len(archieve.archive) == 1
 
 def test_pareto_saves_first_front():
 

@@ -1,3 +1,6 @@
+import math
+
+
 class Fitness:
     """
     A class for multi_objective fitness management.
@@ -10,6 +13,7 @@ class Fitness:
         * `a ≥ b` : `a` either dominates or belong to same pareto-front for maximisation task for `b`.
         * `a == b` : `a` and `b` have exact same fitness for all .
     """
+
     def __init__(self, value: dict[str, float] | None = None):
         if value is None:
             self._fitness: dict[str, float] = {}
@@ -21,7 +25,7 @@ class Fitness:
 
     def __getitem__(self, key):
         return self._fitness.get(key, float("nan"))
-    
+
     def __setitem__(self, key: str, value: float):
         self._fitness[key] = value
 
@@ -58,7 +62,7 @@ class Fitness:
             return NotImplemented
         be, sb = other._dominates(self)
         return be or sb
-    
+
     def to_vector(self) -> list[float]:
         vector = []
         for objective in sorted(self.keys()):
@@ -67,11 +71,18 @@ class Fitness:
 
     def to_dict(self) -> dict[str, float]:
         return self._fitness
-    
+
     @classmethod
     def from_dict(cls, data: dict[str, float]) -> "Fitness":
         """Construct Fitness from a dict (e.g., after json.loads)."""
         return cls(value=data)
+
+    def __float__(self) -> float:
+        return (
+            math.nan
+            if any(math.isnan(value) for value in self._fitness.values())
+            else sum(self.to_vector()) / len(self._fitness)
+        )
 
     def __repr__(self) -> str:
         repr_str = ""

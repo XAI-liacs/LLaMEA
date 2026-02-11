@@ -1,7 +1,8 @@
 from unittest.mock import MagicMock
-
+from unittest.mock import patch
 import numpy as np
 import pytest
+import time
 
 from llamea import LLaMEA, Ollama_LLM
 
@@ -22,6 +23,13 @@ f_try = 0
 def f(ind, logger=None):
     global f_try
     f_try += 1
+    ind.set_scores(f_try * 0.1, f"feedback {ind.name} {f_try}")
+    return ind
+
+def f_delayed(ind, logger=None):
+    global f_try
+    f_try += 1
+    time.sleep(1000)
     ind.set_scores(f_try * 0.1, f"feedback {ind.name} {f_try}")
     return ind
 

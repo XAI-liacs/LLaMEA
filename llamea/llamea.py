@@ -16,11 +16,13 @@ from typing import Callable, Optional
 import pickle
 import jsonlines
 
+
 import numpy as np
 from joblib import Parallel, delayed
 from .llm import LLM
 from .feature_guidance import FeatureGuidance, compute_feature_guidance
 from .ast_features import extract_ast_features
+from .multi_objective_fitness import Fitness
 
 try:
     from ConfigSpace import ConfigurationSpace
@@ -308,7 +310,6 @@ for i in range(m):
             None if novelty_archive_size is None else max(1, int(novelty_archive_size))
         )
         self.novelty_archive: list[Solution] = []
-        self.best_so_far = Solution(name="", code="")
         self.experiment_name = experiment_name
         self.parent_selection = parent_selection  # "random" | "roulette" | "tournament"
         self.tournament_size = tournament_size
@@ -323,12 +324,15 @@ for i in range(m):
         if max_workers > self.n_offspring:
             max_workers = self.n_offspring
         self.max_workers = max_workers
-        
+
         self.multi_objective = multi_objective
         self.multi_objective_keys = []
         if self.multi_objective:
             self.best_so_far = ParetoArchive(minimisation=self.minimization)
             self.multi_objective_keys = multi_objective_keys
+
+        self.best_so_far = Solution(name="", code="")
+        self.best_so_far = self._ensure_fitness_evaluates([self.best_so_far])[0]
         self.pickle_archive()
 
     @classmethod
@@ -413,14 +417,12 @@ for i in range(m):
         except Exception as e:
             print(f"Parallel time out in initialization {e}, retrying.")
         for p in population_gen:
-            if math.isnan(p.fitness):
-                p.fitness = self.worst_value
             population.append(p)
 
         if self.evaluate_population:
             population = self.evaluate_population_fitness(population)
 
-        self._ensure_fitness_evaluates(population)
+        population = self._ensure_fitness_evaluates(population)
 
         for p in population:
             self.run_history.append(p)
@@ -433,6 +435,7 @@ for i in range(m):
         self.update_best()
 
     def _ensure_fitness_evaluates(self, population: list[Solution]):
+        return_population = []
         for individual in population:
             if self.multi_objective:
                 if not isinstance(individual.fitness, Fitness):
@@ -441,9 +444,10 @@ for i in range(m):
                         fitness[key] = self.worst_value
                     individual.fitness = Fitness(fitness)
             else:
-                if self.minimization:
-                    if individual.fitness == float('-inf'):
-                        individual.fitness = float('inf')
+                if math.isnan(individual.fitness):
+                    individual.fitness = self.worst_value
+            return_population.append(individual)
+        return return_population
 
     def evaluate_fitness(self, individual):
         """
@@ -756,7 +760,7 @@ Feedback:
         if self.minimization:
             return candidate.fitness < incumbent.fitness
         return candidate.fitness > incumbent.fitness
-    
+
     def _update_novelty_archive(self, candidates: list[Solution]):
         """Update the novelty archive with ``candidates``."""
 
@@ -905,12 +909,18 @@ Feedback:
                     sorted_pool += list(map(lambda x: pool[x], front))
                 else:
                     final_front = list(map(lambda x: pool[x], front))
-                    fitness_vector = np.array([x.fitness.to_vector() for x in final_front])
-                    crowding_distance = list(enumerate(calc_crowding_distance(fitness_vector)))
-                    crowding_distance = sorted(crowding_distance, key=lambda x: x[1], reverse=True)
-                    
+                    fitness_vector = np.array(
+                        [x.fitness.to_vector() for x in final_front]
+                    )
+                    crowding_distance = list(
+                        enumerate(calc_crowding_distance(fitness_vector))
+                    )
+                    crowding_distance = sorted(
+                        crowding_distance, key=lambda x: x[1], reverse=True
+                    )
+
                     sorted_front = [final_front[idx] for idx, _ in crowding_distance]
-                    sorted_pool += sorted_front[:self.n_offspring - len(sorted_pool)]
+                    sorted_pool += sorted_front[: self.n_offspring - len(sorted_pool)]
                     break
             return sorted_pool
 
@@ -1107,8 +1117,9 @@ Feedback:
             self.logger.log_population(self.population)
 
         self.logevent(
-            f"Started evolutionary loop, best so far: {self.best_so_far.fitness}" if isinstance(self.best_so_far, Solution) else 
-            f"Started evolutionary loop, best so far: {'\n'.join([str(individual.fitness) for individual in self.best_so_far.get_best()])}"
+            f"Started evolutionary loop, best so far: {self.best_so_far.fitness}"
+            if isinstance(self.best_so_far, Solution)
+            else f"Started evolutionary loop, best so far: {'\n'.join([str(individual.fitness) for individual in self.best_so_far.get_best()])}"
         )
         if self.feature_guided_mutation:
             self._update_feature_guidance()
@@ -1139,7 +1150,7 @@ Feedback:
             if self.evaluate_population:
                 new_population = self.evaluate_population_fitness(new_population)
 
-            self._ensure_fitness_evaluates(new_population)
+            new_population = self._ensure_fitness_evaluates(new_population)
             for p in new_population:
                 self.run_history.append(p)
 
@@ -1152,8 +1163,9 @@ Feedback:
             self.population = self.selection(self.population, new_population)
             self.update_best()
             self.logevent(
-                f"Generation {self.generation}, best so far: {self.best_so_far.fitness}" if isinstance(self.best_so_far, Solution) else 
-                f"Generation {self.generation}, best so far: {'\n'.join([str(individual.fitness) for individual in self.best_so_far.get_best()])}"
+                f"Generation {self.generation}, best so far: {self.best_so_far.fitness}"
+                if isinstance(self.best_so_far, Solution)
+                else f"Generation {self.generation}, best so far: {'\n'.join([str(individual.fitness) for individual in self.best_so_far.get_best()])}"
             )
 
             if self.feature_guided_mutation:

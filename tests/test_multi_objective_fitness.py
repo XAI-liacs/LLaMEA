@@ -1,5 +1,4 @@
 import math
-import random
 from llamea.multi_objective_fitness import Fitness
 
 def test_fitness_instantiates_properly():
@@ -99,6 +98,7 @@ def test_fitness_eq_comparison_returns_all_axis_fitness_false():
     assert (o == a2) == False
     assert (o == a3) == False
     assert (o == a4) == False
+    assert (o == o) == True
 
 def test_fitness_le_comparison_returns_positive_axis_fitness_true():
     assert (o <= a1) == True

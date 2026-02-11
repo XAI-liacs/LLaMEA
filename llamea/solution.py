@@ -5,6 +5,7 @@ import traceback
 from typing import Optional
 from llamea.multi_objective_fitness import Fitness
 
+
 class Solution:
     """
     Represents a candidate solution (an individual) in the evolutionary algorithm.
