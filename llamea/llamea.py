@@ -330,9 +330,9 @@ for i in range(m):
         if self.multi_objective:
             self.best_so_far = ParetoArchive(minimisation=self.minimization)
             self.multi_objective_keys = multi_objective_keys
-
-        self.best_so_far = Solution(name="", code="")
-        self.best_so_far = self._ensure_fitness_evaluates([self.best_so_far])[0]
+        else:
+            self.best_so_far = Solution(name="", code="")
+            self.best_so_far = self._ensure_fitness_evaluates([self.best_so_far])[0]
         self.pickle_archive()
 
     @classmethod
@@ -987,7 +987,7 @@ Feedback:
 
         data = []
         try:
-            with jsonlines.open(f"{archive_path}/log.jsonl") as reader:
+            with jsonlines.open(os.path.join(archive_path, "log.jsonl")) as reader:
                 for obj in reader:
                     data.append(obj)
 
