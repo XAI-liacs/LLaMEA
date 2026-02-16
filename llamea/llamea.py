@@ -1116,11 +1116,20 @@ Feedback:
         if self.log:
             self.logger.log_population(self.population)
 
-        self.logevent(
-            f"Started evolutionary loop, best so far: {self.best_so_far.fitness}"
-            if isinstance(self.best_so_far, Solution)
-            else f"Started evolutionary loop, best so far: {'\n'.join([str(individual.fitness) for individual in self.best_so_far.get_best()])}"
-        )
+        log_message = ""
+        if isinstance(self.best_so_far, Solution):
+            log_message = (
+                f"Started evolutionary loop, best so far: {self.best_so_far.fitness}"
+            )
+        else:
+            fitness_vector = "\n".join(
+                [str(individual.fitness) for individual in self.best_so_far.get_best()]
+            )
+            log_message = (
+                "Started evolutionary loop, best so far: " + fitness_vector + "."
+            )
+
+        self.logevent(log_message)
         if self.feature_guided_mutation:
             self._update_feature_guidance()
         while len(self.run_history) < self.budget:
