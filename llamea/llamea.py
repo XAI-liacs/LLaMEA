@@ -1173,7 +1173,7 @@ Feedback:
             self.update_best()
             log_message = ""
             if isinstance(self.best_so_far, Solution):
-                log_message = f"Started evolutionary loop, best so far: {self.best_so_far.fitness}"
+                log_message = f"Generation {self.generation}, best so far: {self.best_so_far.fitness}"
             else:
                 fitness_vector = "\n".join(
                     [
@@ -1182,7 +1182,9 @@ Feedback:
                     ]
                 )
                 log_message = (
-                    "Started evolutionary loop, best so far: " + fitness_vector + "."
+                    f"Generation {self.generation}, best so far: "
+                    + fitness_vector
+                    + "."
                 )
             self.logevent(log_message)
 
