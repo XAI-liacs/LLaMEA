@@ -54,6 +54,8 @@ class ParetoArchive:
             if self._clear_to_consider(individual)
         ]
 
+        candidates = list({obj.id: obj for obj in candidates}.values())
+
         if len(candidates) == 0:
             return
 

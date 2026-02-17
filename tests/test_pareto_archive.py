@@ -90,3 +90,25 @@ def test_pareto_does_not_copy_solution_across_iterations():
         for soln2 in archieved_front - set([soln1]):
             assert soln1.id != soln2.id
 
+def test_pareto_does_not_copy_solution_add_same_solutions():
+    recurring_solution = Solution()
+    fitness = Fitness({"Distance": 10, "Fuel": 12})
+
+    recurring_solution.set_scores(fitness, f"Got fitness {fitness}, try minimising further.")
+    solutions = []
+    for i in range(100):
+        if i % 2 == 0:
+            solutions.append(recurring_solution)
+        else:
+            solution = Solution()
+            fitness = Fitness({"Distance": random.randint(11, 30), "Fuel": random.randint(13, 30)})
+            solution.set_scores(fitness, f"Got fitness {fitness}, try minimising further.")
+
+    pareto_archive = ParetoArchive(minimisation=True)
+    for i in range(0, 100, 5):
+        new_solutions = solutions[i : i + 5]
+        pareto_archive.add_solutions(new_solutions)
+    assert len([individual for individual in pareto_archive.get_best() if individual.id == recurring_solution.id]) == 1
+
+
+
