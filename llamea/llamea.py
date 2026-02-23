@@ -121,7 +121,7 @@ class LLaMEA:
             minimization (bool): Whether we minimize or maximize the objective function. Defaults to False.
             _random (bool): Flag to switch to random search (purely for debugging).
             niching (str | None): Niching strategy to use. Supports "sharing",
-                "clearing", and "map_elites". If ``None``, niching is disabled.
+                "clearing", "novelty" and "map_elites". If ``None``, niching is disabled.
             distance_metric (callable | None): Function that computes a distance
                 between two :class:`Solution` objects. Defaults to a simple AST
                 based distance if not supplied.
