@@ -431,8 +431,8 @@ if __name__ == "__main__":
     api_key_gemini = os.getenv("GEMINI_API_KEY")
     api_key_openai = os.getenv("OPENAI_API_KEY")
     llm1 = OpenAI_LLM(api_key_openai, "gpt-5-mini", temperature=1.0)
-    llm2 = Gemini_LLM(api_key_gemini, "gemini-3-flash-preview", temperature=1.0)
-    llm3 = Gemini_LLM(api_key_gemini, "gemini-2.5-flash-lite", temperature=1.0)
+    llm2 = Gemini_LLM(api_key_gemini, "gemini-3-flash-preview")
+    llm3 = Gemini_LLM(api_key_gemini, "gemini-2.5-flash-lite")
     llm4 = Ollama_LLM("devstral-small-2")
     
     #llm = Gemini_LLM(api_key, ai_model)
