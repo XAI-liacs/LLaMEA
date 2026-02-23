@@ -17,7 +17,7 @@ import traceback
 import numpy as np
 import pandas as pd
 
-from llamea import Gemini_LLM, LLaMEA, OpenAI_LLM, Ollama_LLM
+from llamea import Gemini_LLM, LLaMEA, OpenAI_LLM, Ollama_LLM, Multi_LLM
 
 import numpy as np
 import xgboost as xgb
@@ -198,28 +198,6 @@ def preprocess_data(data):
     if has_group:
         data["group"] = group
     return(data)
-
-
-
-# def preprocess_data(data):
-#     has_group = False
-#     if "group" in data:
-#         group = data["group"]
-#         data = data.drop("group", axis=1)
-#         has_group = True
-    
-#     data = data.dropna()
-#     data = data[data.columns.drop(list(data.filter(regex='costs_runtime')))]
-#     #data = data.drop("ela_level.mmce_lda_10", axis=1)
-#     data = data.drop("pca.expl_var_PC1.cor_x", axis=1)
-#     data = data.drop("pca.expl_var_PC1.cov_x", axis=1)
-#     data = data.drop("pca.expl_var.cov_x", axis=1)
-#     data = data.drop("pca.expl_var.cor_x", axis=1)
-    
-    
-#     if has_group:
-#         data["group"] = group
-#     return(data)
 
 
 
@@ -417,7 +395,7 @@ Give a novel Python class with an optimization landscape function and a short de
 
 # "not homogeneous", "not basins"
 
-budget = 50
+budget = 100
 if __name__ == "__main__":
     # use argparse to select the LLM.
     import os
@@ -434,13 +412,8 @@ if __name__ == "__main__":
     parser.add_argument(
         "--ai_model",
         type=str,
-        default="gemma3:12b",
+        default="devstral-small-2",
         help="Select the AI model to use for code generation.",
-    )
-    parser.add_argument(
-        "--share",
-        action="store_true",
-        help="Enable the sharing feature."
     )
     
     args = parser.parse_args()
@@ -454,11 +427,17 @@ if __name__ == "__main__":
     elif args.llm == "ollama": 
         llm = Ollama_LLM(ai_model)
     # Execution code starts here
-    api_key = os.getenv("OPENAI_API_KEY")
-    #api_key = os.getenv("GEMINI_API_KEY")
-    #llm = OpenAI_LLM(api_key,"o4-mini-2025-04-16") #Done
+    #api_key = os.getenv("OPENAI_API_KEY")
+    api_key_gemini = os.getenv("GEMINI_API_KEY")
+    api_key_openai = os.getenv("OPENAI_API_KEY")
+    llm1 = OpenAI_LLM(api_key_openai, "gpt-5-mini", temperature=1.0)
+    llm2 = Gemini_LLM(api_key_gemini, "gemini-3-flash-preview", temperature=1.0)
+    llm3 = Gemini_LLM(api_key_gemini, "gemini-2.5-flash-lite", temperature=1.0)
+    llm4 = Ollama_LLM("devstral-small-2")
     
     #llm = Gemini_LLM(api_key, ai_model)
+
+    llm = Multi_LLM([llm1,llm2,llm3,llm4])
 
     all_features = ["Separable", "GlobalLocal", "Multimodality", "Basins", "Homogeneous"] 
     feature_combinations = []
@@ -476,17 +455,17 @@ if __name__ == "__main__":
 
     # print(len(feature_combinations))
     # exit()
-    for combi in feature_combinations[12:]:
+    for combi in feature_combinations[0:1]:
         niching=None
         experiment_name = f"ELA-{'_'.join([f for f in combi])}"
-        if args.share:
-            niching="sharing"
-            experiment_name = f"ELA-{'_'.join([f for f in combi])}-sharing"
+
+        niching="novelty"
+        experiment_name = f"ELA-{'_'.join([f for f in combi])}-{niching}"
         problem = ELAproblem(name=f"ELA_{'_'.join(combi)}", features=combi, dims=[2,5,10], eval_timeout=1200)
 
         mutation_prompts = []
         for feature in problem.features:
-            mutation_prompts.append(f"Create a new landscape class based on the selected code and improve the {feature} score, meaning: {problem.feature_descriptions[feature]}.")
+            mutation_prompts.append(f"Create a new and novel landscape class based on the selected code and improve the {feature} score, meaning: {problem.feature_descriptions[feature]}.")
         mutation_prompts.append("Create a new landscape class that is completely different from the selected solution but still adheres to the properties outlined in the task description.")
 
         
@@ -494,8 +473,8 @@ if __name__ == "__main__":
         for experiment_i in [1]:
             es = LLaMEA(
                 problem.evaluate_function,
-                n_parents=8,
-                n_offspring=16,
+                n_parents=10,
+                n_offspring=30,
                 llm=llm,
                 task_prompt=problem.task_prompt,
                 example_prompt=problem.example_prompt,
@@ -505,12 +484,11 @@ if __name__ == "__main__":
                 elitism=False,
                 HPO=False,
                 budget=budget,
-                max_workers=4,
+                max_workers=10,
                 parallel_backend="loky",
                 niching=niching,
+                novelty_k=5,
                 distance_metric=ela_distance,
-                niche_radius=0.5,
-                adaptive_niche_radius=True,
                 eval_timeout=3600,
             )
             print(es.run())
