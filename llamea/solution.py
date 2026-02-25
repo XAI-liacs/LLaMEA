@@ -3,6 +3,7 @@ import uuid
 import numpy as np
 import traceback
 from typing import Optional
+from llamea.multi_objective_fitness import Fitness
 
 
 class Solution:
@@ -86,12 +87,12 @@ class Solution:
         return self.metadata[key] if key in self.metadata.keys() else None
 
     def set_scores(
-        self, fitness: float, feedback="", error: Optional[Exception] = None
+        self, fitness: float | Fitness, feedback="", error: Optional[Exception] = None
     ):
         """
             Set the score of current instance of individual.
         Args:
-            `fitness: float`: Fitness/Score of the individual.
+            `fitness: float | Fitness`: Fitness/Score of the individual. It is of type `float` when single objective, or `Fitness` when multi-objective.
             `Feedback: str` feedback for the LLM, suggest improvements or target score.
             `error: Exception`: Exception object encountered during `exec` of the code block.
         """
@@ -111,6 +112,15 @@ class Solution:
             self.error = f"{error_type}: {error_msg}.\n"
             if code_lines:
                 self.error += f"On line {line_no}: {code_line}.\n"
+
+    def get_fitness_vector(self) -> list[float]:
+        if isinstance(self.fitness, Fitness):
+            vector = []
+            for key in sorted(self.fitness.keys()):
+                vector.append(self.fitness[key])
+            return vector
+        else:
+            return [self.fitness]
 
     def get_summary(self):
         """

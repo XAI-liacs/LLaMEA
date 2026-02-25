@@ -16,12 +16,13 @@ from typing import Callable, Optional
 import pickle
 import jsonlines
 
+
 import numpy as np
 from joblib import Parallel, delayed
-
 from .llm import LLM
 from .feature_guidance import FeatureGuidance, compute_feature_guidance
 from .ast_features import extract_ast_features
+from .multi_objective_fitness import Fitness
 
 try:
     from ConfigSpace import ConfigurationSpace
@@ -30,6 +31,7 @@ except ModuleNotFoundError:  # pragma: no cover - optional dependency
 
 from .loggers import ExperimentLogger
 from .solution import Solution
+from .pareto_archive import ParetoArchive
 from .utils import (
     NoCodeException,
     code_distance,
@@ -43,6 +45,9 @@ logging.basicConfig(
     format="%(asctime)s %(levelname)s %(message)s",
     datefmt="%Y-%m-%d %H:%M:%S",
 )
+
+from pymoo.util.nds.non_dominated_sorting import NonDominatedSorting
+from pymoo.operators.survival.rank_and_crowding.metrics import calc_crowding_distance
 
 
 class LLaMEA:
@@ -62,6 +67,8 @@ class LLaMEA:
         task_prompt="",
         example_prompt=None,
         output_format_prompt=None,
+        multi_objective=False,
+        multi_objective_keys: list[str] = [],
         experiment_name="",
         elitism=True,
         HPO=False,
@@ -303,8 +310,6 @@ for i in range(m):
             None if novelty_archive_size is None else max(1, int(novelty_archive_size))
         )
         self.novelty_archive: list[Solution] = []
-        self.best_so_far = Solution(name="", code="")
-        self.best_so_far.set_scores(self.worst_value, "")
         self.experiment_name = experiment_name
         self.parent_selection = parent_selection  # "random" | "roulette" | "tournament"
         self.tournament_size = tournament_size
@@ -319,6 +324,15 @@ for i in range(m):
         if max_workers > self.n_offspring:
             max_workers = self.n_offspring
         self.max_workers = max_workers
+
+        self.multi_objective = multi_objective
+        self.multi_objective_keys = []
+        if self.multi_objective:
+            self.best_so_far = ParetoArchive(minimisation=self.minimization)
+            self.multi_objective_keys = multi_objective_keys
+        else:
+            self.best_so_far = Solution(name="", code="")
+            self.best_so_far = self._ensure_fitness_evaluates([self.best_so_far])[0]
         self.pickle_archive()
 
     @classmethod
@@ -369,7 +383,13 @@ for i in range(m):
             if not self.evaluate_population:
                 new_individual = self.evaluate_fitness(new_individual)
         except Exception as e:
-            new_individual.set_scores(self.worst_value, "", e)
+            if self.multi_objective:
+                fitness = Fitness()
+                for key in self.multi_objective_keys:
+                    fitness[key] = self.worst_value
+                new_individual.set_scores(fitness, feedback="", error=e)
+            else:
+                new_individual.set_scores(self.worst_value, feedback="", error=e)
             self.logevent(f"An exception occured: {traceback.format_exc()}.")
             if hasattr(self.f, "log_individual"):
                 self.f.log_individual(new_individual)
@@ -397,12 +417,12 @@ for i in range(m):
         except Exception as e:
             print(f"Parallel time out in initialization {e}, retrying.")
         for p in population_gen:
-            if math.isnan(p.fitness):
-                p.fitness = self.worst_value
             population.append(p)
 
         if self.evaluate_population:
             population = self.evaluate_population_fitness(population)
+
+        population = self._ensure_fitness_evaluates(population)
 
         for p in population:
             self.run_history.append(p)
@@ -413,6 +433,21 @@ for i in range(m):
         self.generation += 1
         self.population = population  # Save the entire population
         self.update_best()
+
+    def _ensure_fitness_evaluates(self, population: list[Solution]):
+        return_population = []
+        for individual in population:
+            if self.multi_objective:
+                if not isinstance(individual.fitness, Fitness):
+                    fitness = {}
+                    for key in self.multi_objective_keys:
+                        fitness[key] = self.worst_value
+                    individual.fitness = Fitness(fitness)
+            else:
+                if math.isnan(individual.fitness):
+                    individual.fitness = self.worst_value
+            return_population.append(individual)
+        return return_population
 
     def evaluate_fitness(self, individual):
         """
@@ -582,16 +617,19 @@ Feedback:
         """
         Update the best individual in the new population
         """
-        if self.niching == "novelty" or self.minimization == False:
-            best_individual = max(self.population, key=lambda x: x.fitness)
+        if isinstance(self.best_so_far, Solution):
+            if self.niching == "novelty" or self.minimization == False:
+                best_individual = max(self.population, key=lambda x: x.fitness)
 
-            if best_individual.fitness > self.best_so_far.fitness:
-                self.best_so_far = best_individual
+                if best_individual.fitness > self.best_so_far.fitness:
+                    self.best_so_far = best_individual
+            else:
+                best_individual = min(self.population, key=lambda x: x.fitness)
+
+                if best_individual.fitness < self.best_so_far.fitness:
+                    self.best_so_far = best_individual
         else:
-            best_individual = min(self.population, key=lambda x: x.fitness)
-
-            if best_individual.fitness < self.best_so_far.fitness:
-                self.best_so_far = best_individual
+            self.best_so_far.add_solutions(self.population)
 
     def adapt_niche_radius(self, population):
         """Adapt the niche radius based on the current population."""
@@ -832,31 +870,59 @@ Feedback:
         Returns:
             list: List of new selected population.
         """
-        reverse = self.minimization == False
-        if self.niching == "novelty":
-            reverse = True
-        if self.niching == "map_elites":
-            pool = parents + offspring if self.elitism else list(offspring)
-            elites = self.apply_niching(pool)
-            if len(elites) < self.n_parents:
-                remaining = [ind for ind in pool if ind not in elites]
-                remaining.sort(key=lambda x: x.fitness, reverse=reverse)
-                elites = elites + remaining[: self.n_parents - len(elites)]
-            if len(elites) <= self.n_parents:
-                new_population = elites
+        if not self.multi_objective:
+            reverse = self.minimization == False
+            if self.niching == "novelty":
+                reverse = True
+            if self.niching == "map_elites":
+                pool = parents + offspring if self.elitism else list(offspring)
+                elites = self.apply_niching(pool)
+                if len(elites) < self.n_parents:
+                    remaining = [ind for ind in pool if ind not in elites]
+                    remaining.sort(key=lambda x: x.fitness, reverse=reverse)
+                    elites = elites + remaining[: self.n_parents - len(elites)]
+                if len(elites) <= self.n_parents:
+                    new_population = elites
+                else:
+                    new_population = random.sample(elites, self.n_parents)
+            elif self.elitism:
+                combined_population = parents + offspring
+                combined_population = self.apply_niching(combined_population)
+                combined_population.sort(key=lambda x: x.fitness, reverse=reverse)
+                new_population = combined_population[: self.n_parents]
             else:
-                new_population = random.sample(elites, self.n_parents)
-        elif self.elitism:
-            combined_population = parents + offspring
-            combined_population = self.apply_niching(combined_population)
-            combined_population.sort(key=lambda x: x.fitness, reverse=reverse)
-            new_population = combined_population[: self.n_parents]
-        else:
-            offspring = self.apply_niching(list(offspring))
-            offspring.sort(key=lambda x: x.fitness, reverse=reverse)
-            new_population = offspring[: self.n_parents]
+                offspring = self.apply_niching(list(offspring))
+                offspring.sort(key=lambda x: x.fitness, reverse=reverse)
+                new_population = offspring[: self.n_parents]
 
-        return new_population
+            return new_population
+        else:
+            pool: list[Solution] = offspring + parents if self.elitism else offspring
+            fitness_vector = np.array([x.fitness.to_vector() for x in pool])
+            nds = NonDominatedSorting()
+            sorted_pool = []
+            fronts = nds.do(fitness_vector, only_non_dominated_front=False)
+            if not self.minimization:
+                fronts = reversed(fronts)
+            for front in fronts:
+                if len(front) <= self.n_offspring - len(sorted_pool):
+                    sorted_pool += list(map(lambda x: pool[x], front))
+                else:
+                    final_front = list(map(lambda x: pool[x], front))
+                    fitness_vector = np.array(
+                        [x.fitness.to_vector() for x in final_front]
+                    )
+                    crowding_distance = list(
+                        enumerate(calc_crowding_distance(fitness_vector))
+                    )
+                    crowding_distance = sorted(
+                        crowding_distance, key=lambda x: x[1], reverse=True
+                    )
+
+                    sorted_front = [final_front[idx] for idx, _ in crowding_distance]
+                    sorted_pool += sorted_front[: self.n_offspring - len(sorted_pool)]
+                    break
+            return sorted_pool
 
     def evolve_solution(self, individual):
         """
@@ -921,7 +987,7 @@ Feedback:
 
         data = []
         try:
-            with jsonlines.open(f"{archive_path}/log.jsonl") as reader:
+            with jsonlines.open(os.path.join(archive_path, "log.jsonl")) as reader:
                 for obj in reader:
                     data.append(obj)
 
@@ -1050,9 +1116,20 @@ Feedback:
         if self.log:
             self.logger.log_population(self.population)
 
-        self.logevent(
-            f"Started evolutionary loop, best so far: {self.best_so_far.fitness}"
-        )
+        log_message = ""
+        if isinstance(self.best_so_far, Solution):
+            log_message = (
+                f"Started evolutionary loop, best so far: {self.best_so_far.fitness}"
+            )
+        else:
+            fitness_vector = "\n".join(
+                [str(individual.fitness) for individual in self.best_so_far.get_best()]
+            )
+            log_message = (
+                "Started evolutionary loop, best so far: " + fitness_vector + "."
+            )
+
+        self.logevent(log_message)
         if self.feature_guided_mutation:
             self._update_feature_guidance()
         while len(self.run_history) < self.budget:
@@ -1082,6 +1159,7 @@ Feedback:
             if self.evaluate_population:
                 new_population = self.evaluate_population_fitness(new_population)
 
+            new_population = self._ensure_fitness_evaluates(new_population)
             for p in new_population:
                 self.run_history.append(p)
 
@@ -1093,16 +1171,30 @@ Feedback:
             # Update population and the best solution
             self.population = self.selection(self.population, new_population)
             self.update_best()
-            self.logevent(
-                f"Generation {self.generation}, best so far: {self.best_so_far.fitness}"
-            )
+            log_message = ""
+            if isinstance(self.best_so_far, Solution):
+                log_message = f"Generation {self.generation}, best so far: {self.best_so_far.fitness}"
+            else:
+                fitness_vector = "\n".join(
+                    [
+                        str(individual.fitness)
+                        for individual in self.best_so_far.get_best()
+                    ]
+                )
+                log_message = (
+                    f"Generation {self.generation}, best so far: "
+                    + fitness_vector
+                    + "."
+                )
+            self.logevent(log_message)
 
             if self.feature_guided_mutation:
                 self._update_feature_guidance()
 
             ## Archive progress.
             self.pickle_archive()
-
+        if self.multi_objective:
+            return self.best_so_far.get_best()
         return self.best_so_far
 
     def _find_unpicklable(self, obj, path="root"):

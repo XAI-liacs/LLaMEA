@@ -8,6 +8,7 @@ import numpy as np
 import math
 
 from llamea.solution import Solution
+from llamea.multi_objective_fitness import Fitness
 
 try:
     from ConfigSpace.read_and_write import json as cs_json
@@ -28,6 +29,8 @@ def convert_to_serializable(data):
         return float(data)
     if isinstance(data, np.ndarray):
         return data.tolist()
+    if isinstance(data, Fitness):
+        return data.to_dict()
     else:
         return data
 
