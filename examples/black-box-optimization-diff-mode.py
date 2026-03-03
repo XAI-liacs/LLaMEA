@@ -1,14 +1,19 @@
 # This is a minimal example of how to use the LLaMEA algorithm with the Gemini LLM to generate optimization algorithms for the BBOB test suite.
+
 # We have to define the following components for LLaMEA to work:
 # - An evaluation function that executes the generated code and evaluates its performance.
 # - A task prompt that describes the problem to be solved.
 # - An LLM instance that will generate the code based on the task prompt.
 
+# This example uses diff mode for implementing the changes.
+#   The program will alert you, when LLM refuses to adhere to diff mode implementation requirements and will immediately roll back to
+#   code replacement, without making new request for that iteration.
+
 import os
-import pickle
 
 import numpy as np
 from ioh import get_problem, logger
+
 
 from llamea import Gemini_LLM, LLaMEA
 from llamea.utils import prepare_namespace, clean_local_namespace
@@ -26,18 +31,18 @@ if __name__ == "__main__":
     def evaluateBBOB(solution, explogger=None):
         auc_mean = 0
         auc_std = 0
-
+        
         code = solution.code
         algorithm_name = solution.name
-        feedback=""
-        possible_issue = None
         local_ns = {}
+
         try:
             global_ns, possible_issue = prepare_namespace(code, allowed=["numpy"], logger=explogger)
             exec(code, global_ns, local_ns)
             local_ns = clean_local_namespace(local_ns, global_ns)
 
         except Exception as e:
+            feedback = ""
             if possible_issue:
                 feedback = f" {possible_issue}."
             solution.set_scores(float("-inf"), feedback, e)
@@ -71,7 +76,7 @@ if __name__ == "__main__":
         auc_mean = np.mean(aucs)
         auc_std = np.std(aucs)
 
-        feedback = f"The algorithm {algorithm_name} got an average Area over the convergence curve (AOCC, 1.0 is the best) score of {auc_mean:0.4f} with standard deviation {auc_std:0.4f}."
+        feedback = f"The algorithm {algorithm_name} got an average Area over the convergence curve (AOCC, 1.0 is the best) score of {auc_mean:0.2f} with standard deviation {auc_std:0.2f}."
 
         print(algorithm_name, algorithm, auc_mean, auc_std)
         solution.add_metadata("aucs", aucs)
@@ -97,6 +102,7 @@ if __name__ == "__main__":
             experiment_name=experiment_name,
             elitism=True,
             HPO=False,
-            budget=100
+            budget=25,
+            diff_mode=True,
         )
         print(es.run())

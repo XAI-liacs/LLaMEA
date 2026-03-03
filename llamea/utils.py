@@ -1,10 +1,11 @@
-import ast
 import re
-from difflib import SequenceMatcher
-from typing import List
-import numpy as np
-import subprocess
 import os
+import ast
+import importlib
+import jsonlines
+import numpy as np
+from typing import Any, Optional
+from difflib import SequenceMatcher
 
 
 class NoCodeException(Exception):
@@ -18,92 +19,76 @@ def handle_timeout(signum, frame):
     raise TimeoutError
 
 
-def apply_unified_diff(text: str, diff: str) -> str:
+def _code_updater(code: str, lines_to_change: list[str], updated_lines: list[str]):
+    """Line by line update code, and return the update.
+    Args:
+        code: Current code in the individual.
+        lines_to_change: A list of lines to be changed by the LLM.
+        updated_lines: Lines to replace the `lines_to_update`.
+
     """
-    Apply a unified diff to the given text using the system `patch` command.
+    if len(lines_to_change) != len(updated_lines):
+        raise ValueError
+    for i in range(len(lines_to_change)):
+        code = code.replace(
+            lines_to_change[i], updated_lines[i], 1
+        )  # Update one occurance of lines_to_change, to corresponding change.
+    return code
 
-    This delegates all parsing and application logic to the external `patch`
-    utility, which is far more robust than a hand-rolled parser. It handles
-    context mismatches, fuzz factors, and edge cases like missing EOF newlines.
 
-    ```text
-    ┌─────────────┐
-    │   INPUT     │
-    │  text:str   │──┐
-    └─────────────┘  │
-                     ▼
-               ┌───────────┐
-               │ tempfile  │  → holds original text
-               └───────────┘
-                     │
-                     ▼
-              ┌──────────────┐
-              │  patch cmd   │ ← receives unified diff on stdin
-              └──────────────┘
-                     │
-                     ▼
-               ┌───────────┐
-               │ tempfile  │ → now contains patched text
-               └───────────┘
-                     │
-                     ▼
-                patched:str
+def apply_code_delta(text: str, base_code: str) -> tuple[str, bool, float]:
+    """
+    Assuming the LLM follows the intructions properly, following format of response is expected.
+    ```diff <- (diff may appear sometimes.)
+    # A series of following search replace pattern will appear.
+    <<<<<<< SEARCH
+    for i in range(m):
+        for j in range(p):
+            for k in range(n):
+                C[i, j] += A[i, k] * B[k, j]
+    =======
+    # Reorder loops for better memory access pattern
+    for i in range(m):
+        for k in range(n):
+            for j in range(p):
+                C[i, j] += A[i, k] * B[k, j]
+    >>>>>>> REPLACE
     ```
 
     Args:
-        text: The original text to patch.
-        diff: The unified diff (as produced by `git diff`, `difflib.unified_diff`, etc.).
-        strip: Optional `-p` value to pass to `patch` (number of path segments to strip).
-               Useful if the diff contains file paths you want ignored.
-
+        text: LLM response.text.
+        base_code: Base code to be mutated.
     Returns:
-        The patched text as a string.
-
-    Raises:
-        subprocess.CalledProcessError: If `patch` fails and returns a nonzero exit code.
-        FileNotFoundError: If `patch` is not installed.
+        Code: updated code, after applying diff.
+        bool: Success of diff mode implementation.
+        float: Ratio of new code similar to the original `base_code`.
     """
-    import tempfile
-
-    # check that the text ends in a newline
-
-    if not text.endswith("\n"):
-        text += "\n"
-
-    d = diff.lstrip()
-    if not d.startswith("--- "):
-        diff = f"--- a\n+++ a\n{diff}"
-
-    # Ensure diff ends with a newline too
-    if not diff.endswith("\n"):
-        diff += "\n"
-
-    tf = tempfile.NamedTemporaryFile("w+", delete=False)
+    outLines = []
+    inLines = []
     try:
-        tf.write(text)
-        tf.flush()
-        path = tf.name
-    finally:
-        tf.close()  # critical: allow patch to replace the file
-
-    try:
-        proc = subprocess.run(
-            ["patch", "-u", path],
-            input=diff.encode("utf-8"),
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
+        pattern = re.compile(
+            r"(?s)<{3,}\s*SEARCH\s*\n(.*?)\n={3,}\s*\n(.*?)(?=\n>{3,}\s*REPLACE)"
         )
-        # Now read the (possibly replaced) file from disk
-        with open(path, "r", encoding="utf-8") as f:
-            newcode = f.read()
-            # finally, remove the temporary file
-    finally:
-        # Clean up even if patch failed
-        try:
-            os.unlink(path)
-        except FileNotFoundError:
-            pass
-    return newcode
+        matches = pattern.findall(text)
+        if len(matches) == 0:
+            print(
+                "WARNING: LLM didn't adhere to search replace pattern. Try bigger model."
+            )
+            raise ValueError
+
+        for search, replace in matches:
+            outLines.append(search)
+            inLines.append(replace)
+
+        code = _code_updater(base_code, outLines, inLines)
+
+        seq_match = SequenceMatcher(None, code, base_code)
+        ratio = seq_match.ratio()
+
+        return code, True, ratio
+
+    except Exception:
+        return base_code, False, 1.0
 
 
 def discrete_power_law_distribution(n, beta):
@@ -163,3 +148,134 @@ def code_distance(a, b):
         return 1 - SequenceMatcher(None, ast.dump(tree_a), ast.dump(tree_b)).ratio()
     except Exception:
         return 1.0
+
+
+def _collect_imports(code: str):
+    """Collect import info from code using AST.
+
+    Args:
+        `code: str` The source code as a string.
+    Returns:
+        `imports: [{str: str | None}]`: A list of import symbols, containing import type "from" | "import",
+            module name in "module", sub module name in "name", and alias name-followed by `as` keyword--in "alias".
+    """
+    tree = ast.parse(code)
+    imports = []
+
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            for alias in node.names:
+                imports.append(
+                    {"type": "import", "module": alias.name, "alias": alias.asname}
+                )
+        elif isinstance(node, ast.ImportFrom):
+            for alias in node.names:
+                imports.append(
+                    {
+                        "type": "from",
+                        "module": node.module,
+                        "name": alias.name,
+                        "alias": alias.asname,
+                    }
+                )
+    return imports
+
+
+def _add_builtins_into(allowed_list: list[str]):
+    """
+    Adds safe `__builtins__` library to allowed_list.
+
+    Args:
+        `allowed_list: list[str]: ` A list of allowed libraries, that are pip installable.
+
+    Returns:
+        `None` (Uses reference semantics to add `__builtins__` to `allowed_list`).
+    """
+    allowed_list += ["math", "random", "statistics", "itertools", "operator", "heapq"]
+
+
+def prepare_namespace(
+    code: str, allowed: list[str], logger: Any = None
+) -> tuple[dict[str, Any], Optional[str]]:
+    """Prepare exec global_namespace, with the libraries imported in the text, `code` parameter accepts.
+        If the imports are not allowed in the environment, a generic object is provided.
+
+    ### Args:
+        `code: str`: Code parameter that is to be passed to `exec` function.
+
+        `allowed: list[str]`: A list of allowed pip installable libraries, that are acceptable to be imported.
+
+        `logger: Any`: Logger with `log_import_fail(list[str])` method in it, LLaMEA has this feature in llamea.loggers.ExperimentLogger.
+
+    ### Returns:
+        Returns a prepared global_namespace dictionary for exec, of type `dict[str, Any]`, along with an str,
+        `potential_issue`, which can be passed out to feedback to LLM when `exec` throws.
+
+    """
+    ns = {}
+    imports = _collect_imports(code)
+
+    allowed = allowed.copy()
+    allowed = list(map(lambda x: x.split(">")[0], allowed))
+    _add_builtins_into(allowed)
+    not_allowed: list[str] = []
+
+    for imp in imports:
+        if imp["type"] == "import":
+            module = imp["module"]
+
+            if allowed and not any(
+                module == a or module.startswith(a + ".") for a in allowed
+            ):
+                ns[imp["alias"] or module.split(".")[0]] = object
+                not_allowed.append(imp["module"])
+            else:
+                mod = importlib.import_module(module)
+                ns[imp["alias"] or module.split(".")[0]] = mod
+
+        elif imp["type"] == "from":
+            module = imp["module"]
+
+            if allowed and not any(
+                module == a or module.startswith(a + ".") for a in allowed
+            ):
+                ns[imp["alias"] or imp["name"]] = object
+                not_allowed.append(imp["module"])
+            else:
+                mod = importlib.import_module(module)
+                obj = getattr(mod, imp["name"])
+                ns[imp["alias"] or imp["name"]] = obj
+
+    potential_issue = None
+
+    if logger:
+        try:
+            logger.log_import_fails(not_allowed)
+        except Exception as e:
+            print("Provided logger doesn't have log_import_fail", e.__repr__())
+
+    if len(not_allowed) > 0:
+        potential_issue = (
+            ", ".join(not_allowed)
+            + f" {'are' if len(not_allowed) > 1 else 'is'} currently not allowed to be imported in this framework."
+        )
+    return (ns, potential_issue)
+
+
+def clean_local_namespace(
+    local_namespace: dict[str, Any], global_namespace: dict[str, Any]
+):
+    """The exec command upon execution, adds global_namespace parameters to local_namespace parameters.
+    This function returns local_ns - gobal_ns, so that sweeping for object type never returns a library imported objects.
+
+    Args:
+        `local_namespace : dict[str, Any]`: Dictionary that was passed as local_namespace to `exec` block.
+        `global_namespace : dict[str, Any]`: Dictionary/Mapping passed as global_namespace to `exec` block.
+
+    Returns:
+        Original `local_namespace`, that is `local_namespace` - `global_namespace`.
+    """
+    for key in global_namespace:
+        if key in local_namespace:
+            local_namespace.pop(key)
+    return local_namespace

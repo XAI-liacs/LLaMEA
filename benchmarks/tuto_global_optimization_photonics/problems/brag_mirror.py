@@ -34,17 +34,19 @@ class brag_mirror(photonic_problem):
         """
         x = list(x)
         # n = len(x)
-        materials = [self.mat_env**2, self.mat1 **
-                     2, self.mat2**2]  # permittivities!
+        materials = [
+            self.mat_env**2,
+            self.mat1**2,
+            self.mat2**2,
+        ]  # permittivities!
         # periodic stack. first layer: environment, last layer: substrate
-        stack = [0] + [2, 1] * (self.n//2) + [2]
-        thicknesses = [0.] + x + [0.]
-        structure = pm.Structure(
-            materials, stack, np.array(thicknesses), verbose=False)
+        stack = [0] + [2, 1] * (self.n // 2) + [2]
+        thicknesses = [0.0] + x + [0.0]
+        structure = pm.Structure(materials, stack, np.array(thicknesses), verbose=False)
         return structure
 
     def __call__(self, x):
-        """ cost function: maximize reflectance of a layer-stack
+        """cost function: maximize reflectance of a layer-stack
 
         Args:
             x (list): thicknesses of all the layers, starting with the upper one.
@@ -55,7 +57,7 @@ class brag_mirror(photonic_problem):
         x = np.clip(x, self.lb, self.ub)
         structure = self.setup_structure(x)
         # the actual PyMoosh reflectivity simulation
-        _, R = pm.coefficient_I(structure, self.target_wl, 0., 0)
+        _, R = pm.coefficient_I(structure, self.target_wl, 0.0, 0)
         cost = 1 - R
 
         return cost

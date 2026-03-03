@@ -1,7 +1,9 @@
 import json
 import uuid
-
 import numpy as np
+import traceback
+from typing import Optional
+from llamea.multi_objective_fitness import Fitness
 
 
 class Solution:
@@ -40,13 +42,21 @@ class Solution:
         self.description = description
         self.configspace = configspace
         self.generation = generation
-        self.fitness = -np.inf
+        self.fitness = float("nan")
         self.feedback = ""
         self.error = ""
         self.parent_ids = parent_ids
         self.metadata = {}  # Dictionary to store additional metadata
         self.operator = operator
         self.task_prompt = task_prompt
+
+    def __getstate__(self):
+        return self.to_dict()
+
+    def __setstate__(self, state):
+        self.__dict__.update(state)
+        if self.configspace == "":
+            self.configspace = None
 
     def set_operator(self, operator):
         """
@@ -76,10 +86,41 @@ class Solution:
         """
         return self.metadata[key] if key in self.metadata.keys() else None
 
-    def set_scores(self, fitness, feedback="", error=""):
+    def set_scores(
+        self, fitness: float | Fitness, feedback="", error: Optional[Exception] = None
+    ):
+        """
+            Set the score of current instance of individual.
+        Args:
+            `fitness: float | Fitness`: Fitness/Score of the individual. It is of type `float` when single objective, or `Fitness` when multi-objective.
+            `Feedback: str` feedback for the LLM, suggest improvements or target score.
+            `error: Exception`: Exception object encountered during `exec` of the code block.
+        """
         self.fitness = fitness
         self.feedback = feedback
-        self.error = error
+
+        if error:
+            tb = traceback.extract_tb(error.__traceback__)[-1]
+            line_no = tb.lineno
+            code_line = ""
+
+            code_lines = self.code.split("\n")
+            if line_no and len(code_lines) >= line_no:
+                code_line = code_lines[line_no - 1]
+            error_type = type(error).__name__
+            error_msg = str(error)
+            self.error = f"{error_type}: {error_msg}.\n"
+            if code_lines:
+                self.error += f"On line {line_no}: {code_line}.\n"
+
+    def get_fitness_vector(self) -> list[float]:
+        if isinstance(self.fitness, Fitness):
+            vector = []
+            for key in sorted(self.fitness.keys()):
+                vector.append(self.fitness[key])
+            return vector
+        else:
+            return [self.fitness]
 
     def get_summary(self):
         """
@@ -107,6 +148,8 @@ class Solution:
             operator=self.operator,
             task_prompt=self.task_prompt,
         )
+        new_solution.feedback = self.feedback
+        new_solution.error = self.error
         new_solution.metadata = self.metadata.copy()  # Copy the metadata as well
         return new_solution
 

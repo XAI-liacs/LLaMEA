@@ -1,4 +1,4 @@
-class photonic_problem():
+class photonic_problem:
     def __init__(self):
         self.n = None
 

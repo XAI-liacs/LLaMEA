@@ -102,12 +102,14 @@ for problem in ["BP", "TSP", "BBO"]:
     # Separate metadata and features
     metadata_cols = ["fitness", "LLM", "exp_dir", "alg_id"]
 
-    complexity_cols = ["mean_complexity",
+    complexity_cols = [
+        "mean_complexity",
         "total_complexity",
         "mean_token_count",
         "total_token_count",
         "mean_parameter_count",
-        "total_parameter_count"]
+        "total_parameter_count",
+    ]
 
     if "code_diff" in data.columns:
         metadata_cols.append("code_diff")
@@ -128,8 +130,7 @@ for problem in ["BP", "TSP", "BBO"]:
     # Standardize features for PCA/tSNE
     scaler = StandardScaler()
     features_scaled = scaler.fit_transform(features)
-    #print("Features:", len(features.columns), features.columns)
-
+    # print("Features:", len(features.columns), features.columns)
 
     # Create a 2D projection using PCA
     pca = PCA(n_components=2)
@@ -657,7 +658,9 @@ for problem in ["BP", "TSP", "BBO"]:
         y_pred = rf.predict(X_test)
         mse = mean_squared_error(y_test, y_pred)
         r2_rf = rf.score(X_test, y_test)
-        print(problem, f"Random Forest Model Performance: MSE: {mse:.4f} R^2: {r2_rf:.4f}")
+        print(
+            problem, f"Random Forest Model Performance: MSE: {mse:.4f} R^2: {r2_rf:.4f}"
+        )
 
         # Plot feature importances
         importances = rf.feature_importances_

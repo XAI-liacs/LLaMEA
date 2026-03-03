@@ -4,8 +4,18 @@ from .photonic_problem import photonic_problem
 
 
 class sophisticated_antireflection_design(photonic_problem):
-    def __init__(self, nb_layers, min_thick, max_thick, wl_min, wl_max,
-                 thick_aSi=30000, number_pts=300, pola=0, incidence=0):
+    def __init__(
+        self,
+        nb_layers,
+        min_thick,
+        max_thick,
+        wl_min,
+        wl_max,
+        thick_aSi=30000,
+        number_pts=300,
+        pola=0,
+        incidence=0,
+    ):
         super().__init__()
         self.n = nb_layers
         self.nb_layers = nb_layers
@@ -34,17 +44,16 @@ class sophisticated_antireflection_design(photonic_problem):
         """
         x = list(x)
         # available materials (alternating eps=2 and eps=3)
-        materials = [1., 2., 3., "SiA"]
+        materials = [1.0, 2.0, 3.0, "SiA"]
         # material sequence of layer-stack
-        stack = [0] + [1, 2] * (self.n//2) + [3]
+        stack = [0] + [1, 2] * (self.n // 2) + [3]
         # thicknesses of layers
         thicknesses = [0] + x + [self.thick_aSi]
-        structure = pm.Structure(
-            materials, stack, np.array(thicknesses), verbose=False)
+        structure = pm.Structure(materials, stack, np.array(thicknesses), verbose=False)
         return structure
 
     def __call__(self, x):
-        """ cost function: (negative) efficiency of solar cell
+        """cost function: (negative) efficiency of solar cell
 
         Args:
             x (list): materials (first half) & thicknesses (second half) of all
@@ -57,9 +66,15 @@ class sophisticated_antireflection_design(photonic_problem):
         x = np.clip(x, self.lb, self.ub)
         structure = self.setup_structure(x)
         # the actual PyMoosh reflectivity simulation
-        active_lay = len(x)+1
-        eff, _, _, _, _, _ = pm.photo(structure, self.incidence, self.pola,
-                                      self.wl_min, self.wl_max, active_lay,
-                                      self.number_pts)
+        active_lay = len(x) + 1
+        eff, _, _, _, _, _ = pm.photo(
+            structure,
+            self.incidence,
+            self.pola,
+            self.wl_min,
+            self.wl_max,
+            active_lay,
+            self.number_pts,
+        )
         cost = 1 - eff
         return cost

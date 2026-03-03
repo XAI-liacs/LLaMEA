@@ -1,0 +1,32 @@
+[project]
+name = "llamea-lite"
+version = "1.2.0"
+description = "LLaMEA without bundled LLM or HPO dependencies"
+authors = [{ name = "Niki van Stein", email = "n.van.stein@liacs.leidenuniv.nl" }]
+requires-python = ">=3.11, <4"
+readme = "README.md"
+license = "MIT"
+dependencies = [
+    "numpy>=2,<3",
+    "ollama>=0.5.3,<1",
+    "tqdm>=4.66.4,<5",
+    "jsonlines>=4.0.0,<5",
+    "joblib>=1.4.2,<2",
+]
+
+[project.urls]
+Homepage = "https://github.com/XAI-liacs/LLaMEA"
+Repository = "https://github.com/XAI-liacs/LLaMEA"
+
+[tool.uv]
+default-groups = []
+
+[tool.hatch.build.targets.wheel]
+packages = ["llamea"]
+
+[tool.hatch.build.targets.sdist]
+packages = ["llamea"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
