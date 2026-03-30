@@ -1172,7 +1172,7 @@ Feedback:
             self.population = self.selection(self.population, new_population)
             self.update_best()
             log_message = ""
-            if isinstance(self.best_so_far, Solution):
+            if not isinstance(self.best_so_far, ParetoArchive):
                 log_message = f"Generation {self.generation}, best so far: {self.best_so_far.fitness}"
             else:
                 fitness_vector = "\n".join(
@@ -1182,9 +1182,7 @@ Feedback:
                     ]
                 )
                 log_message = (
-                    f"Generation {self.generation}, best so far: "
-                    + fitness_vector
-                    + "."
+                    f"Generation {self.generation}, best so far: {fitness_vector}."
                 )
             self.logevent(log_message)
 
