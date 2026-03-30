@@ -15,6 +15,7 @@ dependencies = [
     "configspace>=1.2.0,<2",
     "google-genai>=1,<2",
     "joblib>=1.4.2,<2",
+    "pymoo>=0.6.1",
     "lizard>=1.17.13,<2",
     "networkx>=3.4.2,<4",
     "xgboost>=2.1.1,<3",
