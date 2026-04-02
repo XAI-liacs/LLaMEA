@@ -1,3 +1,12 @@
+"""Multi-objective LLaMEA example on a synthetic TSP variant.
+
+This script shows how to:
+1. Evaluate generated code against two objectives (Distance and Fuel).
+2. Return objective values using ``Fitness``.
+3. Run LLaMEA with ``multi_objective=True`` and objective keys.
+4. Read final non-dominated solutions from ``ParetoArchive``.
+"""
+
 import os
 import random
 from typing import Optional
@@ -26,6 +35,7 @@ class Location:
 
 
 def generate_tsp_test(seed: Optional[int] = None, size: int = 10):
+    """Generate a depot and customer set for the synthetic TSP task."""
     if seed is not None:
         random.seed(seed)
     depot = Location(0, 50, 50, 0)
@@ -46,6 +56,12 @@ for customer in customers:
     referable_dict[customer.id] = customer
 
 def evaluate(solution: Solution, explogger: Optional[ExperimentLogger] = None):
+    """Evaluate generated solver code on a two-objective TSP benchmark.
+
+    The generated class must return a permutation of customer ids. The evaluator
+    validates the route, computes total travel distance and load-dependent fuel
+    usage, then stores a ``Fitness`` object with both objectives.
+    """
     code = solution.code
 
     global_ns, issues = prepare_namespace(
@@ -180,7 +196,8 @@ class Multi_Objective_TSP:
         return customer_ids
 """
 
-    llamea_inst = LLaMEA(f=evaluate, 
+    # Multi-objective mode returns a Pareto archive instead of a single winner.
+    llamea_inst = LLaMEA(f=evaluate,
            llm=llm,
            multi_objective=True,
            max_workers=3,
@@ -192,10 +209,11 @@ class Multi_Objective_TSP:
            example_prompt=example_prompt,
             experiment_name="MOO-TSP",
             minimization=True,
-            budget=27
+           budget=27
            )
 
     solutions = llamea_inst.run()
+    # Keep only the final non-dominated set for reporting/inspection.
     if isinstance(solutions, ParetoArchive):
         solutions = solutions.get_best()
 

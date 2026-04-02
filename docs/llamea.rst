@@ -15,6 +15,9 @@ Recent features include:
   instead of entire source files from the LLM. This is more token efficient for large code bases.
 * **Population evaluation** – with ``evaluate_population=True`` the evaluation
   function ``f`` operates on lists of solutions, allowing batch evaluations.
+* **Multi-objective mode** – set ``multi_objective=True`` and provide
+  ``multi_objective_keys=[...]`` to optimize multiple objectives and maintain a
+  Pareto archive instead of a single best solution.
 * **Warm start** -With every iteration, **LLaMEA** archives its latest run in
     `<experiment_log_directory>/llamea_config.pkl`. The framework provides
     **``warm_start`` class methods** that allow you to resume from a previously
@@ -52,6 +55,8 @@ The most important keyword arguments of :class:`LLaMEA` are summarised below.
      - Prompt engineering controls.
    * - ``mutation_prompts`` / ``adaptive_mutation`` / ``adaptive_prompt``
      - Mutation and prompt adaptation settings.
+   * - ``multi_objective`` / ``multi_objective_keys``
+     - Enable Pareto-based optimization and define objective names.
    * - ``budget`` / ``eval_timeout`` / ``max_workers`` / ``parallel_backend``
      - Runtime and parallelisation controls.
    * - ``log`` / ``experiment_name``
