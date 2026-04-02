@@ -44,6 +44,7 @@ from .solution import Solution
 from .utils import NoCodeException, apply_code_delta
 from .diffmodemanager import DiffModeManager
 
+
 class LLM(ABC):
     def __init__(
         self,
@@ -157,7 +158,7 @@ class LLM(ABC):
             self.logger.log_conversation(self.model, message)
 
         code = self.extract_algorithm_code(message)
-        
+
         if diff_mode and isinstance(base_code, str):
             dfm = DiffModeManager(base_code, code)
             code = dfm()
