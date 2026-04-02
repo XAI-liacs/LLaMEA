@@ -11,9 +11,9 @@ class Mutation:
     lc: int
 
     def __repr__(self):
-        return (
-            f"\n{'\n'.join(self.search)}->{'\n'.join(self.replacement)} @LC : {self.lc}"
-        )
+        search = "\n".join(self.search)
+        replace = "\n".join(self.replacement)
+        return f"\n{search}->{replace} @LC : {self.lc}"
 
 
 class DiffModeManager:
