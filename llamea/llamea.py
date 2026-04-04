@@ -110,6 +110,14 @@ class LLaMEA:
             task_prompt (str): A prompt describing the task for the language model to generate optimization algorithms.
             example_prompt (str): An example prompt to guide the language model in generating code (or None for default).
             output_format_prompt (str): A prompt that specifies the output format of the language model's response.
+            multi_objective (bool): Enable multi-objective optimization mode.
+                When set to ``True``, the evaluation function should assign a
+                :class:`~llamea.multi_objective_fitness.Fitness` object via
+                :meth:`~llamea.solution.Solution.set_scores`.
+            multi_objective_keys (list[str]): Ordered objective names used by
+                the multi-objective pipeline (e.g. ``["Distance", "Fuel"]``).
+                Each key must be present in every returned
+                :class:`~llamea.multi_objective_fitness.Fitness` object.
             experiment_name (str): The name of the experiment for logging purposes.
             elitism (bool): Flag to decide if elitism should be used in the evolutionary process.
             HPO (bool): Flag to decide if hyper-parameter optimization is part of the evaluation function.

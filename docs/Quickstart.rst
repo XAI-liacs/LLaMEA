@@ -31,8 +31,9 @@ Quick Start
 Examples
 --------
 
-Below are three example scripts demonstrating LLaMEA in action for black-box
-optimization with a BBOB (24 noiseless) function suite, and one Automated Machine Learning use-case.   
+Below are four example scripts demonstrating LLaMEA in action for black-box
+optimization with a BBOB (24 noiseless) function suite, a multi-objective
+optimization workflow, and one Automated Machine Learning use-case.
 One of the black-box optimization scripts (`example.py`) runs basic LLaMEA, while the other (`example_HPO.py`) incorporates
 a **hyper-parameter optimization** pipeline—known as **LLaMEA-HPO**—that employs
 SMAC to tune the algorithm’s parameters in the loop.
@@ -125,3 +126,34 @@ In this example, a basic classification task on the breast-cancer dataset from s
 .. note::
    Adjust the model name (`ai_model`) or API key as needed in the script.
    You can easily change the dataset, task and evaluation function to fit your needs.
+
+
+Running ``multi_objective.py``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+**``multi_objective.py``** demonstrates Pareto-based optimization with
+LLaMEA on a synthetic Travelling Salesman Problem variant that optimizes
+two conflicting objectives:
+
+- **Distance**: total route length.
+- **Fuel**: route cost with load-dependent fuel consumption.
+
+The example highlights:
+
+- Returning a :class:`~llamea.multi_objective_fitness.Fitness` object from
+  the evaluator.
+- Enabling ``multi_objective=True`` in :class:`~llamea.llamea.LLaMEA`.
+- Passing ``multi_objective_keys=["Distance", "Fuel"]`` so objective values
+  are tracked consistently.
+- Receiving a :class:`~llamea.pareto_archive.ParetoArchive` and extracting the
+  final non-dominated set.
+
+How to run:
+
+.. code-block:: bash
+
+   python multi_objective.py
+
+.. note::
+   The script defaults to an Ollama model (``gemma3:12b``). Update the LLM
+   backend and credentials to match your local setup.
