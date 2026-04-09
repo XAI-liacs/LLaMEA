@@ -154,13 +154,15 @@ task_prompt = (
     game_info
     + "\nImplement a Python agent for the Planet Wars RTS game. The agent should"
     + " inherit from `agents.planet_wars_agent.PlanetWarsPlayer` and implement"
-    + " the `get_action` and `get_agent_type` methods. Focus on robust"
-    + " behaviour across different game setups."
+    + " the `get_action` and `get_agent_type` methods. The agent should perform robustly"
+    + " across different game setups."
 )
 
 feedback_prompts = [
-    "Either refine or redesign to improve the solution (and give it a distinct one-line description and distinct name).",
-    "Improve the solution by addressing its weaknesses and enhancing its performance. Give it a distinct one-line description and distinct name.",
+    "Refine and simplify the selected agent in order to improve its strategy (and give it a distinct one-line description and distinct name).",
+    "Design a new agent that is aimed to defeat the given agent using the knowledge of its strategy (and give it a distinct one-line description and distinct name).",
+    "Improve the agent by tuning or adding heuristics. Give it a distinct one-line description and distinct name.",
+    "Make the selected agent more sofisticated, for example by doing a fast forward simulation or other planning based tactic.",
     "Given the list of already implemented agents, generate a new agent that is completely different from the existing ones. Give it a distinct one-line description and distinct name.",
 ]
 
@@ -230,26 +232,28 @@ if __name__ == "__main__":
 
 
 if __name__ == "__main__":
-    api_key = os.getenv("GEMINI_API_KEY")
+    #api_key = os.getenv("GEMINI_API_KEY")
     openai_api_key = os.getenv("OPENAI_API_KEY")
 
 
-    llm1 = Gemini_LLM(api_key, "gemini-2.0-flash")
-    llm2 = OpenAI_LLM(openai_api_key, "gpt-5-2025-08-07", temperature=1.0)
-    llm3 = Gemini_LLM(api_key, "gemini-2.5-pro")
-    llm4 = Gemini_LLM(api_key, "gemini-2.5-flash")
+    #llm1 = Gemini_LLM(api_key, "gemini-2.0-flash")
+    
+    llm = OpenAI_LLM(openai_api_key, "gpt-5.2-2025-12-11", temperature=1.0)
+    #llm = OpenAI_LLM(openai_api_key, "gpt-5-nano-2025-08-07", temperature=1.0)
+    #llm3 = Gemini_LLM(api_key, "gemini-2.5-pro")
+    #llm4 = Gemini_LLM(api_key, "gemini-2.5-flash")
     
 
-    mllm = Multi_LLM(llms=[llm1,llm2,llm4])
+    #mllm = Multi_LLM(llms=[llm1,llm2,llm4])
 
     es = LLaMEA(
         evaluate_tournament,
-        llm=mllm,
+        llm=llm,
         n_parents=4,
         n_offspring=6,
-        budget=200,
+        budget=100,
         diff_mode=False,
-        experiment_name="planetwars-sharing",
+        experiment_name="planetwars-sharing-got52",
         role_prompt=role_prompt,
         task_prompt=task_prompt,
         example_prompt=example_prompt,
@@ -258,8 +262,8 @@ if __name__ == "__main__":
         elitism=True,
         adaptive_prompt=False,
         max_workers=4,
-        niching= "sharing",
-        adaptive_niche_radius= True,
+        parent_selection = "tournament",
+        tournament_size=2
     )
 
     print(es.run())
