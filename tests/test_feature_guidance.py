@@ -76,9 +76,9 @@ def test_feature_guidance_prefers_increasing_complexity():
         _make_solution(_wrap_body(NESTED_BODY), 1.2),
         _make_solution(_wrap_body(NESTED_BODY + SIMPLE_BODY), 1.5),
     ]
-
+    print("Solutions: ", solutions)
     guidance = compute_feature_guidance(solutions, minimization=False)
-
+    print('Guidance: ', guidance)
     assert guidance is not None
     assert guidance.action == "increase"
     assert guidance.message

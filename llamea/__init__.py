@@ -18,3 +18,4 @@ from .utils import (
     prepare_namespace,
     clean_local_namespace,
 )
+from .multi_objective_fitness import Fitness
