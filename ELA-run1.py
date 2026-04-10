@@ -427,44 +427,8 @@ Give a novel Python class with an optimization landscape function and a short de
 budget = 300
 DEBUG = False
 if __name__ == "__main__":
-    # use argparse to select the LLM.
+    # run multiple local llm runs
     import os
-    import argparse
-    parser = argparse.ArgumentParser(description="Run ELA problem with LLaMEA.")
-    parser.add_argument(
-        "--llm",
-        type=str,
-        choices=["openai", "gemini", "ollama", "multi"],
-        default="ollama",
-        help="Select the LLM to use for code generation.",
-
-    )
-    parser.add_argument(
-        "--ai_model",
-        type=str,
-        default="devstral-small-2",
-        help="Select the AI model to use for code generation.",
-    )
-    
-    args = parser.parse_args()
-    ai_model = args.ai_model
-    if args.llm == "openai":
-        api_key = os.getenv("OPENAI_API_KEY")
-        llm = OpenAI_LLM(api_key, ai_model, temperature=1.0)
-    elif args.llm == "gemini":
-        api_key = os.getenv("GEMINI_API_KEY")
-        llm = Gemini_LLM(api_key, ai_model)
-    elif args.llm == "ollama": 
-        llm = Ollama_LLM(ai_model)
-    elif args.llm == "multi": 
-        api_key_gemini = os.getenv("GEMINI_API_KEY")
-        api_key_openai = os.getenv("OPENAI_API_KEY")
-        llm1 = OpenAI_LLM(api_key_openai, "gpt-5-mini", temperature=1.0)
-        llm2 = Gemini_LLM(api_key_gemini, "gemini-3-flash-preview")
-        #llm3 = Gemini_LLM(api_key_gemini, "gemini-2.5-flash-lite")
-        llm3 = Ollama_LLM("nemotron-3-nano:30b")
-        llm4 = Ollama_LLM("qwen3.5:27b")
-        llm = Multi_LLM([llm1,llm2,llm3,llm4])
 
     for local_LLM in ["devstral-small-2", "nemotron-3-nano:30b", "qwen3.5:27b", "mathstral:7b", "ministral-3:8b"]:
         llm = Ollama_LLM(local_LLM)
@@ -482,24 +446,19 @@ if __name__ == "__main__":
             for j in range(len(rest_features)):
                 feature_combinations.append([not_features[i], rest_features[j]])
             feature_combinations.append([not_features[i]])
-            
-        if DEBUG:
-            feature_combinations = [["Separable", "Multimodality"]]
-        # print(len(feature_combinations))
-        # exit()
+
         for combi in feature_combinations:
             niching=None
-            experiment_name = f"ELA-{'_'.join([f for f in combi])}"
+            experiment_name = f"Novelty-{'_'.join([f for f in combi])}"
 
             niching="novelty"
-            experiment_name = f"ELA-{'_'.join([f for f in combi])}-{niching}"
+            experiment_name = f"ELA-{'_'.join([f for f in combi])}"
             problem = ELAproblem(name=f"ELA_{'_'.join(combi)}", features=combi, dims=[2,5,10], eval_timeout=1200)
 
             mutation_prompts = []
             for feature in problem.features:
                 mutation_prompts.append(f"Create a new and novel landscape class based on the selected code and improve the {feature} score, meaning: {problem.feature_descriptions[feature]}.")
             mutation_prompts.append("Create a new landscape class that is completely different from the selected solution but still adheres to the properties outlined in the task description.")
-
             
 
             for experiment_i in [1]:
