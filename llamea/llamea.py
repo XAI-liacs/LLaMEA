@@ -11,6 +11,7 @@ import os
 import random
 import re
 import traceback
+import textwrap
 import warnings
 from typing import Callable, Optional
 import pickle
@@ -190,90 +191,91 @@ class LLaMEA:
         if role_prompt == "":
             self.role_prompt = "You are a highly skilled computer scientist in the field of natural computing. Your task is to design novel metaheuristic algorithms to solve black box optimization problems."
         if task_prompt == "":
-            self.task_prompt = """
-The optimization algorithm should handle a wide range of tasks, which is evaluated on the BBOB test suite of 24 noiseless functions. Your task is to write the optimization algorithm in Python code to minimize the function value. The code should contain an `__init__(self, budget, dim)` function and the function `def __call__(self, func)`, which should optimize the black box function `func` using `self.budget` function evaluations.
-The func() can only be called as many times as the budget allows, not more. Each of the optimization functions has a search space between -5.0 (lower bound) and 5.0 (upper bound). The dimensionality can be varied.
+            self.task_prompt = textwrap.dedent("""
+                The optimization algorithm should handle a wide range of tasks, which is evaluated on the BBOB test suite of 24 noiseless functions. Your task is to write the optimization algorithm in Python code to minimize the function value. The code should contain an `__init__(self, budget, dim)` function and the function `def __call__(self, func)`, which should optimize the black box function `func` using `self.budget` function evaluations.
+                The func() can only be called as many times as the budget allows, not more. Each of the optimization functions has a search space between -5.0 (lower bound) and 5.0 (upper bound). The dimensionality can be varied.
 
-Give an excellent and novel heuristic algorithm to solve this task.
-"""
+                Give an excellent and novel heuristic algorithm to solve this task.
+                """)
         else:
             self.task_prompt = task_prompt
 
         if example_prompt == None:
-            self.example_prompt = """
-An example of such code (a simple random search), is as follows:
-```
-import numpy as np
+            self.example_prompt = textwrap.dedent("""
+                An example of such code (a simple random search), is as follows:
+                ```
+                import numpy as np
 
-class RandomSearch:
-    def __init__(self, budget=10000, dim=10):
-        self.budget = budget
-        self.dim = dim
-        self.f_opt = np.inf
-        self.x_opt = None
+                class RandomSearch:
+                    def __init__(self, budget=10000, dim=10):
+                        self.budget = budget
+                        self.dim = dim
+                        self.f_opt = np.inf
+                        self.x_opt = None
 
-    def __call__(self, func):
-        for i in range(self.budget):
-            x = np.random.uniform(func.bounds.lb, func.bounds.ub)
+                    def __call__(self, func):
+                        for i in range(self.budget):
+                            x = np.random.uniform(func.bounds.lb, func.bounds.ub)
 
-            f = func(x)
-            if f < self.f_opt:
-                self.f_opt = f
-                self.x_opt = x
+                            f = func(x)
+                            if f < self.f_opt:
+                                self.f_opt = f
+                                self.x_opt = x
 
-        return self.f_opt, self.x_opt
-```
-"""
+                        return self.f_opt, self.x_opt
+                ```
+                """)
         else:
             self.example_prompt = example_prompt
 
         if output_format_prompt is None:
-            self.output_format_prompt = """
-Provide the Python code and a one-line description with the main idea (without enters). Give the response in the format:
-# Description: <short-description>
-# Code:
-```python
-<code>
-```
-"""
+            self.output_format_prompt = textwrap.dedent("""
+                Provide the Python code and a one-line description with the main idea (without enters). Give the response in the format:
+                # Description: <short-description>
+                # Code:
+                ```python
+                <code>
+                ```
+                """)
             if HPO:
-                self.output_format_prompt = """
-Provide the Python code, a one-line description with the main idea (without enters) and the SMAC3 Configuration space to optimize the code (in Python dictionary format). Give the response in the format:
-# Description: <short-description>
-# Code:
-```python
-<code>
-```
-Space: <configuration_space>"""
+                self.output_format_prompt = textwrap.dedent("""
+                    Provide the Python code, a one-line description with the main idea (without enters) and the SMAC3 Configuration space to optimize the code (in Python dictionary format). Give the response in the format:
+                    # Description: <short-description>
+                    # Code:
+                    ```python
+                    <code>
+                    ```
+                    Space: <configuration_space>
+                    """)
         else:
             self.output_format_prompt = output_format_prompt
-        self.diff_output_format_prompt = """
-        ---
-You MUST use the exact SEARCH/REPLACE diff format shown below to indicate changes:
-```
-<<<<<<< SEARCH
-# Original code to find and replace (must match exactly)
-=======
-# New replacement code
->>>>>>> REPLACE
-```
+        self.diff_output_format_prompt = textwrap.dedent("""
+            ---
+            You MUST use the exact SEARCH/REPLACE diff format shown below to indicate changes:
+            ```
+            <<<<<<< SEARCH
+            # Original code to find and replace (must match exactly)
+            =======
+            # New replacement code
+            >>>>>>> REPLACE
+            ```
 
-Example of valid diff format:
-```
-<<<<<<< SEARCH
-for i in range(m):
-    for j in range(p):
-        for k in range(n):
-            C[i, j] += A[i, k] * B[k, j]
-=======
-# Reorder loops for better memory access pattern
-for i in range(m):
-    for k in range(n):
-        for j in range(p):
-            C[i, j] += A[i, k] * B[k, j]
->>>>>>> REPLACE
-```
-"""
+            Example of valid diff format:
+            ```
+            <<<<<<< SEARCH
+            for i in range(m):
+                for j in range(p):
+                    for k in range(n):
+                        C[i, j] += A[i, k] * B[k, j]
+            =======
+            # Reorder loops for better memory access pattern
+            for i in range(m):
+                for k in range(n):
+                    for j in range(p):
+                        C[i, j] += A[i, k] * B[k, j]
+            >>>>>>> REPLACE
+            ```
+            """)
         self.mutation_prompts = mutation_prompts
         self.adaptive_mutation = adaptive_mutation
         if mutation_prompts == None:
