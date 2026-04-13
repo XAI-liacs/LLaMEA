@@ -274,7 +274,7 @@ class OpenAI_LLM(LLM):
         logging.getLogger("httpx").setLevel(logging.ERROR)
         self.temperature = temperature
 
-    def query(self, session_messages, max_retries: int = 5, default_delay: int = 10):
+    def query(self, session_messages, max_retries: int = 5, default_delay: int = 5):
         """
         Sends a conversation history to the configured model and returns the response text.
 
@@ -305,7 +305,7 @@ class OpenAI_LLM(LLM):
                 if getattr(err, "response", None) is not None:
                     retry_after = err.response.headers.get("Retry-After")
 
-                wait = int(retry_after) if retry_after else default_delay * attempt
+                wait = int(retry_after) if retry_after else min(default_delay * attempt, 15)
                 time.sleep(wait)
 
             except (

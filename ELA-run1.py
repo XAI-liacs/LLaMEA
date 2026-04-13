@@ -434,18 +434,19 @@ if __name__ == "__main__":
         llm = Ollama_LLM(local_LLM)
 
         all_features = ["Separable", "GlobalLocal", "Multimodality", "Basins", "Homogeneous"] 
-        feature_combinations = []
-        for i in range(len(all_features)):
-            for j in range(i+1, len(all_features)):
-                feature_combinations.append([all_features[i], all_features[j]])
-            feature_combinations.append([all_features[i]])
+        feature_combinations = [["Separable", "Multimodality"]]
+        # feature_combinations = []
+        # for i in range(len(all_features)):
+        #     for j in range(i+1, len(all_features)):
+        #         feature_combinations.append([all_features[i], all_features[j]])
+        #     feature_combinations.append([all_features[i]])
         
-        not_features = ["NOT Basins", "NOT Homogeneous"] 
-        rest_features = ["Separable", "GlobalLocal", "Multimodality"] 
-        for i in range(len(not_features)):
-            for j in range(len(rest_features)):
-                feature_combinations.append([not_features[i], rest_features[j]])
-            feature_combinations.append([not_features[i]])
+        # not_features = ["NOT Basins", "NOT Homogeneous"] 
+        # rest_features = ["Separable", "GlobalLocal", "Multimodality"] 
+        # for i in range(len(not_features)):
+        #     for j in range(len(rest_features)):
+        #         feature_combinations.append([not_features[i], rest_features[j]])
+        #     feature_combinations.append([not_features[i]])
 
         for combi in feature_combinations:
             niching=None
@@ -462,25 +463,28 @@ if __name__ == "__main__":
             
 
             for experiment_i in [1]:
-                es = LLaMEA(
-                    problem.evaluate_function,
-                    n_parents=10,
-                    n_offspring=30,
-                    llm=llm,
-                    role_prompt="You are a highly skilled computer scientist in the field optimization and benchmarking. Your task is to design novel mathematical functions to be used as black-box optimization benchmark landscapes.",
-                    task_prompt=problem.task_prompt,
-                    example_prompt=problem.example_prompt,
-                    output_format_prompt=problem.format_prompt,
-                    mutation_prompts=mutation_prompts,
-                    experiment_name=experiment_name,
-                    elitism=False,
-                    HPO=False,
-                    budget=budget,
-                    max_workers=10,
-                    parallel_backend="loky",
-                    niching=niching,
-                    novelty_k=5,
-                    distance_metric=ela_distance,
-                    eval_timeout=3600,
-                )
-                print(es.run())
+                try:
+                    es = LLaMEA(
+                        problem.evaluate_function,
+                        n_parents=10,
+                        n_offspring=30,
+                        llm=llm,
+                        role_prompt="You are a highly skilled computer scientist in the field optimization and benchmarking. Your task is to design novel mathematical functions to be used as black-box optimization benchmark landscapes.",
+                        task_prompt=problem.task_prompt,
+                        example_prompt=problem.example_prompt,
+                        output_format_prompt=problem.format_prompt,
+                        mutation_prompts=mutation_prompts,
+                        experiment_name=experiment_name,
+                        elitism=False,
+                        HPO=False,
+                        budget=budget,
+                        max_workers=2,
+                        parallel_backend="loky",
+                        niching=niching,
+                        novelty_k=5,
+                        distance_metric=ela_distance,
+                        eval_timeout=3600,
+                    )
+                    print(es.run())
+                except Exception as e:
+                    print(f"Experiment {experiment_name} failed with error: {e}")

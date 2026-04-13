@@ -10,6 +10,21 @@
 
 > ⭐ If you like this, please give the repo a star – it helps!
 
+
+
+
+> NOTE: installation instructions for deep-ela inside LLaMEA
+> `git clone https://github.com/mvseiler/deep_ela.git`  
+> `uv pip uninstall pflacco`  
+> `uv pip pip install -r deep_ela/requirements.txt`  
+> `git clone https://github.com/Reiyan/pflacco.git`  
+> `cp -rf MANIFEST.in pflacco/`    
+> `cp -rf deep_ela/MANIFEST.in pflacco/`  
+> `cp -rf deep_ela/setup.py pflacco/`  
+> `cp -r deep_ela/deep_ela pflacco/pflacco`  
+> `cd pflacco`  
+> `uv pip install .`  
+  
 <p align="center">
   <a href="https://pypi.org/project/llamea/">
     <img src="https://badge.fury.io/py/llamea.svg" alt="PyPI version" height="18">

@@ -1,0 +1,6 @@
+[submodule "deep_ela"]
+	path = deep_ela
+	url = https://github.com/mvseiler/deep_ela.git
+[submodule "pflacco"]
+	path = pflacco
+	url = https://github.com/Reiyan/pflacco.git
