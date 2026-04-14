@@ -23,14 +23,14 @@ Examples live in `examples/`, benchmarks in `benchmarks/`.
 uv sync --dev
 ```
 
+### Run import sorter (run before black)
+```bash
+uv run isort llamea/
+```
+
 ### Run formatter
 ```bash
 uv run black llamea/
-```
-
-### Run linter (import sorting)
-```bash
-uv run isort llamea/
 ```
 
 ### Run tests
@@ -43,8 +43,8 @@ uv run pytest --cov=llamea
 ### Typical pre-commit sequence
 ```bash
 uv sync --dev
-uv run black llamea/
 uv run isort llamea/
+uv run black llamea/
 uv run pytest
 ```
 
