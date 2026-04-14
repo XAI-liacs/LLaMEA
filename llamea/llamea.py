@@ -189,19 +189,24 @@ class LLaMEA:
             )
             HPO = False
         if role_prompt == "":
-            self.role_prompt = "You are a highly skilled computer scientist and Python expert."
+            self.role_prompt = (
+                "You are a highly skilled computer scientist and Python expert."
+            )
         if task_prompt == "":
-            self.task_prompt = textwrap.dedent("""
+            self.task_prompt = textwrap.dedent(
+                """
                 The optimization algorithm should handle a wide range of tasks, which is evaluated on the BBOB test suite of 24 noiseless functions. Your task is to write the optimization algorithm in Python code to minimize the function value. The code should contain an `__init__(self, budget, dim)` function and the function `def __call__(self, func)`, which should optimize the black box function `func` using `self.budget` function evaluations.
                 The func() can only be called as many times as the budget allows, not more. Each of the optimization functions has a search space between -5.0 (lower bound) and 5.0 (upper bound). The dimensionality can be varied.
 
                 Give an excellent and novel heuristic algorithm to solve this task.
-                """)
+                """
+            )
         else:
             self.task_prompt = task_prompt
 
         if example_prompt == None:
-            self.example_prompt = textwrap.dedent("""
+            self.example_prompt = textwrap.dedent(
+                """
                 An example of such code (a simple random search), is as follows:
                 ```
                 import numpy as np
@@ -224,21 +229,25 @@ class LLaMEA:
 
                         return self.f_opt, self.x_opt
                 ```
-                """)
+                """
+            )
         else:
             self.example_prompt = example_prompt
 
         if output_format_prompt is None:
-            self.output_format_prompt = textwrap.dedent("""
+            self.output_format_prompt = textwrap.dedent(
+                """
                 Provide the Python code and a one-line description with the main idea (without enters). Give the response in the format:
                 # Description: <short-description>
                 # Code:
                 ```python
                 <code>
                 ```
-                """)
+                """
+            )
             if HPO:
-                self.output_format_prompt = textwrap.dedent("""
+                self.output_format_prompt = textwrap.dedent(
+                    """
                     Provide the Python code, a one-line description with the main idea (without enters) and the SMAC3 Configuration space to optimize the code (in Python dictionary format). Give the response in the format:
                     # Description: <short-description>
                     # Code:
@@ -246,10 +255,12 @@ class LLaMEA:
                     <code>
                     ```
                     Space: <configuration_space>
-                    """)
+                    """
+                )
         else:
             self.output_format_prompt = output_format_prompt
-        self.diff_output_format_prompt = textwrap.dedent("""
+        self.diff_output_format_prompt = textwrap.dedent(
+            """
             ---
             You MUST use the exact SEARCH/REPLACE diff format shown below to indicate changes:
             ```
@@ -275,7 +286,8 @@ class LLaMEA:
                         C[i, j] += A[i, k] * B[k, j]
             >>>>>>> REPLACE
             ```
-            """)
+            """
+        )
         self.mutation_prompts = mutation_prompts
         self.adaptive_mutation = adaptive_mutation
         if mutation_prompts == None:
