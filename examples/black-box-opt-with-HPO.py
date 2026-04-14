@@ -8,6 +8,7 @@
 
 import os
 import re
+import textwrap
 import time
 from itertools import product
 
@@ -170,7 +171,7 @@ if __name__ == "__main__":
         return solution
 
     role_prompt = "You are a highly skilled computer scientist in the field of natural computing. Your task is to design novel metaheuristic algorithms to solve black box optimization problems."
-    task_prompt = """
+    task_prompt = textwrap.dedent("""
     The optimization algorithm should handle a wide range of tasks, which is evaluated on the BBOB test suite of 24 noiseless functions. Your task is to write the optimization algorithm in Python code. The code should contain an `__init__(self, budget, dim)` function with optional additional arguments and the function `def __call__(self, func)`, which should optimize the black box function `func` using `self.budget` function evaluations.
     The func() can only be called as many times as the budget allows, not more. Each of the optimization functions has a search space between -5.0 (lower bound) and 5.0 (upper bound). The dimensionality can be varied.
 
@@ -180,22 +181,22 @@ if __name__ == "__main__":
     ```python
     {
         "float_parameter": (0.1, 1.5),
-        "int_parameter": (2, 10), 
+        "int_parameter": (2, 10),
         "categoral_parameter": ["mouse", "cat", "dog"]
     }
     ```
 
-    Give an excellent and novel heuristic algorithm including its configuration space to solve this task and also give it a one-line description, describing the main idea. 
-    """
+    Give an excellent and novel heuristic algorithm including its configuration space to solve this task and also give it a one-line description, describing the main idea.
+    """)
 
-    format_prompt = """
+    format_prompt = textwrap.dedent("""
     Give the response in the format:
     # Description: <short-description>
     # Code: <code>
     # Space: <configuration_space>
-    """
+    """)
 
-    example_prompt = """
+    example_prompt = textwrap.dedent("""
     An example of such code (a simple random search), is as follows:
     ```python
     import numpy as np
@@ -210,15 +211,15 @@ if __name__ == "__main__":
             self.x_opt = None
             for i in range(self.budget):
                 x = np.random.uniform(func.bounds.lb, func.bounds.ub)
-                
+
                 f = func(x)
                 if f < self.f_opt:
                     self.f_opt = f
                     self.x_opt = x
-                
+
             return self.f_opt, self.x_opt
     ```
-    """
+    """)
 
     feedback_prompts = [
         f"Either refine or redesign to improve the solution (and give it a distinct one-line description)."

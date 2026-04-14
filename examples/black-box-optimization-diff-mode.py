@@ -10,6 +10,7 @@
 #   code replacement, without making new request for that iteration.
 
 import os
+import textwrap
 
 import numpy as np
 from ioh import get_problem, logger
@@ -85,11 +86,11 @@ if __name__ == "__main__":
         return solution
 
     # The task prompt describes the problem to be solved by the LLaMEA algorithm.
-    task_prompt = """
+    task_prompt = textwrap.dedent("""
     The optimization algorithm should handle a wide range of tasks, which is evaluated on the BBOB test suite of 24 noiseless functions. Your task is to write the optimization algorithm in Python code. The code should contain an `__init__(self, budget, dim)` function and the function `def __call__(self, func)`, which should optimize the black box function `func` using `self.budget` function evaluations.
     The func() can only be called as many times as the budget allows, not more. Each of the optimization functions has a search space between -5.0 (lower bound) and 5.0 (upper bound). The dimensionality can be varied.
     Give an excellent and novel heuristic algorithm to solve this task and also give it a one-line description with the main idea.
-    """
+    """)
 
     for experiment_i in [1]:
         # A 1+1 strategy
