@@ -82,4 +82,4 @@ users needing to override it.
 
 ## Git branch convention
 
-Feature branches follow the pattern `claude/<short-description>-<id>`.
+Feature branches follow the pattern `feature/<short-description>`.
