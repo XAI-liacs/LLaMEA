@@ -8,21 +8,21 @@ import contextlib
 import logging
 import math
 import os
+import pickle
 import random
 import re
-import traceback
 import textwrap
+import traceback
 import warnings
 from typing import Callable, Optional
-import pickle
+
 import jsonlines
-
-
 import numpy as np
 from joblib import Parallel, delayed
-from .llm import LLM
-from .feature_guidance import FeatureGuidance, compute_feature_guidance
+
 from .ast_features import extract_ast_features
+from .feature_guidance import FeatureGuidance, compute_feature_guidance
+from .llm import LLM
 from .multi_objective_fitness import Fitness
 
 try:
@@ -31,8 +31,8 @@ except ModuleNotFoundError:  # pragma: no cover - optional dependency
     ConfigurationSpace = None
 
 from .loggers import ExperimentLogger
-from .solution import Solution
 from .pareto_archive import ParetoArchive
+from .solution import Solution
 from .utils import (
     NoCodeException,
     code_distance,
@@ -40,15 +40,14 @@ from .utils import (
     handle_timeout,
 )
 
-
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s %(levelname)s %(message)s",
     datefmt="%Y-%m-%d %H:%M:%S",
 )
 
-from pymoo.util.nds.non_dominated_sorting import NonDominatedSorting
 from pymoo.operators.survival.rank_and_crowding.metrics import calc_crowding_distance
+from pymoo.util.nds.non_dominated_sorting import NonDominatedSorting
 
 
 class LLaMEA:
@@ -97,6 +96,10 @@ class LLaMEA:
         diff_mode: bool = False,
         parent_selection: str = "random",
         tournament_size: int = 3,
+        taboo_mode: bool = False,
+        taboo_similarity_threshold: float = 0.1,
+        taboo_max_retries: int = 5,
+        taboo_fitness_scaling: bool = True,
     ):
         """
         Initializes the LLaMEA instance with provided parameters. Note that by default LLaMEA maximizes the objective.
@@ -173,6 +176,30 @@ class LLaMEA:
                 roulette wheel selection ``"roulette"``.
             tournament_size (int): Number of candidates sampled in each
                 tournament when using ``"tournament"`` selection.
+            taboo_mode (bool): When ``True``, a newly generated solution is
+                compared against all previously evaluated solutions using the
+                configured distance metric. If the candidate is closer than
+                ``taboo_similarity_threshold`` to any entry in the history it
+                is discarded and the LLM is asked to regenerate up to
+                ``taboo_max_retries`` times before the last candidate is
+                accepted anyway.
+            taboo_similarity_threshold (float): Minimum code-distance (as
+                returned by the distance metric) that a generated candidate
+                must have from every previously evaluated solution to avoid
+                being classified as taboo. Values in ``[0, 1]`` for the
+                default AST-based metric; a larger value enforces more
+                diversity. Defaults to ``0.1``.
+            taboo_max_retries (int): Maximum number of extra LLM calls
+                allowed when a candidate is rejected by the taboo check.
+                After all retries are exhausted the last candidate is
+                evaluated regardless. Defaults to ``5``.
+            taboo_fitness_scaling (bool): When ``True`` and operating in
+                single-objective mode, the effective taboo threshold is
+                scaled by ``(1 - normalised_parent_fitness)``.  This makes
+                the check stricter for offspring of poor parents (encouraging
+                exploration) and more lenient for offspring of the current
+                best (allowing fine-grained refinements). Defaults to
+                ``True``.
         """
         self.llm = llm
         self.model = llm.model
@@ -335,6 +362,10 @@ class LLaMEA:
         self.experiment_name = experiment_name
         self.parent_selection = parent_selection  # "random" | "roulette" | "tournament"
         self.tournament_size = tournament_size
+        self.taboo_mode = taboo_mode
+        self.taboo_similarity_threshold = taboo_similarity_threshold
+        self.taboo_max_retries = taboo_max_retries
+        self.taboo_fitness_scaling = taboo_fitness_scaling
 
         if self.log:
             modelname = self.model.replace(":", "_")
@@ -653,6 +684,70 @@ Feedback:
         else:
             self.best_so_far.add_solutions(self.population)
 
+    def _effective_taboo_threshold(self, parent: Solution) -> float:
+        """Return the distance threshold used by the taboo check.
+
+        When ``taboo_fitness_scaling`` is enabled (and the run is single-
+        objective), the base threshold is multiplied by
+        ``1 - normalised_parent_fitness`` so that:
+
+        * offspring of the best-known parent face a *low* threshold (small
+          improvements are still accepted), and
+        * offspring of the worst-known parent face the *full* threshold
+          (requiring more diverse candidates).
+        """
+        threshold = self.taboo_similarity_threshold
+        if not self.taboo_fitness_scaling or self.multi_objective:
+            return threshold
+
+        parent_fitness = getattr(parent, "fitness", float("nan"))
+        if (
+            not isinstance(parent_fitness, (int, float))
+            or math.isnan(parent_fitness)
+            or not np.isfinite(parent_fitness)
+        ):
+            return threshold
+
+        fitnesses = [
+            s.fitness
+            for s in self.run_history
+            if isinstance(s.fitness, (int, float))
+            and not math.isnan(s.fitness)
+            and np.isfinite(s.fitness)
+        ]
+        if len(fitnesses) < 2:
+            return threshold
+
+        best = max(fitnesses) if not self.minimization else min(fitnesses)
+        worst = min(fitnesses) if not self.minimization else max(fitnesses)
+        if best == worst:
+            return threshold
+
+        if self.minimization:
+            norm = (worst - parent_fitness) / (worst - best)
+        else:
+            norm = (parent_fitness - worst) / (best - worst)
+        norm = max(0.0, min(1.0, norm))
+        return threshold * (1.0 - norm)
+
+    def _is_taboo(self, candidate: Solution, parent: Solution) -> bool:
+        """Return ``True`` if *candidate* is too similar to any solution already
+        in :attr:`run_history`.
+
+        The comparison uses :attr:`distance_metric` (default: AST-based
+        ``code_distance``).  A candidate whose distance to *any* history entry
+        falls below the effective threshold is considered taboo.
+        """
+        if not self.run_history:
+            return False
+        threshold = self._effective_taboo_threshold(parent)
+        if threshold <= 0.0:
+            return False
+        for hist_solution in self.run_history:
+            if self.distance_metric(candidate, hist_solution) < threshold:
+                return True
+        return False
+
     def adapt_niche_radius(self, population):
         """Adapt the niche radius based on the current population."""
         if not self.adaptive_niche_radius or len(population) < 2:
@@ -950,23 +1045,46 @@ Feedback:
         """
         Evolves a single solution by constructing a new prompt,
         querying the LLM, and evaluating the fitness.
+
+        When ``taboo_mode`` is enabled, the generated candidate is compared
+        against :attr:`run_history` before evaluation.  If it is too similar
+        to any previously evaluated solution, the LLM is queried again (up to
+        ``taboo_max_retries`` extra times).  The last candidate is always
+        accepted so the budget is never wasted in an infinite retry loop.
         """
         individual_copy = individual.copy()
         if self.adaptive_prompt:
             individual_copy.task_prompt = self.optimize_task_prompt(individual_copy)
-        new_prompt = self.construct_prompt(individual_copy)
 
         evolved_individual = individual.empty_copy()
+        parent_ids = evolved_individual.parent_ids
+        max_attempts = (self.taboo_max_retries + 1) if self.taboo_mode else 1
+
         try:
-            evolved_individual = self.llm.sample_solution(
-                new_prompt,
-                evolved_individual.parent_ids,
-                HPO=self.HPO,
-                base_code=individual.code,
-                diff_mode=self.diff_mode,
-            )
-            evolved_individual.generation = self.generation
-            evolved_individual.task_prompt = individual_copy.task_prompt
+            candidate = evolved_individual
+            for attempt in range(max_attempts):
+                new_prompt = self.construct_prompt(individual_copy)
+                candidate = self.llm.sample_solution(
+                    new_prompt,
+                    parent_ids,
+                    HPO=self.HPO,
+                    base_code=individual.code,
+                    diff_mode=self.diff_mode,
+                )
+                candidate.generation = self.generation
+                candidate.task_prompt = individual_copy.task_prompt
+
+                # Taboo check: skip on the last attempt so we always make progress.
+                if self.taboo_mode and attempt < max_attempts - 1:
+                    if self._is_taboo(candidate, individual):
+                        self.logevent(
+                            f"Taboo: generated solution too similar to history "
+                            f"(attempt {attempt + 1}/{max_attempts}), regenerating."
+                        )
+                        continue
+                break
+
+            evolved_individual = candidate
 
             # enhance the individual with AST features and feature guidance metadata (before logging).
             if self.feature_guided_mutation:

@@ -1,6 +1,6 @@
 import re
-from typing import Optional
 from dataclasses import dataclass
+from typing import Optional
 
 
 ## Author by Ananta Shahane
