@@ -13,7 +13,7 @@
 
 
 
-> NOTE: installation instructions for deep-ela inside LLaMEA
+> NOTE: installation instructions for deep-ela inside LLaMEA (now using submodules, so just checkout recursively)
 > `git clone https://github.com/mvseiler/deep_ela.git`  
 > `uv pip uninstall pflacco`  
 > `uv pip pip install -r deep_ela/requirements.txt`  
