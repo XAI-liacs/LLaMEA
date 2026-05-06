@@ -36,6 +36,7 @@ def _make_optimizer(**kwargs):
 
 # ---------------------------------------------------------------------------
 # Unit tests for _effective_taboo_threshold
+# (these read run_history for fitness normalisation – no change needed)
 # ---------------------------------------------------------------------------
 
 
@@ -67,7 +68,6 @@ def test_threshold_unchanged_when_history_too_small():
         taboo_similarity_threshold=0.2,
         taboo_fitness_scaling=True,
     )
-    # Only one solution in history (need at least 2 for scaling)
     opt.run_history = [make_solution("a = 1", 0.9)]
     parent = make_solution("b = 1", 0.5)
     assert opt._effective_taboo_threshold(parent) == pytest.approx(0.2)
@@ -81,7 +81,6 @@ def test_threshold_zero_for_best_parent_with_scaling():
     )
     opt.run_history = [make_solution("a = 1", 0.0), make_solution("b = 1", 1.0)]
     best_parent = make_solution("c = 1", 1.0)
-    # norm = (1.0 - 0.0) / (1.0 - 0.0) = 1.0 → threshold * (1 - 1) = 0
     assert opt._effective_taboo_threshold(best_parent) == pytest.approx(0.0)
 
 
@@ -93,7 +92,6 @@ def test_threshold_full_for_worst_parent_with_scaling():
     )
     opt.run_history = [make_solution("a = 1", 0.0), make_solution("b = 1", 1.0)]
     worst_parent = make_solution("c = 1", 0.0)
-    # norm = (0.0 - 0.0) / (1.0 - 0.0) = 0.0 → threshold * (1 - 0) = 0.4
     assert opt._effective_taboo_threshold(worst_parent) == pytest.approx(0.4)
 
 
@@ -105,7 +103,6 @@ def test_threshold_half_for_midpoint_parent_with_scaling():
     )
     opt.run_history = [make_solution("a = 1", 0.0), make_solution("b = 1", 1.0)]
     mid_parent = make_solution("c = 1", 0.5)
-    # norm = 0.5 → threshold * 0.5 = 0.2
     assert opt._effective_taboo_threshold(mid_parent) == pytest.approx(0.2)
 
 
@@ -117,23 +114,22 @@ def test_threshold_minimization_inverts_scaling():
         minimization=True,
     )
     opt.run_history = [make_solution("a = 1", 0.0), make_solution("b = 1", 1.0)]
-    best_parent = make_solution("c = 1", 0.0)  # best for minimization
+    best_parent = make_solution("c = 1", 0.0)   # best for minimization
     worst_parent = make_solution("d = 1", 1.0)  # worst for minimization
-    # best parent (0.0 in minimization): norm → (1.0 - 0.0)/(1.0 - 0.0) = 1.0 → threshold→0
     assert opt._effective_taboo_threshold(best_parent) == pytest.approx(0.0)
-    # worst parent (1.0 in minimization): norm = 0.0 → full threshold
     assert opt._effective_taboo_threshold(worst_parent) == pytest.approx(0.4)
 
 
 # ---------------------------------------------------------------------------
-# Unit tests for _is_taboo
+# Unit tests for _is_taboo  (now compares against taboo_list)
 # ---------------------------------------------------------------------------
 
 
-def test_is_taboo_returns_false_when_history_empty():
+def test_is_taboo_returns_false_when_taboo_list_empty():
     opt = _make_optimizer(taboo_mode=True, taboo_similarity_threshold=0.5)
     parent = make_solution("x = 1", 0.5)
     candidate = make_solution("x = 1", float("nan"))
+    # taboo_list is empty by default
     assert opt._is_taboo(candidate, parent) is False
 
 
@@ -143,10 +139,13 @@ def test_is_taboo_returns_false_when_threshold_zero():
         taboo_similarity_threshold=0.4,
         taboo_fitness_scaling=True,
     )
+    # run_history used for fitness normalisation
     opt.run_history = [make_solution("a = 1", 0.0), make_solution("b = 2", 1.0)]
+    # taboo_list holds the actual entries to compare against
+    opt.taboo_list = [make_solution("a = 1", 0.0)]
     best_parent = make_solution("c = 3", 1.0)  # norm=1 → effective threshold = 0
-    candidate = make_solution("a = 1", float("nan"))  # identical to history[0]
-    # Even though identical, threshold is 0 so nothing is taboo
+    candidate = make_solution("a = 1", float("nan"))
+    # Threshold is 0 so nothing is taboo even if identical
     assert opt._is_taboo(candidate, best_parent) is False
 
 
@@ -157,7 +156,7 @@ def test_is_taboo_detects_identical_solution():
         taboo_fitness_scaling=False,
     )
     code = "x = 1"
-    opt.run_history = [make_solution(code, 0.5)]
+    opt.taboo_list = [make_solution(code, 0.5)]
     candidate = make_solution(code, float("nan"))
     parent = make_solution("y = 2", 0.3)
     assert opt._is_taboo(candidate, parent) is True
@@ -169,8 +168,7 @@ def test_is_taboo_passes_distinct_solution():
         taboo_similarity_threshold=0.1,
         taboo_fitness_scaling=False,
     )
-    opt.run_history = [make_solution("x = 1", 0.5)]
-    # A very different candidate
+    opt.taboo_list = [make_solution("x = 1", 0.5)]
     candidate = make_solution(
         "import numpy as np\nclass Foo:\n    def bar(self):\n        return np.random.rand(10)",
         float("nan"),
@@ -192,28 +190,152 @@ def test_is_taboo_uses_custom_distance_metric():
         taboo_fitness_scaling=False,
         distance_metric=counting_metric,
     )
-    hist = make_solution("x = 1", 0.5)
-    opt.run_history = [hist]
+    opt.taboo_list = [make_solution("x = 1", 0.5)]
     candidate = make_solution("y = 2", float("nan"))
     parent = make_solution("z = 3", 0.3)
 
     result = opt._is_taboo(candidate, parent)
 
     assert result is True
-    assert len(calls) >= 1  # metric was actually called
+    assert len(calls) >= 1
 
 
 # ---------------------------------------------------------------------------
-# Integration test: taboo mode prevents re-evaluating identical solutions
+# Unit tests for _update_taboo_list strategies
+# ---------------------------------------------------------------------------
+
+
+def test_update_taboo_list_noop_when_taboo_mode_disabled():
+    opt = _make_optimizer(taboo_mode=False)
+    s = make_solution("x = 1", 0.5)
+    opt._update_taboo_list([s])
+    assert opt.taboo_list == []
+
+
+def test_invalid_taboo_strategy_raises_valueerror():
+    with pytest.raises(ValueError, match="taboo_strategy"):
+        _make_optimizer(taboo_mode=True, taboo_strategy="unknown")
+
+
+def test_update_taboo_list_always_adds_all_solutions():
+    opt = _make_optimizer(taboo_mode=True, taboo_strategy="always")
+    s1 = make_solution("a = 1", 0.9)
+    s2 = make_solution("b = 2", 0.1)
+    opt._update_taboo_list([s1, s2])
+    assert s1 in opt.taboo_list
+    assert s2 in opt.taboo_list
+
+
+def test_update_taboo_list_poor_fitness_adds_bad_solutions_maximization():
+    opt = _make_optimizer(
+        taboo_mode=True,
+        taboo_strategy="poor_fitness",
+        taboo_poor_fitness_percentile=50.0,
+    )
+    # Build a run_history so we have a reference distribution
+    for v in [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0]:
+        opt.run_history.append(make_solution(f"x = {v}", v))
+
+    bad = make_solution("bad = 0", 0.1)    # bottom 50 % → taboo'd
+    good = make_solution("good = 0", 0.9)  # top 50 % → not taboo'd
+    opt._update_taboo_list([bad, good])
+
+    assert bad in opt.taboo_list
+    assert good not in opt.taboo_list
+
+
+def test_update_taboo_list_poor_fitness_adds_bad_solutions_minimization():
+    opt = _make_optimizer(
+        taboo_mode=True,
+        taboo_strategy="poor_fitness",
+        taboo_poor_fitness_percentile=50.0,
+        minimization=True,
+    )
+    for v in [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0]:
+        opt.run_history.append(make_solution(f"x = {v}", v))
+
+    bad = make_solution("bad = 0", 0.9)    # high value is bad when minimizing
+    good = make_solution("good = 0", 0.1)  # low value is good when minimizing
+    opt._update_taboo_list([bad, good])
+
+    assert bad in opt.taboo_list
+    assert good not in opt.taboo_list
+
+
+def test_update_taboo_list_poor_fitness_does_nothing_with_insufficient_history():
+    opt = _make_optimizer(
+        taboo_mode=True,
+        taboo_strategy="poor_fitness",
+        taboo_poor_fitness_percentile=25.0,
+    )
+    opt.run_history = [make_solution("a = 1", 0.5)]  # only 1 entry
+    s = make_solution("b = 2", 0.1)
+    opt._update_taboo_list([s])
+    assert opt.taboo_list == []
+
+
+def test_update_taboo_list_stagnation_does_not_add_on_first_call():
+    opt = _make_optimizer(
+        taboo_mode=True,
+        taboo_strategy="stagnation",
+        taboo_stagnation_window=3,
+    )
+    # Simulate best_so_far
+    opt.best_so_far = make_solution("best", 0.5)
+    s = make_solution("x = 1", 0.5)
+    opt._update_taboo_list([s])  # first call → just records baseline
+    assert opt.taboo_list == []
+    assert opt._taboo_stagnation_counter == 0
+
+
+def test_update_taboo_list_stagnation_adds_after_window():
+    opt = _make_optimizer(
+        taboo_mode=True,
+        taboo_strategy="stagnation",
+        taboo_stagnation_window=2,
+    )
+    opt.best_so_far = make_solution("best", 0.5)
+
+    s = make_solution("x = 1", 0.5)
+    opt._update_taboo_list([s])   # call 1: records baseline, counter stays 0
+
+    # No improvement: same fitness
+    opt._update_taboo_list([s])   # call 2: counter → 1 (< window=2, not yet)
+    assert opt.taboo_list == []
+
+    opt._update_taboo_list([s])   # call 3: counter → 2 (>= window) → adds
+    assert s in opt.taboo_list
+
+
+def test_update_taboo_list_stagnation_resets_counter_on_improvement():
+    opt = _make_optimizer(
+        taboo_mode=True,
+        taboo_strategy="stagnation",
+        taboo_stagnation_window=2,
+    )
+    opt.best_so_far = make_solution("best", 0.5)
+    s = make_solution("x = 1", 0.5)
+
+    opt._update_taboo_list([s])   # call 1: baseline recorded
+
+    opt._update_taboo_list([s])   # call 2: no improvement → counter = 1
+
+    # Simulate an improvement
+    opt.best_so_far = make_solution("better", 0.9)
+    opt._update_taboo_list([s])   # call 3: improvement detected → counter resets to 0
+    assert opt._taboo_stagnation_counter == 0
+
+    opt._update_taboo_list([s])   # call 4: no improvement → counter = 1 (< 2 → no add)
+    assert opt.taboo_list == []
+
+
+# ---------------------------------------------------------------------------
+# Integration tests: retry behaviour in evolve_solution
 # ---------------------------------------------------------------------------
 
 
 def test_taboo_mode_retries_on_similar_solution():
-    """When the first LLM response is taboo, evolve_solution retries.
-
-    We use a custom distance metric that classifies candidates by name so the
-    test is independent of the AST-similarity computation.
-    """
+    """When the first LLM response is taboo, evolve_solution retries."""
 
     TABOO_CODE = "class Taboo:\n    pass"
     FRESH_CODE = "class Fresh:\n    pass"
@@ -232,8 +354,7 @@ def test_taboo_mode_retries_on_similar_solution():
         ind.set_scores(float(eval_count["n"]), "ok")
         return ind
 
-    # Distance metric: 0.0 (identical) if both codes match, else 1.0 (distinct)
-    def name_distance(a: Solution, b: Solution) -> float:
+    def exact_distance(a: Solution, b: Solution) -> float:
         return 0.0 if a.code == b.code else 1.0
 
     from llamea import Ollama_LLM
@@ -249,24 +370,21 @@ def test_taboo_mode_retries_on_similar_solution():
         taboo_similarity_threshold=0.5,
         taboo_fitness_scaling=False,
         taboo_max_retries=3,
-        distance_metric=name_distance,
+        distance_metric=exact_distance,
     )
 
-    # Pre-seed run_history with the taboo code
     seed = Solution(code=TABOO_CODE, name="Seed")
     seed.set_scores(0.5)
-    opt.run_history = [seed]
+    opt.taboo_list = [seed]
 
     parent = Solution(code=TABOO_CODE, name="Parent")
     parent.set_scores(0.5)
 
-    # LLM returns taboo code first, then fresh code
     opt.llm.query = MagicMock(side_effect=[response_taboo, response_fresh])
 
     result = opt.evolve_solution(parent)
 
     assert result.name == "Fresh", f"Expected 'Fresh', got '{result.name}'"
-    # LLM must have been called twice: once returning taboo, once returning fresh
     assert opt.llm.query.call_count == 2
 
 
@@ -304,17 +422,14 @@ def test_taboo_mode_accepts_after_max_retries_exhausted():
 
     seed = Solution(code=TABOO_CODE, name="Seed")
     seed.set_scores(0.5)
-    opt.run_history = [seed]
+    opt.taboo_list = [seed]
 
     parent = Solution(code=TABOO_CODE, name="Parent")
     parent.set_scores(0.5)
 
-    # Every LLM response is the taboo code (always rejected until retries exhausted)
     opt.llm.query = MagicMock(return_value=response)
 
     result = opt.evolve_solution(parent)
 
-    # Despite being taboo, the candidate was accepted after retries exhausted
     assert result.name == "Algo"
-    # LLM called max_retries + 1 = 3 times
-    assert opt.llm.query.call_count == 3
+    assert opt.llm.query.call_count == 3  # max_retries + 1

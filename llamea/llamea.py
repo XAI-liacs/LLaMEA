@@ -100,6 +100,9 @@ class LLaMEA:
         taboo_similarity_threshold: float = 0.1,
         taboo_max_retries: int = 5,
         taboo_fitness_scaling: bool = True,
+        taboo_strategy: str = "always",
+        taboo_stagnation_window: int = 5,
+        taboo_poor_fitness_percentile: float = 25.0,
     ):
         """
         Initializes the LLaMEA instance with provided parameters. Note that by default LLaMEA maximizes the objective.
@@ -200,6 +203,33 @@ class LLaMEA:
                 exploration) and more lenient for offspring of the current
                 best (allowing fine-grained refinements). Defaults to
                 ``True``.
+            taboo_strategy (str): Controls *which* evaluated solutions are
+                entered into the taboo list that the similarity check runs
+                against.  Three strategies are supported:
+
+                * ``"always"`` *(default)* – every evaluated solution is
+                  added to the taboo list, giving maximum coverage of the
+                  explored space.
+                * ``"stagnation"`` – solutions are added only while
+                  stagnation is detected, i.e. after
+                  ``taboo_stagnation_window`` consecutive generations with no
+                  improvement in the best fitness.  When the best fitness
+                  improves, the stagnation counter resets to zero (the taboo
+                  list itself is never cleared).
+                * ``"poor_fitness"`` – a solution is added only if its
+                  fitness belongs to the worst ``taboo_poor_fitness_percentile``
+                  percent of all solutions evaluated so far, targeting
+                  genuinely bad code regions.
+            taboo_stagnation_window (int): Number of consecutive generations
+                without improvement that trigger the stagnation condition
+                when using ``taboo_strategy="stagnation"``. Defaults to
+                ``5``.
+            taboo_poor_fitness_percentile (float): Fitness percentile
+                cut-off (in ``[0, 100]``) used by
+                ``taboo_strategy="poor_fitness"``.  Solutions whose fitness
+                falls in the worst ``taboo_poor_fitness_percentile`` % of
+                the run history are added to the taboo list.  Defaults to
+                ``25.0``.
         """
         self.llm = llm
         self.model = llm.model
@@ -366,6 +396,18 @@ class LLaMEA:
         self.taboo_similarity_threshold = taboo_similarity_threshold
         self.taboo_max_retries = taboo_max_retries
         self.taboo_fitness_scaling = taboo_fitness_scaling
+        _valid_taboo_strategies = {"always", "stagnation", "poor_fitness"}
+        if taboo_mode and taboo_strategy not in _valid_taboo_strategies:
+            raise ValueError(
+                f"Unknown taboo_strategy {taboo_strategy!r}. "
+                f"Choose from {sorted(_valid_taboo_strategies)}."
+            )
+        self.taboo_strategy = taboo_strategy
+        self.taboo_stagnation_window = taboo_stagnation_window
+        self.taboo_poor_fitness_percentile = taboo_poor_fitness_percentile
+        self.taboo_list: list[Solution] = []
+        self._taboo_stagnation_counter: int = 0
+        self._taboo_best_fitness: float | None = None
 
         if self.log:
             modelname = self.model.replace(":", "_")
@@ -486,6 +528,7 @@ class LLaMEA:
         self.generation += 1
         self.population = population  # Save the entire population
         self.update_best()
+        self._update_taboo_list(self.population)
 
     def _ensure_fitness_evaluates(self, population: list[Solution]):
         return_population = []
@@ -731,22 +774,103 @@ Feedback:
         return threshold * (1.0 - norm)
 
     def _is_taboo(self, candidate: Solution, parent: Solution) -> bool:
-        """Return ``True`` if *candidate* is too similar to any solution already
-        in :attr:`run_history`.
+        """Return ``True`` if *candidate* is too similar to any solution in
+        :attr:`taboo_list`.
 
         The comparison uses :attr:`distance_metric` (default: AST-based
-        ``code_distance``).  A candidate whose distance to *any* history entry
-        falls below the effective threshold is considered taboo.
+        ``code_distance``).  A candidate whose distance to *any* taboo list
+        entry falls below the effective threshold is considered taboo.
         """
-        if not self.run_history:
+        if not self.taboo_list:
             return False
         threshold = self._effective_taboo_threshold(parent)
         if threshold <= 0.0:
             return False
-        for hist_solution in self.run_history:
-            if self.distance_metric(candidate, hist_solution) < threshold:
+        for taboo_solution in self.taboo_list:
+            if self.distance_metric(candidate, taboo_solution) < threshold:
                 return True
         return False
+
+    def _update_taboo_list(self, solutions: list[Solution]) -> None:
+        """Add evaluated *solutions* to the taboo list according to :attr:`taboo_strategy`.
+
+        This method is called once per generation (and once after initialisation)
+        so that the taboo list reflects the configured strategy:
+
+        * ``"always"``       – append every solution unconditionally.
+        * ``"poor_fitness"`` – append only solutions whose fitness is in the
+          worst ``taboo_poor_fitness_percentile`` % of run history.
+        * ``"stagnation"``   – append solutions only while the best fitness
+          has not improved for ``taboo_stagnation_window`` consecutive calls.
+        """
+        if not self.taboo_mode:
+            return
+
+        if self.taboo_strategy == "always":
+            self.taboo_list.extend(solutions)
+
+        elif self.taboo_strategy == "poor_fitness":
+            if self.multi_objective:
+                return
+            valid_fitnesses = [
+                s.fitness
+                for s in self.run_history
+                if isinstance(s.fitness, (int, float))
+                and not math.isnan(s.fitness)
+                and np.isfinite(s.fitness)
+            ]
+            if len(valid_fitnesses) < 2:
+                return
+            if self.minimization:
+                cutoff = np.percentile(
+                    valid_fitnesses, 100.0 - self.taboo_poor_fitness_percentile
+                )
+            else:
+                cutoff = np.percentile(
+                    valid_fitnesses, self.taboo_poor_fitness_percentile
+                )
+            for s in solutions:
+                f = s.fitness
+                if (
+                    not isinstance(f, (int, float))
+                    or math.isnan(f)
+                    or not np.isfinite(f)
+                ):
+                    continue
+                if self.minimization:
+                    if f >= cutoff:
+                        self.taboo_list.append(s)
+                else:
+                    if f <= cutoff:
+                        self.taboo_list.append(s)
+
+        elif self.taboo_strategy == "stagnation":
+            if not isinstance(self.best_so_far, Solution):
+                return  # multi-objective: stagnation detection not supported
+            current_best = self.best_so_far.fitness
+            if (
+                self._taboo_best_fitness is None
+                or not isinstance(self._taboo_best_fitness, (int, float))
+                or math.isnan(self._taboo_best_fitness)
+                or not np.isfinite(self._taboo_best_fitness)
+            ):
+                self._taboo_best_fitness = current_best
+                return  # first generation – establish baseline, no stagnation yet
+
+            if self.minimization:
+                improved = current_best < self._taboo_best_fitness
+            else:
+                improved = current_best > self._taboo_best_fitness
+
+            self._taboo_best_fitness = current_best
+
+            if improved:
+                self._taboo_stagnation_counter = 0
+            else:
+                self._taboo_stagnation_counter += 1
+
+            if self._taboo_stagnation_counter >= self.taboo_stagnation_window:
+                self.taboo_list.extend(solutions)
 
     def adapt_niche_radius(self, population):
         """Adapt the niche radius based on the current population."""
@@ -1311,6 +1435,7 @@ Feedback:
             # Update population and the best solution
             self.population = self.selection(self.population, new_population)
             self.update_best()
+            self._update_taboo_list(new_population)
             log_message = ""
             if not isinstance(self.best_so_far, ParetoArchive):
                 log_message = f"Generation {self.generation}, best so far: {self.best_so_far.fitness}"
