@@ -43,6 +43,8 @@ import pandas as pd
 
 from llamea.utils import code_distance
 
+from codebleu import calc_codebleu
+
 # ---------------------------------------------------------------------------
 # JSONL loading – handles both field-name conventions
 # ---------------------------------------------------------------------------
@@ -79,7 +81,7 @@ def load_run(path: Path) -> list[dict]:
 # Pairwise distance matrix (computed once per file, reused across all configs)
 # ---------------------------------------------------------------------------
 
-def build_distance_matrix(records: list[dict], verbose: bool = False) -> np.ndarray:
+def build_distance_matrix(records: list[dict], verbose: bool = False, metric="codebleu") -> np.ndarray:
     """Return the n×n symmetric matrix of AST-based code distances."""
     n = len(records)
     D = np.zeros((n, n))
@@ -87,7 +89,13 @@ def build_distance_matrix(records: list[dict], verbose: bool = False) -> np.ndar
     done = 0
     for i in range(n):
         for j in range(i + 1, n):
-            d = code_distance(records[i]["code"], records[j]["code"])
+            if metric == "ast":
+                d = code_distance(records[i]["code"], records[j]["code"])
+            elif metric == "codebleu":
+                d = calc_codebleu([records[i]["code"]], [records[j]["code"]], lang="python", weights=(0.25, 0.25, 0.25, 0.25), tokenizer=None)
+                d = 1 - d["codebleu"]  # convert similarity to distance
+            else:
+                raise ValueError(f"Unknown metric: {metric}")
             D[i, j] = D[j, i] = d
             done += 1
             if verbose and done % max(1, pairs // 10) == 0:
@@ -320,17 +328,17 @@ def main():
         "--thresholds",
         nargs="+",
         type=float,
-        default=[0.05, 0.1, 0.2, 0.3],
+        default=[0.02, 0.05, 0.1, 0.2, 0.3],
         metavar="T",
-        help="Similarity thresholds to sweep (default: 0.05 0.1 0.2 0.3).",
+        help="Similarity thresholds to sweep (default: 0.02 0.05 0.1 0.2 0.3).",
     )
     parser.add_argument(
         "--stagnation-windows",
         nargs="+",
         type=int,
-        default=[3, 5, 10],
+        default=[3, 5, 10, 20],
         metavar="W",
-        help="Stagnation window sizes (default: 3 5 10).",
+        help="Stagnation window sizes (default: 3 5 10 20).",
     )
     parser.add_argument(
         "--poor-fitness-percentiles",
