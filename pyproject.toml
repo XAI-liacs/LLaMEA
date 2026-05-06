@@ -19,6 +19,7 @@ dependencies = [
     "lizard>=1.17.13,<2",
     "networkx>=3.4.2,<4",
     "xgboost>=2.1.1,<3",
+    "pandas>=2.3.3",
 ]
 
 [project.urls]
