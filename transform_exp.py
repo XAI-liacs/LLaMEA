@@ -108,7 +108,10 @@ def best_solution_from_log(log_path: Path) -> Optional[dict]:
             if not isinstance(obj, dict):
                 continue
             last_valid = obj
-            fit = parse_fitness(obj.get("fitness"))
+            fit = parse_fitness(
+                obj.get("meta_data", {}).get("raw_fitness") 
+                or obj.get("fitness")
+            )
             if fit is not None and (best_fit is None or fit > best_fit):
                 best_fit = fit
                 best = obj

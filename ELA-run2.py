@@ -430,11 +430,11 @@ if __name__ == "__main__":
     # run multiple local llm runs
     import os
 
-    #api_key_openai = os.getenv("OPENAI_API_KEY") also try gpt-5.4-mini, gpt-5.4-nano,  gpt-5-nano-2025-08-07
+    api_key_openai = os.getenv("OPENAI_API_KEY")# also try gpt-5.4-mini, gpt-5.4-nano,  gpt-5-nano-2025-08-07
     #llm1 = OpenAI_LLM(api_key_openai, "gpt-5-mini", temperature=1.0)
 
-    for local_LLM in ["qwen3.5:27b", "qwen3-coder-next"]:
-        llm = Ollama_LLM(local_LLM)
+    for local_LLM in ["gpt-5.4-mini", "gpt-5.4-nano-2026-03-17"]:
+        llm = OpenAI_LLM(api_key_openai, local_LLM, temperature=1.0)
 
         all_features = ["Separable", "GlobalLocal", "Multimodality", "Basins", "Homogeneous"] 
         feature_combinations = [["Separable", "Multimodality"]]
@@ -481,7 +481,7 @@ if __name__ == "__main__":
                         elitism=False,
                         HPO=False,
                         budget=budget,
-                        max_workers=2,
+                        max_workers=5,
                         parallel_backend="loky",
                         niching=niching,
                         novelty_k=5,
