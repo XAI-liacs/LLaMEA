@@ -3,7 +3,7 @@ name = "llamea"
 version = "1.2.0"
 description = "LLaMEA is a Python framework for automatically generating and refining metaheuristic optimization algorithms using large language models, featuring optional in-the-loop hyper-parameter optimization."
 authors = [{ name = "Niki van Stein", email = "n.van.stein@liacs.leidenuniv.nl" }]
-requires-python = ">=3.11, <4"
+requires-python = ">=3.10, <4"
 readme = "README.md"
 license = "MIT"
 dependencies = [
