@@ -220,8 +220,8 @@ class Multi_Objective_TSP:
     import matplotlib.pyplot as plt
     for index, solution in enumerate(solutions):
         print(index + 1)
-        print(solutions.name)
-        print(solutions.description)
-        print(solutions.code)
-        print(solutions.fitness)
+        print(solution.name)
+        print(solution.description)
+        print(solution.code)
+        print(solution.fitness)
         print("------------------------------------------------------------------------------------------------------------------------")
