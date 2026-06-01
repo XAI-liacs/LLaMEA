@@ -252,7 +252,7 @@ def reshape(root: Path, outdir: Path):
 def main():
     parser = argparse.ArgumentParser(description="Reshape LLaMEA experiment logs from multiple folders into a single Experiment folder compatible with BLADE loggers.")
     parser.add_argument("--root", type=Path, default=Path("."), help="Directory containing exp-* folders")
-    parser.add_argument("--out", type=Path, default=Path("../BLADE/results/ELA_novelty_1"), help="Output directory")
+    parser.add_argument("--out", type=Path, default=Path("../BLADE/results/ELA_novelty_2"), help="Output directory")
     args = parser.parse_args()
     reshape(args.root.resolve(), args.out.resolve())
 
