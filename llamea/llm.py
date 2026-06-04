@@ -30,7 +30,7 @@ try:
 except ModuleNotFoundError:
     lms = object
 try:
-    from mlx_lm import load, generate
+    from mlx_lm import generate, load
 except ModuleNotFoundError:
     load = None
     generate = None
@@ -40,9 +40,9 @@ try:
 except ModuleNotFoundError:  # pragma: no cover - optional dependency
     ConfigurationSpace = None
 
+from .diffmodemanager import DiffModeManager
 from .solution import Solution
 from .utils import NoCodeException, apply_code_delta
-from .diffmodemanager import DiffModeManager
 
 
 class LLM(ABC):

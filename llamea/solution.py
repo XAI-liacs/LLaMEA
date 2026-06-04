@@ -1,8 +1,10 @@
 import json
-import uuid
-import numpy as np
 import traceback
+import uuid
 from typing import Optional
+
+import numpy as np
+
 from llamea.multi_objective_fitness import Fitness
 
 

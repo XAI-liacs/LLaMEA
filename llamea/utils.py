@@ -1,11 +1,12 @@
-import re
-import os
 import ast
 import importlib
+import os
+import re
+from difflib import SequenceMatcher
+from typing import Any, Optional
+
 import jsonlines
 import numpy as np
-from typing import Any, Optional
-from difflib import SequenceMatcher
 
 
 class NoCodeException(Exception):
