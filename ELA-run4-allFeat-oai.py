@@ -453,9 +453,7 @@ if __name__ == "__main__":
             feature_combinations.append([nf, rf])
         feature_combinations.append([nf])
 
-    rem_feature_combinations = [["NOT Homogeneous", "Multimodality"], ["NOT Homogeneous"]]
-
-    for combi in rem_feature_combinations:
+    for combi in feature_combinations:
         niching="novelty"
         experiment_name = f"ELA-{'_'.join([f for f in combi])}"
         problem = ELAproblem(name=f"ELA_{'_'.join(combi)}", features=combi, dims=[2,5,10], eval_timeout=1200)
