@@ -77,6 +77,9 @@ apple-silicon = [
 default-groups = [
 ]
 
+[tool.black]
+target-version = ["py311", "py312", "py313"]
+
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
