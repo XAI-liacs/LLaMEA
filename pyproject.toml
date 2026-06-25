@@ -27,9 +27,9 @@ Repository = "https://github.com/XAI-liacs/LLaMEA"
 
 [dependency-groups]
 dev = [
-    "black>=23.11.0,<24",
+    "black>=23.11.0,<27",
     "isort>=5.12.0,<6",
-    "pytest>=7.4.3,<8",
+    "pytest>=7.4.3,<10",
     "jupyter>=1.0.0,<2",
     "pytest-cov>=4.1.0,<5",
     "codecov>=2.1.13,<3",
@@ -76,6 +76,9 @@ apple-silicon = [
 [tool.uv]
 default-groups = [
 ]
+
+[tool.black]
+target-version = ["py311", "py312", "py313"]
 
 [build-system]
 requires = ["hatchling"]
