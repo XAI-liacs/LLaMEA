@@ -92,10 +92,10 @@ if __name__ == "__main__":
         """Simple run first.
         Hit ^C, before ending execution, and end program prematurely.
         Then comment following line"""
-        es.run()
+        # es.run()
 
         """Declare path to warm start from here, the path where the above quitted program was logging."""
-        path_to_archive = os.getcwd() + "/exp-08-22_110651-LLaMEA-DUMMY-pop1-5"
+        path_to_archive = os.getcwd() + "/exp-06-29_161726-LLaMEA-DUMMY-pop1-5"
         print(f"Dir name = {path_to_archive}")
 
         """
