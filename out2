@@ -1,0 +1,12 @@
+No archive path provided, standard initialisation.
+Initializing first population
+Releasing individual <llamea.solution.Solution object at 0x7f0c8134ded0>
+Releasing individual <llamea.solution.Solution object at 0x7f0c8ed09550>
+Releasing individual <llamea.solution.Solution object at 0x7feec0da2610>
+Releasing individual <llamea.solution.Solution object at 0x7efb565894d0>
+Releasing individual <llamea.solution.Solution object at 0x7efc3aebc750>
+Releasing individual <llamea.solution.Solution object at 0x7f5f012d4450>
+Releasing individual <llamea.solution.Solution object at 0x7f5ef4f4ad10>
+Releasing individual <llamea.solution.Solution object at 0x7f5f0147eb10>
+Started evolutionary loop, best so far: 214.85934120323037
+Experiment ELA-Basins failed with error: TerminatedWorkerError('A worker process managed by the executor was unexpectedly terminated. This could be caused by a segmentation fault while calling the function or by an excessive memory usage causing the Operating System to kill the worker.\n\nThe exit codes of the workers are {SIGKILL(-9)}\nDetailed tracebacks of the workers should have been printed to stderr in the executor process if faulthandler was not disabled.')

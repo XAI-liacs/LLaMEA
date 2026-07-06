@@ -341,6 +341,7 @@ for i in range(m):
         else:
             self.best_so_far = Solution(name="", code="")
             self.best_so_far = self._ensure_fitness_evaluates([self.best_so_far])[0]
+        self.warm_started = False   
         self.pickle_archive()
 
     @classmethod
@@ -354,6 +355,7 @@ for i in range(m):
         try:
             with open(f"{path_to_archive_dir}/llamea_config.pkl", "rb") as file:
                 obj = pickle.load(file)
+                obj.warm_started = True
             return obj
         except Exception as e:
             print(
@@ -996,6 +998,7 @@ Feedback:
         data = []
         try:
             with jsonlines.open(os.path.join(archive_path, "log.jsonl")) as reader:
+                print(f"Reading population from {archive_path}/log.jsonl")
                 for obj in reader:
                     data.append(obj)
 
@@ -1115,10 +1118,11 @@ Feedback:
             self.logevent(f"Loading population from {archive_path}/log.jsonl...")
             self.get_population_from(archive_path)
         else:
-            self.logevent("No archive path provided, standard initialisation.")
             # self.progress_bar = tqdm(total=self.budget)
-            self.logevent("Initializing first population")
-            self.initialize()  # Initialize a population
+            if not self.warm_started:
+                self.logevent("No archive path provided, standard initialisation.")
+                self.logevent("Initializing first population")
+                self.initialize()  # Initialize a population
             # self.progress_bar.update(self.n_parents)
 
         if self.log:

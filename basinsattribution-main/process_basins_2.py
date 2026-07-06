@@ -120,9 +120,9 @@ if __name__ == "__main__":
 
     sys.setrecursionlimit(10000)
 
-    os.makedirs("outputs", exist_ok=True)
+    os.makedirs("outputs_2", exist_ok=True)
 
-    base_dir = "/local/bodasap/exp_res_local/"
+    base_dir = "/local/bodasap/exp_res_oai/"
     # get a list of folders in base_dir that start with "exp"
     experiment_dirs = [f for f in os.listdir(base_dir) if f.startswith("exp")]
 

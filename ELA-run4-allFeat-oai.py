@@ -453,7 +453,10 @@ if __name__ == "__main__":
             feature_combinations.append([nf, rf])
         feature_combinations.append([nf])
 
-    for combi in feature_combinations:
+    # rem_feat_combinations = [["Basins"],["NOT Basins"],["Multimodality", "Basins"], ["GlobalLocal", "Basins"]]
+    rem_feat_combinations = [["Basins"]]
+    
+    for combi in rem_feat_combinations:
         niching="novelty"
         experiment_name = f"ELA-{'_'.join([f for f in combi])}"
         problem = ELAproblem(name=f"ELA_{'_'.join(combi)}", features=combi, dims=[2,5,10], eval_timeout=1200)
@@ -480,7 +483,7 @@ if __name__ == "__main__":
                     elitism=False,
                     HPO=False,
                     budget=budget,
-                    max_workers=5,
+                    max_workers=2,
                     parallel_backend="loky",
                     niching=niching,
                     novelty_k=5,
@@ -489,4 +492,4 @@ if __name__ == "__main__":
                 )
                 print(es.run())
             except Exception as e:
-                print(f"Experiment {experiment_name} failed with error: {e}")
+                print(f"Experiment {experiment_name} failed with error: {e.__repr__()}")

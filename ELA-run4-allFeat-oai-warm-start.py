@@ -453,7 +453,7 @@ if __name__ == "__main__":
             feature_combinations.append([nf, rf])
         feature_combinations.append([nf])
 
-    rem_feat_combinations = [["NOT Basins", "GlobalLocal"], ["Basins"], ["NOT Basins"], ["Basins","Homogeneous"], ["Multimodality", "Basins"], ["GlobalLocal"], ["GlobalLocal", "Basins"]]
+    rem_feat_combinations = [["Basins"],["NOT Basins"],["Multimodality", "Basins"], ["GlobalLocal", "Basins"]]
     script_dir = os.path.dirname(os.path.abspath(__file__))
 
     def find_archive_path(experiment_name):
@@ -474,6 +474,8 @@ if __name__ == "__main__":
         niching="novelty"
         experiment_name = f"ELA-{'_'.join([f for f in combi])}"
         archive_path = find_archive_path(experiment_name)
+
+        print(f"Archieve path for {experiment_name}: {archive_path}")
 
         if archive_path is not None:
             try:
@@ -528,4 +530,6 @@ if __name__ == "__main__":
                     archive_path = None
                 print(es.run(archive_path=archive_path))
             except Exception as e:
-                print(f"Experiment {experiment_name} failed with error: {e}")
+                import traceback
+                traceback.print_exc()
+                print(f"Experiment {experiment_name} failed with error: {e.__repr__()}")

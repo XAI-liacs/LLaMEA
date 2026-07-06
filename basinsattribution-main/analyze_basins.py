@@ -1,5 +1,4 @@
 import numpy as np
-import utils
 
 
 class BasinsLoc:
@@ -317,6 +316,8 @@ class BasinsLoc:
             self.dump_points(ids, X, y)
 
     def plot_attraction_basins(self, F, input_filename=None, X=None):
+        import utils
+
         if input_filename is not None:
             _X = np.genfromtxt(input_filename, delimiter=",")
             X_init = _X[:, 1:]
@@ -363,6 +364,7 @@ class BasinsLoc:
 if __name__ == "__main__":
     import argparse
     import os
+    import utils
 
     directory = "outputs"
     os.makedirs(directory, exist_ok=True)
