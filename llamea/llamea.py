@@ -335,7 +335,7 @@ class LLaMEA:
         self.parent_selection = parent_selection  # "random" | "roulette" | "tournament"
         self.tournament_size = tournament_size
 
-        if self.log:
+        if self.log and getattr(self, 'logger', None) is not None:
             modelname = self.model.replace(":", "_")
             modelname = self.model.replace("/", "_")
             self.logger = ExperimentLogger(f"LLaMEA-{modelname}-{experiment_name}")
