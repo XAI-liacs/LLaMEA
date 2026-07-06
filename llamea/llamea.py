@@ -335,7 +335,7 @@ class LLaMEA:
         self.parent_selection = parent_selection  # "random" | "roulette" | "tournament"
         self.tournament_size = tournament_size
 
-        if self.log and getattr(self, 'logger', None) is not None:
+        if self.log and getattr(self, 'logger', None) is None:
             modelname = self.model.replace(":", "_")
             modelname = self.model.replace("/", "_")
             self.logger = ExperimentLogger(f"LLaMEA-{modelname}-{experiment_name}")
@@ -366,8 +366,10 @@ class LLaMEA:
             path_to_archive_dir: Directory of instance for which warm start needs to be executed.
         """
         try:
-            with open(f"{path_to_archive_dir}/llamea_config.pkl", "rb") as file:
+            with open(os.path.join(path_to_archive_dir, "llamea_config.pkl"), "rb") as file:
+                print('Warm start called.')
                 obj = pickle.load(file)
+                print('Logger in warm start object:', getattr(obj, 'logger', None))
                 obj.warm_started = True
             return obj
         except Exception as e:
