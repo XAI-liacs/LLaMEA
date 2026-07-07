@@ -2,16 +2,12 @@ import numpy as np
 import re
 
 
-try:
-    from ioh import LogInfo
-    # try:
-    #     from ioh.logger import AbstractLogger
-    # except ImportError:
-    from ioh import logger as iohLogger
-    AbstractLogger = iohLogger.AbstractLogger
-except ImportError:
-    LogInfo = None
-    AbstractLogger = object
+# try:
+from ioh import LogInfo
+from ioh.iohcpp.logger import AbstractLogger
+# except ImportError:
+#     LogInfo = None
+#     AbstractLogger = object
 
 
 

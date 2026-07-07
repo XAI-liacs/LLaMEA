@@ -1257,16 +1257,27 @@ The selected solutions to update are:\n"""
 
             new_population = []
             try:
+                for i in range(self.n_offspring):
+                    print(f"crossover {i}")
+                    crossover_parents = np.random.choice(self.population, 2, replace=False)
+                    print(crossover_parents)
+                    print(f"select parents {i}")
+                    crossover_individual = self.crossover(crossover_parents)
+                    print(f"crossover {i} done")
+                    new_offspring_population += [crossover_individual]
                 timeout = self.eval_timeout
-                new_population_gen = Parallel(
-                    n_jobs=self.max_workers,
-                    timeout=timeout + 15,
-                    backend=self.parallel_backend,
-                    return_as="generator_unordered",
-                )(
-                    delayed(self.evolve_solution)(individual)
-                    for individual in new_offspring_population
-                )
+                new_population_gen = []
+                for individual in new_offspring_population:
+                    new_population_gen += [self.evolve_solution(individual)]
+                # new_population_gen = Parallel(
+                #     n_jobs=self.max_workers,
+                #     timeout=timeout + 15,
+                #     backend=self.parallel_backend,
+                #     return_as="generator_unordered",
+                # )(
+                #     delayed(self.evolve_solution)(individual)
+                #     for individual in new_offspring_population
+                # )
             except Exception as e:
                 print("Parallel time out .")
 
