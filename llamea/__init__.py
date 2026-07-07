@@ -18,4 +18,5 @@ from .utils import (
     prepare_namespace,
     clean_local_namespace,
 )
+from .operator import Operator
 from .multi_objective_fitness import Fitness

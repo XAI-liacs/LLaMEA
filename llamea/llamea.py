@@ -20,10 +20,13 @@ import jsonlines
 
 import numpy as np
 from joblib import Parallel, delayed
+
 from .llm import LLM
-from .feature_guidance import FeatureGuidance, compute_feature_guidance
-from .ast_features import extract_ast_features
+from .operator import Operator
 from .multi_objective_fitness import Fitness
+from .ast_features import extract_ast_features
+from .feature_guidance import FeatureGuidance, compute_feature_guidance
+
 
 try:
     from ConfigSpace import ConfigurationSpace
@@ -56,7 +59,7 @@ class LLaMEA:
     This class handles the initialization, evolution, and interaction with a language model
     to generate and refine algorithms.
     """
-
+    #region __init__
     def __init__(
         self,
         f,
@@ -72,7 +75,7 @@ class LLaMEA:
         experiment_name="",
         elitism=True,
         HPO=False,
-        mutation_prompts=None,
+        operators=[],
         adaptive_mutation=False,
         adaptive_prompt=False,
         feature_guided_mutation: bool = False,
@@ -122,9 +125,10 @@ class LLaMEA:
             elitism (bool): Flag to decide if elitism should be used in the evolutionary process.
             HPO (bool): Flag to decide if hyper-parameter optimization is part of the evaluation function.
                 In case it is, a configuration space should be asked from the LLM as additional output in json format.
-            mutation_prompts (list): A list of prompts to specify mutation operators to the LLM model. Each mutation, a random choice from this list is made.
+            operators (list): A list of `Operator` | `str` to specify operators to the LLM model. If provided as `str` it is typecasted to `Operator` 
+                of `mutation` type. Each mutation, a random choice from this list is made.
             adaptive_mutation (bool): If set to True, the mutation prompt 'Change X% of the lines of code' will be used in an adaptive control setting.
-                This overwrites mutation_prompts.
+                This overwrites operator.
             adaptive_prompt (bool): If True, the task prompt is optimized before each mutation, allowing it to co-evolve with the individuals.
             feature_guided_mutation (bool): Enable archive based mutation guidance that
                 augments mutation prompts using XGBoost and TreeSHAP insights.
@@ -277,13 +281,31 @@ class LLaMEA:
             >>>>>>> REPLACE
             ```
             """)
-        self.mutation_prompts = mutation_prompts
+        self.operators: list[Operator] = []
+        if len(operators) == 0:
+            self.operators.append(Operator
+                                  ('mutation',
+                                    "Refine the strategy of the selected solution to improve it.",
+                                    1.0,
+                                    1)
+                                )
+        for operator in operators:
+            if isinstance(operator, str):
+                self.operators.append(
+                    Operator(
+                        'mutation',
+                        operator,
+                        1.0,
+                        1
+                    )
+                )
+            else:
+                assert operator.number_of_parents <= n_parents, f'An operator cannot operate on more the {n_parents} individuals.'
+                assert operator.weight >= 0, f'Cannot assign negative weight.'
+                self.operators.append(operator)
+                
         self.adaptive_mutation = adaptive_mutation
-        if mutation_prompts == None:
-            self.mutation_prompts = [
-                "Refine the strategy of the selected solution to improve it.",  # small mutation
-                # "Generate a new algorithm that is different from the algorithms you have tried before.", #new random solution
-            ]
+
         self.budget = budget
         self.n_parents = n_parents
         self.n_offspring = n_offspring
@@ -346,6 +368,9 @@ class LLaMEA:
             self.best_so_far = self._ensure_fitness_evaluates([self.best_so_far])[0]
         self.pickle_archive()
 
+    #endregion
+
+    #region warm_start
     @classmethod
     def warm_start(cls, path_to_archive_dir):
         """
@@ -363,16 +388,112 @@ class LLaMEA:
                 f"Error unarchiving object from {path_to_archive_dir}/llamea_config.pkl: {e.__repr__()}"
             )
             return None
+    
+    def get_population_from(self, archive_path):
+        """
+        Finds population log in archive_path/log.jsonl and loads it to current population.
+        If population size in log file is insufficient, runs initialize() for rest of the population.
+        Used to run a cold started algorithm with best known population.
+        `Note`: Make sure the goal of initialisation of current instance of LLaMEA matches the population being selected.
+        Args:
+            archive_path: A directory from previous runs, to load well known population from.
+        """
 
+        data = []
+        try:
+            with jsonlines.open(os.path.join(archive_path, "log.jsonl")) as reader:
+                for obj in reader:
+                    data.append(obj)
+
+        except Exception as e:
+            print("Error reading population: " + e.__repr__())
+
+        restore_population = data[-1 * self.n_parents :]
+        population = []
+        print(
+            f"Restoring population of size {len(restore_population)}, of {self.n_parents}"
+        )
+        for individual in restore_population:
+            print("\tRestoring...")
+            for key, value in individual.items():
+                print(f"{key}: {value}, ({type(value)})")
+            soln = Solution(
+                code=individual["code"],
+                name=individual["name"],
+                description=individual["description"],
+                configspace=(
+                    None
+                    if individual["configspace"] == ""
+                    else individual["configspace"]
+                ),
+                operator=individual["operator"],
+                task_prompt=individual["task_prompt"],
+            )
+            if isinstance(individual['fitness'], dict):
+                fitness = Fitness(individual['fitness'])
+                soln.set_scores(fitness, individual['feedback'])
+            else:
+                fitness = individual['fitness']
+                soln.set_scores(fitness, individual['feedback'])
+            population.append(soln)
+
+        self.population = population
+        if len(population) < self.n_parents:
+            print(len(population), self.n_parents)
+            self.initialize()
+        else:
+            print("-----------Init not called--------------")
+    #endregion
+
+    #region Pickle/Deepcopy Manager
     def __getstate__(self):
         return self.__dict__
 
     def __setstate__(self, to_state):
         self.__dict__.update(to_state)
+    
+    def _find_unpicklable(self, obj, path="root"):
+        try:
+            pickle.dumps(obj)
+            return None  # This object is fine
+        except Exception:
+            pass
+
+            # Inspect containers
+            if isinstance(obj, dict):
+                for k, v in obj.items():
+                    bad = self._find_unpicklable(v, f"{path}[{k!r}]")
+                    if bad:
+                        return bad
+            elif isinstance(obj, (list, tuple, set)):
+                for i, v in enumerate(obj):
+                    bad = self._find_unpicklable(v, f"{path}[{i}]")
+                    if bad:
+                        return bad
+            else:
+                # It's a leaf object that failed
+                return path
+        return None
+
+    def pickle_archive(self):
+        """
+        Store the llmea object, into a file, using pickle, to support warm start.
+        """
+        try:
+            if self.logger:
+                with open(f"{self.logger.dirname}/llamea_config.pkl", "wb") as file:
+                    pickle.dump(self, file)
+        except Exception as e:
+            print(f"\tPickle error type: {type(e).__name__}, finding reason....")
+            bad_path = self._find_unpicklable(self, "llamea")
+            if bad_path:
+                print(f"\t❗ First unpicklable element at: {bad_path}.")
+    #endregion
 
     def logevent(self, event):
         print(event)
 
+    #region initialise
     def initialize_single(self):
         """
         Initializes a single solution.
@@ -444,7 +565,9 @@ class LLaMEA:
         self.generation += 1
         self.population = population  # Save the entire population
         self.update_best()
-
+    
+    #endregion
+    #region Evaluator
     def _ensure_fitness_evaluates(self, population: list[Solution]):
         return_population = []
         for individual in population:
@@ -486,6 +609,9 @@ class LLaMEA:
             self.population = evaluated_parents  # The parent population fitness might also be updated (this does not need to be logged)
         return evaluated_offspring
 
+    #endregion
+
+    # region Prompt
     def optimize_task_prompt(self, individual):
         """Use the LLM to improve the task prompt for a given individual."""
 
@@ -526,12 +652,13 @@ Provide an improved / rephrased / augmented task prompt only. The intent of the 
             self.logevent(f"Prompt optimization failed: {e}")
             return individual.task_prompt
 
-    def construct_prompt(self, individual: Solution):
+    def construct_prompt(self, individuals: list[Solution], operator: Optional[Operator]=None):
         """
         Constructs a new session prompt for the language model based on a selected individual.
 
         Args:
-            individual (dict): The individual to mutate.
+            `individuals: list[Solution]`: The individuals to mutate / crossover.
+            `operator: Operator`: An instance of operator object. Make sure that `individuals`'s size is equal to `Operator.number_of_parents`.
 
         Returns:
             list: A list of dictionaries simulating a conversation with the language model for the next evolutionary step.
@@ -539,19 +666,22 @@ Provide an improved / rephrased / augmented task prompt only. The intent of the 
         # Generate the current population summary
         population_summary = "\n".join([ind.get_summary() for ind in self.population])
         if self.feature_guided_mutation and self.run_history:
-            self._update_feature_guidance(parent=individual)
-        solution = individual.code
-        description = individual.description
-        feedback = individual.feedback
-        error_message = ""
-        if individual.error:
-            error_message = f"""
-### Error Encountered
-{individual.error}
-
-"""
+            for individual in individuals:
+                self._update_feature_guidance(parent=individual)
+        
+#         if operator is None:
+#             individual = individuals[0]
+#             solution = individual.code
+#             description = individual.description
+#             feedback = individual.feedback
+#             error_message = ""
+#             if individual.error:
+#                 error_message = f"""
+# ### Error Encountered
+# {individual.error}
+# """
         if self.adaptive_mutation == True:
-            num_lines = len(solution.split("\n"))
+            num_lines = len(individuals[0].code.split("\n"))
             prob = discrete_power_law_distribution(num_lines, 1.5)
             new_mutation_prompt = f"""Refine the strategy of the selected solution to improve it.
 Make sure you only change {(prob*100):.1f}% of the code, which means if the code has 100 lines, you can only change {prob*100} lines, and the rest of the lines should remain unchanged.
@@ -560,11 +690,17 @@ This changing rate {(prob*100):.1f}% is a mandatory requirement, you cannot chan
 """
             self.mutation_prompts = [new_mutation_prompt]
 
-        mutation_operator = random.choice(self.mutation_prompts)
         guidance_message = self.feature_guidance_message.strip()
+
+        assert getattr(operator, 'number_of_parents', 1) == len(individuals), f'Operator expecting {getattr(operator, 'number_of_parents', 1)} parents, got {len(individuals)}.'
+
+        mutation_operator = f'{operator.__repr__()}'
         if guidance_message:
-            mutation_operator = f"{mutation_operator}\n\n{guidance_message}"
-        individual.set_operator(mutation_operator)
+            mutation_operator = f"{operator}\n\n{guidance_message}"
+        
+        ids = [individual.id for individual in individuals]
+        for individual in individuals:
+            individual.set_operator(f'{mutation_operator}. Parent IDs: {ids}')
 
         task_prompt = (
             individual.task_prompt if self.adaptive_prompt else self.task_prompt
@@ -573,25 +709,20 @@ This changing rate {(prob*100):.1f}% is a mandatory requirement, you cannot chan
 The current population of algorithms already evaluated (name, description, score) is:
 {population_summary}
 
-The selected solution to update is:
-{description}
+The selected solutions to update are:\n"""
 
-With code:
-
+        individuals_data = ''
+        for individual in individuals:
+            individuals_data += f'## Description:\n\t {individual.description}\n'
+            individuals_data += f"""## With Code
 ```python
-{solution}
-```
-
-Feedback:
-
-{feedback}
-
-{error_message}
-
-{mutation_operator}
-
-{self.diff_output_format_prompt if self.diff_mode else self.output_format_prompt}
+{individual.code}
+```\n\n
 """
+            individuals_data += f'Feedback: {individual.feedback}\n'
+            individuals_data += f'Error: {individual.error}\n'
+
+        final_prompt = final_prompt + individuals_data + mutation_operator + (self.diff_output_format_prompt if self.diff_mode else self.output_format_prompt)
 
         session_messages = [
             {"role": "user", "content": self.role_prompt + final_prompt},
@@ -604,6 +735,7 @@ Feedback:
         # Logic to construct the new prompt based on current evolutionary state.
         return session_messages
 
+    #endregion
     def _update_feature_guidance(self, parent: Solution | None = None) -> None:
         """Train the archive model and refresh mutation guidance."""
 
@@ -624,6 +756,8 @@ Feedback:
             parent.add_metadata("guidance_action", guidance.action)
             parent.add_metadata("guidance_feature_name", guidance.feature_name)
 
+    #endregion
+    #region HelperFunctions
     def update_best(self):
         """
         Update the best individual in the new population
@@ -871,7 +1005,8 @@ Feedback:
                 else:
                     ind.fitness = self.worst_value
         return population
-
+    #endregion
+    #region Selection
     def selection(self, parents, offspring):
         """
         Select the new population based on the parents and the offspring and the current strategy.
@@ -937,6 +1072,8 @@ Feedback:
                     break
             return sorted_pool
 
+    #endregion
+    #region Evolution
     def evolve_solution(self, individual):
         """
         Evolves a single solution by constructing a new prompt,
@@ -945,7 +1082,19 @@ Feedback:
         individual_copy = individual.copy()
         if self.adaptive_prompt:
             individual_copy.task_prompt = self.optimize_task_prompt(individual_copy)
-        new_prompt = self.construct_prompt(individual_copy)
+        
+        
+
+        weights = [operator.weight or 1.0 for operator in self.operators]
+
+        operator = operator = random.choices(
+            self.operators,
+            weights=weights,
+            k=1,
+        )[0]
+
+        
+        new_prompt = self.construct_prompt([individual_copy], operator)
 
         evolved_individual = individual.empty_copy()
         try:
@@ -988,55 +1137,9 @@ Feedback:
         # self.progress_bar.update(1)
         return evolved_individual
 
-    def get_population_from(self, archive_path):
-        """
-        Finds population log in archive_path/log.jsonl and loads it to current population.
-        If population size in log file is insufficient, runs initialize() for rest of the population.
-        Used to run a cold started algorithm with best known population.
-        `Note`: Make sure the goal of initialisation of current instance of LLaMEA matches the population being selected.
-        Args:
-            archive_path: A directory from previous runs, to load well known population from.
-        """
+    #endregion
 
-        data = []
-        try:
-            with jsonlines.open(os.path.join(archive_path, "log.jsonl")) as reader:
-                for obj in reader:
-                    data.append(obj)
-
-        except Exception as e:
-            print("Error reading population: " + e.__repr__())
-
-        restore_population = data[-1 * self.n_parents :]
-        population = []
-        print(
-            f"Restoring population of size {len(restore_population)}, of {self.n_parents}"
-        )
-        for individual in restore_population:
-            print("\tRestoring...")
-            for key, value in individual.items():
-                print(f"{key}: {value}, ({type(value)})")
-            soln = Solution(
-                code=individual["code"],
-                name=individual["name"],
-                description=individual["description"],
-                configspace=(
-                    None
-                    if individual["configspace"] == ""
-                    else individual["configspace"]
-                ),
-                operator=individual["operator"],
-                task_prompt=individual["task_prompt"],
-            )
-            population.append(soln)
-
-        self.population = population
-        if len(population) < self.n_parents:
-            print(len(population), self.n_parents)
-            self.initialize()
-        else:
-            print("-----------Init not called--------------")
-
+    #region Parent Selection
     def _select_parents(self):
         """
         Return list of parents (length = n_offspring) chosen according to
@@ -1105,6 +1208,9 @@ Feedback:
             selected.append(self.population[best_i])
         return selected
 
+    #endregion
+
+    #region Run
     def run(self, archive_path=None):
         """
         Main loop to evolve the solutions until the evolutionary budget is exhausted.
@@ -1207,40 +1313,4 @@ Feedback:
         if self.multi_objective:
             return self.best_so_far.get_best()
         return self.best_so_far
-
-    def _find_unpicklable(self, obj, path="root"):
-        try:
-            pickle.dumps(obj)
-            return None  # This object is fine
-        except Exception:
-            pass
-
-            # Inspect containers
-            if isinstance(obj, dict):
-                for k, v in obj.items():
-                    bad = self._find_unpicklable(v, f"{path}[{k!r}]")
-                    if bad:
-                        return bad
-            elif isinstance(obj, (list, tuple, set)):
-                for i, v in enumerate(obj):
-                    bad = self._find_unpicklable(v, f"{path}[{i}]")
-                    if bad:
-                        return bad
-            else:
-                # It's a leaf object that failed
-                return path
-        return None
-
-    def pickle_archive(self):
-        """
-        Store the llmea object, into a file, using pickle, to support warm start.
-        """
-        try:
-            if self.logger:
-                with open(f"{self.logger.dirname}/llamea_config.pkl", "wb") as file:
-                    pickle.dump(self, file)
-        except Exception as e:
-            print(f"\tPickle error type: {type(e).__name__}, finding reason....")
-            bad_path = self._find_unpicklable(self, "llamea")
-            if bad_path:
-                print(f"\t❗ First unpicklable element at: {bad_path}.")
+    #endregion
