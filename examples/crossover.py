@@ -175,13 +175,41 @@ if __name__ == '__main__':
         )
     ]
 
+    role_prompt = "You are an excellent Scientific Programmer, who can write novel solution to solve optimisation problem."
+
+    task_prompt = """Write a novel solution, for solving multi-objective (Distance, Fuel) Travelling Salesman Problem.
+The salesman starts and ends at the depot, and he visits each customer only once.
+Write a class with __init__ method that excepts a two parameters.
+    * The first one is the depot, which is of type tuple(int, int, int, int); corresponding to its id, x-coordinate, y-coordinate, weight.
+    * The second is customers which is a `list[tuple(int, int, int, int)]`, same corresponding values for the tuple.
+        * So the class should instantiate as `__init__(depot: tuple[int, int, int, int], customers: list[tuple[int, int, int, int]])`.
+    * The class should also have a `__call__()` method, that returns the path as a list of customer ids: `list[int]`.
+        * `Note`: The returned list must not contain depot's id, it is accounted for by the evaluator.
+"""
+    example_prompt = """
+An example program of this solution will be:
+import random
+class Multi_Objective_TSP:
+    def __init__(depot, customer):
+        self.depot = depot
+        self.cusotmers = customers
+
+    def __call__():
+        customer_ids = [customer[0] for customer in customers]
+        random.shuffle(customer_ids)
+        return customer_ids
+"""
+
     llamea = LLaMEA(
         evaluate,
         llm,
         5,
         5,
         operators=operators,
-        parent_selection='tournament'
+        parent_selection='tournament',
+        task_prompt=task_prompt,
+        role_prompt=role_prompt,
+        example_prompt=example_prompt
     )
 
     llamea.run()
