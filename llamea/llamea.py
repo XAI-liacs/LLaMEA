@@ -27,7 +27,6 @@ from .multi_objective_fitness import Fitness
 from .ast_features import extract_ast_features
 from .feature_guidance import FeatureGuidance, compute_feature_guidance
 
-
 try:
     from ConfigSpace import ConfigurationSpace
 except ModuleNotFoundError:  # pragma: no cover - optional dependency
@@ -59,7 +58,8 @@ class LLaMEA:
     This class handles the initialization, evolution, and interaction with a language model
     to generate and refine algorithms.
     """
-    #region __init__
+
+    # region __init__
     def __init__(
         self,
         f,
@@ -125,7 +125,7 @@ class LLaMEA:
             elitism (bool): Flag to decide if elitism should be used in the evolutionary process.
             HPO (bool): Flag to decide if hyper-parameter optimization is part of the evaluation function.
                 In case it is, a configuration space should be asked from the LLM as additional output in json format.
-            operators (list): A list of `Operator` | `str` to specify operators to the LLM model. If provided as `str` it is typecasted to `Operator` 
+            operators (list): A list of `Operator` | `str` to specify operators to the LLM model. If provided as `str` it is typecasted to `Operator`
                 of `mutation` type. Each mutation, a random choice from this list is made.
             adaptive_mutation (bool): If set to True, the mutation prompt 'Change X% of the lines of code' will be used in an adaptive control setting.
                 This overwrites operator.
@@ -177,7 +177,7 @@ class LLaMEA:
             tournament_size (int): Number of candidates sampled in each
                 tournament when using ``"tournament"`` selection.
         """
-        self.llm = llm
+        self.llm: LLM = llm
         self.model = llm.model
         self.diff_mode = diff_mode
 
@@ -283,27 +283,24 @@ class LLaMEA:
             """)
         self.operators: list[Operator] = []
         if len(operators) == 0:
-            self.operators.append(Operator
-                                  ('mutation',
-                                    "Refine the strategy of the selected solution to improve it.",
-                                    1.0,
-                                    1)
-                                )
+            self.operators.append(
+                Operator(
+                    "mutation",
+                    "Refine the strategy of the selected solution to improve it.",
+                    1.0,
+                    1,
+                )
+            )
         for operator in operators:
             if isinstance(operator, str):
-                self.operators.append(
-                    Operator(
-                        'mutation',
-                        operator,
-                        1.0,
-                        1
-                    )
-                )
+                self.operators.append(Operator("mutation", operator, 1.0, 1))
             else:
-                assert operator.number_of_parents <= n_parents, f'An operator cannot operate on more the {n_parents} individuals.'
-                assert operator.weight >= 0, f'Cannot assign negative weight.'
+                assert (
+                    operator.number_of_parents <= n_parents
+                ), f"An operator cannot operate on more the {n_parents} individuals."
+                assert operator.weight >= 0, f"Cannot assign negative weight."
                 self.operators.append(operator)
-                
+
         self.adaptive_mutation = adaptive_mutation
 
         self.budget = budget
@@ -368,9 +365,9 @@ class LLaMEA:
             self.best_so_far = self._ensure_fitness_evaluates([self.best_so_far])[0]
         self.pickle_archive()
 
-    #endregion
+    # endregion
 
-    #region warm_start
+    # region warm_start
     @classmethod
     def warm_start(cls, path_to_archive_dir):
         """
@@ -388,7 +385,7 @@ class LLaMEA:
                 f"Error unarchiving object from {path_to_archive_dir}/llamea_config.pkl: {e.__repr__()}"
             )
             return None
-    
+
     def get_population_from(self, archive_path):
         """
         Finds population log in archive_path/log.jsonl and loads it to current population.
@@ -429,12 +426,12 @@ class LLaMEA:
                 operator=individual["operator"],
                 task_prompt=individual["task_prompt"],
             )
-            if isinstance(individual['fitness'], dict):
-                fitness = Fitness(individual['fitness'])
-                soln.set_scores(fitness, individual['feedback'])
+            if isinstance(individual["fitness"], dict):
+                fitness = Fitness(individual["fitness"])
+                soln.set_scores(fitness, individual["feedback"])
             else:
-                fitness = individual['fitness']
-                soln.set_scores(fitness, individual['feedback'])
+                fitness = individual["fitness"]
+                soln.set_scores(fitness, individual["feedback"])
             population.append(soln)
 
         self.population = population
@@ -443,15 +440,16 @@ class LLaMEA:
             self.initialize()
         else:
             print("-----------Init not called--------------")
-    #endregion
 
-    #region Pickle/Deepcopy Manager
+    # endregion
+
+    # region Pickle/Deepcopy Manager
     def __getstate__(self):
         return self.__dict__
 
     def __setstate__(self, to_state):
         self.__dict__.update(to_state)
-    
+
     def _find_unpicklable(self, obj, path="root"):
         try:
             pickle.dumps(obj)
@@ -488,12 +486,13 @@ class LLaMEA:
             bad_path = self._find_unpicklable(self, "llamea")
             if bad_path:
                 print(f"\t❗ First unpicklable element at: {bad_path}.")
-    #endregion
+
+    # endregion
 
     def logevent(self, event):
         print(event)
 
-    #region initialise
+    # region initialise
     def initialize_single(self):
         """
         Initializes a single solution.
@@ -565,9 +564,9 @@ class LLaMEA:
         self.generation += 1
         self.population = population  # Save the entire population
         self.update_best()
-    
-    #endregion
-    #region Evaluator
+
+    # endregion
+    # region Evaluator
     def _ensure_fitness_evaluates(self, population: list[Solution]):
         return_population = []
         for individual in population:
@@ -609,7 +608,7 @@ class LLaMEA:
             self.population = evaluated_parents  # The parent population fitness might also be updated (this does not need to be logged)
         return evaluated_offspring
 
-    #endregion
+    # endregion
 
     # region Prompt
     def optimize_task_prompt(self, individual):
@@ -652,7 +651,9 @@ Provide an improved / rephrased / augmented task prompt only. The intent of the 
             self.logevent(f"Prompt optimization failed: {e}")
             return individual.task_prompt
 
-    def construct_prompt(self, individuals: list[Solution], operator: Optional[Operator]=None):
+    def construct_prompt(
+        self, individuals: list[Solution], operator: Optional[Operator] = None
+    ):
         """
         Constructs a new session prompt for the language model based on a selected individual.
 
@@ -668,18 +669,7 @@ Provide an improved / rephrased / augmented task prompt only. The intent of the 
         if self.feature_guided_mutation and self.run_history:
             for individual in individuals:
                 self._update_feature_guidance(parent=individual)
-        
-#         if operator is None:
-#             individual = individuals[0]
-#             solution = individual.code
-#             description = individual.description
-#             feedback = individual.feedback
-#             error_message = ""
-#             if individual.error:
-#                 error_message = f"""
-# ### Error Encountered
-# {individual.error}
-# """
+
         if self.adaptive_mutation == True:
             num_lines = len(individuals[0].code.split("\n"))
             prob = discrete_power_law_distribution(num_lines, 1.5)
@@ -692,15 +682,17 @@ This changing rate {(prob*100):.1f}% is a mandatory requirement, you cannot chan
 
         guidance_message = self.feature_guidance_message.strip()
 
-        assert getattr(operator, 'number_of_parents', 1) == len(individuals), f'Operator expecting {getattr(operator, 'number_of_parents', 1)} parents, got {len(individuals)}.'
+        assert getattr(operator, "number_of_parents", 1) == len(
+            individuals
+        ), f"Operator expecting {getattr(operator, 'number_of_parents', 1)} parents, got {len(individuals)}."
 
-        mutation_operator = f'{operator.__repr__()}'
+        mutation_operator = f"{operator.__repr__()}"
         if guidance_message:
             mutation_operator = f"{operator}\n\n{guidance_message}"
-        
+
         ids = [individual.id for individual in individuals]
         for individual in individuals:
-            individual.set_operator(f'{mutation_operator}. Parent IDs: {ids}')
+            individual.set_operator(f"{mutation_operator}. Parent IDs: {ids}")
 
         task_prompt = (
             individual.task_prompt if self.adaptive_prompt else self.task_prompt
@@ -709,20 +701,32 @@ This changing rate {(prob*100):.1f}% is a mandatory requirement, you cannot chan
 The current population of algorithms already evaluated (name, description, score) is:
 {population_summary}
 
-The selected solutions to update are:\n"""
+The selected solutions to update are:\n\n"""
 
-        individuals_data = ''
-        for individual in individuals:
-            individuals_data += f'## Description:\n\t {individual.description}\n'
+        individuals_data = ""
+        for index, individual in enumerate(individuals):
+            individuals_data += f"# {index + 1}\n"
+            individuals_data += f"## Description:\n\t {individual.description}\n"
             individuals_data += f"""## With Code
 ```python
 {individual.code}
-```\n\n
+```
 """
-            individuals_data += f'Feedback: {individual.feedback}\n'
-            individuals_data += f'Error: {individual.error}\n'
+            individuals_data += f"## Feedback:\n\t {individual.feedback}\n"
+            individuals_data += (
+                f"## Error:\n\t {individual.error}\n\n" if individual.error else "\n"
+            )
 
-        final_prompt = final_prompt + individuals_data + mutation_operator + (self.diff_output_format_prompt if self.diff_mode else self.output_format_prompt)
+        final_prompt = (
+            final_prompt
+            + individuals_data
+            + mutation_operator
+            + (
+                self.diff_output_format_prompt
+                if self.diff_mode
+                else self.output_format_prompt
+            )
+        )
 
         session_messages = [
             {"role": "user", "content": self.role_prompt + final_prompt},
@@ -735,7 +739,7 @@ The selected solutions to update are:\n"""
         # Logic to construct the new prompt based on current evolutionary state.
         return session_messages
 
-    #endregion
+    # endregion
     def _update_feature_guidance(self, parent: Solution | None = None) -> None:
         """Train the archive model and refresh mutation guidance."""
 
@@ -756,8 +760,8 @@ The selected solutions to update are:\n"""
             parent.add_metadata("guidance_action", guidance.action)
             parent.add_metadata("guidance_feature_name", guidance.feature_name)
 
-    #endregion
-    #region HelperFunctions
+    # endregion
+    # region HelperFunctions
     def update_best(self):
         """
         Update the best individual in the new population
@@ -1005,8 +1009,10 @@ The selected solutions to update are:\n"""
                 else:
                     ind.fitness = self.worst_value
         return population
-    #endregion
-    #region Selection
+
+    # endregion
+
+    # region Selection
     def selection(self, parents, offspring):
         """
         Select the new population based on the parents and the offspring and the current strategy.
@@ -1072,9 +1078,14 @@ The selected solutions to update are:\n"""
                     break
             return sorted_pool
 
-    #endregion
-    #region Evolution
-    def evolve_solution(self, individual):
+    # endregion
+    # region Evolution
+    def evolve_solution(self, individual: Solution):
+        weights = [operator.weight or 1.0 for operator in self.operators]
+        operator = random.choices(self.operators, weights=weights, k=1)[0]
+        return self._evolve_solution(individual, operator)
+
+    def _evolve_solution(self, individual: Solution, operator: Operator):
         """
         Evolves a single solution by constructing a new prompt,
         querying the LLM, and evaluating the fitness.
@@ -1082,25 +1093,24 @@ The selected solutions to update are:\n"""
         individual_copy = individual.copy()
         if self.adaptive_prompt:
             individual_copy.task_prompt = self.optimize_task_prompt(individual_copy)
-        
-        
 
-        weights = [operator.weight or 1.0 for operator in self.operators]
-
-        operator = operator = random.choices(
-            self.operators,
-            weights=weights,
-            k=1,
-        )[0]
-
-        
-        new_prompt = self.construct_prompt([individual_copy], operator)
+        new_prompt = ""
+        parent_ids = []
+        if operator.number_of_parents == 1:
+            new_prompt = self.construct_prompt([individual_copy], operator)
+            parent_ids = individual_copy.parent_ids
+        else:
+            parents = self._select_parents(
+                count=operator.number_of_parents or 2 - 1
+            ) + [individual]
+            parent_ids = [parent.id for parent in parents]
+            new_prompt = self.construct_prompt(parents, operator)
 
         evolved_individual = individual.empty_copy()
         try:
             evolved_individual = self.llm.sample_solution(
                 new_prompt,
-                evolved_individual.parent_ids,
+                parent_ids,
                 HPO=self.HPO,
                 base_code=individual.code,
                 diff_mode=self.diff_mode,
@@ -1137,21 +1147,23 @@ The selected solutions to update are:\n"""
         # self.progress_bar.update(1)
         return evolved_individual
 
-    #endregion
+    # endregion
 
-    #region Parent Selection
-    def _select_parents(self):
+    # region Parent Selection
+    def _select_parents(self, count=None) -> list[Solution]:
         """
         Return list of parents (length = n_offspring) chosen according to
         self.parent_selection.
         """
+        if count is None:
+            count = self.n_offspring
         method = (self.parent_selection or "random").lower()
         if method == "random":
-            return np.random.choice(self.population, self.n_offspring, replace=True)
+            return np.random.choice(self.population, count, replace=True)
         elif method == "roulette":
-            return self._roulette_wheel_selection(self.n_offspring)
+            return self._roulette_wheel_selection(count)
         elif method == "tournament":
-            return self._tournament_selection(self.n_offspring, self.tournament_size)
+            return self._tournament_selection(count, self.tournament_size)
         else:
             raise ValueError(f"Unknown parent_selection: {self.parent_selection}")
 
@@ -1208,9 +1220,9 @@ The selected solutions to update are:\n"""
             selected.append(self.population[best_i])
         return selected
 
-    #endregion
+    # endregion
 
-    #region Run
+    # region Run
     def run(self, archive_path=None):
         """
         Main loop to evolve the solutions until the evolutionary budget is exhausted.
@@ -1257,27 +1269,16 @@ The selected solutions to update are:\n"""
 
             new_population = []
             try:
-                for i in range(self.n_offspring):
-                    print(f"crossover {i}")
-                    crossover_parents = np.random.choice(self.population, 2, replace=False)
-                    print(crossover_parents)
-                    print(f"select parents {i}")
-                    crossover_individual = self.crossover(crossover_parents)
-                    print(f"crossover {i} done")
-                    new_offspring_population += [crossover_individual]
                 timeout = self.eval_timeout
-                new_population_gen = []
-                for individual in new_offspring_population:
-                    new_population_gen += [self.evolve_solution(individual)]
-                # new_population_gen = Parallel(
-                #     n_jobs=self.max_workers,
-                #     timeout=timeout + 15,
-                #     backend=self.parallel_backend,
-                #     return_as="generator_unordered",
-                # )(
-                #     delayed(self.evolve_solution)(individual)
-                #     for individual in new_offspring_population
-                # )
+                new_population_gen = Parallel(
+                    n_jobs=self.max_workers,
+                    timeout=timeout + 15,
+                    backend=self.parallel_backend,
+                    return_as="generator_unordered",
+                )(
+                    delayed(self.evolve_solution)(individual)
+                    for individual in new_offspring_population
+                )
             except Exception as e:
                 print("Parallel time out .")
 
@@ -1324,4 +1325,5 @@ The selected solutions to update are:\n"""
         if self.multi_objective:
             return self.best_so_far.get_best()
         return self.best_so_far
-    #endregion
+
+    # endregion

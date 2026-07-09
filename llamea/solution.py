@@ -100,17 +100,26 @@ class Solution:
         self.feedback = feedback
 
         if error:
-            tb = traceback.extract_tb(error.__traceback__)[-1]
-            line_no = tb.lineno
-            code_line = ""
-
-            code_lines = self.code.split("\n")
-            if line_no and len(code_lines) >= line_no:
-                code_line = code_lines[line_no - 1]
             error_type = type(error).__name__
             error_msg = str(error)
+
             self.error = f"{error_type}: {error_msg}.\n"
-            if code_lines:
+
+            code_lines = self.code.split("\n") if self.code else []
+
+            line_no = None
+            code_line = ""
+
+            if getattr(error, "__traceback__", None) is not None:
+                tb = traceback.extract_tb(error.__traceback__)
+                if tb:
+                    frame = tb[-1]
+                    line_no = frame.lineno
+
+                    if 1 <= line_no <= len(code_lines):
+                        code_line = code_lines[line_no - 1]
+
+            if line_no is not None:
                 self.error += f"On line {line_no}: {code_line}.\n"
 
     def get_fitness_vector(self) -> list[float]:
