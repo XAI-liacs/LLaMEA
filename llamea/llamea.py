@@ -367,7 +367,7 @@ class LLaMEA:
 
     # endregion
 
-    # region warm_start
+    # region Warm Start
     @classmethod
     def warm_start(cls, path_to_archive_dir):
         """
@@ -1101,8 +1101,9 @@ The selected solutions to update are:\n\n"""
             parent_ids = individual_copy.parent_ids
         else:
             parents = self._select_parents(
-                count=operator.number_of_parents or 2 - 1
-            ) + [individual]
+                count=(operator.number_of_parents or 2) - 1
+            ) + [individual_copy]
+            self.logevent(f"Parent count: {len(parents)}")
             parent_ids = [parent.id for parent in parents]
             new_prompt = self.construct_prompt(parents, operator)
 

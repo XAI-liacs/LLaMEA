@@ -156,12 +156,8 @@ def test_operator_picker_works_correctly(monkeypatch):
 
     # Call the code under test
     monkeypatch.setattr(llamea, '_evolve_solution', fake_evolve_solution)
-    llamea.population.append(Solution())
-    llamea.population.append(Solution())
-    llamea.population.append(Solution())
-    llamea.population.append(Solution())
-    llamea.population.append(Solution())
-
+    for _ in range(5):
+        llamea.population.append(Solution())
 
     selected = llamea.evolve_solution(random.choice(llamea.population))
 
