@@ -40,10 +40,10 @@ class TestArchival(unittest.TestCase):
         for key, value in es.__dict__.items():
             if isinstance(
                 value, Logger | ExperimentLogger | Solution | None | Dummy_LLM
-            ):  # Objects when resurrected will not have same identifier.
+            ) or key == 'warm_started':  # Objects when resurrected will not have same identifier, and warmstarted flag is enforced to change depending on obj / cls initialisation.
                 pass
             else:
-                self.assertEqual(archived_es[key], value)
+                assert archived_es[key] == value, f'{key} did not match before and after archive.' 
 
     def test_archival_diagnostics(self):
         es = LLaMEA(evaluationFunction, 

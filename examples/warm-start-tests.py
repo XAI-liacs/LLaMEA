@@ -1,13 +1,13 @@
 # This is a test for warm start, that tests both the functionalities of warm-starting:
-#   Warm starting from Pickled file.
-#   Cold starting new instance, and running with latest individual from specified run in archive_path.
+#   1. Run Simply first with no command line arguements: Hit ^C while execution.
+#   2. Run again with a path to warm start from and warm_start flag like: `python warm-start-tests warm_start <dictionary>`
 
 import os
-import re
-import pickle
+import sys
 import textwrap
 
 import numpy as np
+
 from ioh import get_problem, logger
 
 from llamea import Dummy_LLM, LLaMEA, ExperimentLogger
@@ -19,7 +19,7 @@ if __name__ == "__main__":
     ai_model = "gemini-1.5-flash"
     experiment_name = "pop1-5"
     llm = Dummy_LLM()
-
+    
     # We define the evaluation function that executes the generated algorithm (solution.code) on the BBOB test suite.
     # It should set the scores and feedback of the solution based on the performance metric, in this case we use mean AOCC.
     def evaluateBBOB(solution, explogger=None):
@@ -74,29 +74,32 @@ if __name__ == "__main__":
     The func() can only be called as many times as the budget allows, not more. Each of the optimization functions has a search space between -5.0 (lower bound) and 5.0 (upper bound). The dimensionality can be varied.
     Give an excellent and novel heuristic algorithm to solve this task and also give it a one-line description with the main idea.
     """)
+    print(sys.argv)
+    if 'warm_start' not in sys.argv:
+        for experiment_i in [1]:
+            # A 1+1 strategy
+            es = LLaMEA(
+                evaluateBBOB,
+                n_parents=1,
+                n_offspring=1,
+                llm=llm,
+                task_prompt=task_prompt,
+                experiment_name=experiment_name,
+                elitism=True,
+                HPO=False,
+                budget=400,
+            )
 
-    for experiment_i in [1]:
-        # A 1+1 strategy
-        es = LLaMEA(
-            evaluateBBOB,
-            n_parents=1,
-            n_offspring=1,
-            llm=llm,
-            task_prompt=task_prompt,
-            experiment_name=experiment_name,
-            elitism=True,
-            HPO=False,
-            budget=400,
-        )
-
-        """Simple run first.
-        Hit ^C, before ending execution, and end program prematurely.
-        Then comment following line"""
-        es.run()
-
+            """Simple run first.
+            Hit ^C, before ending execution, and end program prematurely.
+            Then comment following line"""
+            es.run()
+    else:
         """Declare path to warm start from here, the path where the above quitted program was logging."""
-        path_to_archive = os.getcwd() + "/exp-08-22_110651-LLaMEA-DUMMY-pop1-5"
-        print(f"Dir name = {path_to_archive}")
+        print("Warm start triggered.")
+        dir = sys.argv[-1]
+        path_to_archive = os.path.join(os.getcwd(), dir)
+        print(f'Restoring from {path_to_archive}')
 
         """
         Use `warm_start` class function, which returns the qutting instance of previous object if success, else
