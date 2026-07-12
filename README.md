@@ -52,6 +52,7 @@ LLaMEA couples large-language-model reasoning with an evolutionary loop to **inv
   - [Running `black-box-optimization.py`](#running-black-box-optimizationpy)
   - [Running `black-box-opt-with-HPO.py` (LLaMEA-HPO)](#running-black-box-opt-with-hpopy-llamea-hpo)
   - [Running `automl_example.py`](#running-automl_examplepy)
+- [Documentation](https://xai-liacs.github.io/LLaMEA/)
 - [Contributing](#-contributing)
 - [License](#-license)
 - [Citation](#-citation)
