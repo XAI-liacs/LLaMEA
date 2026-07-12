@@ -35,7 +35,7 @@
    <a href="https://colab.research.google.com/github/XAI-liacs/LLaMEA/blob/main/docs/notebooks/simple_example.ipynb" target="_blank">Check our demo on Colab</a>
 </p>
 
-> **The fully-open successor to Google DeepMind’s AlphaEvolve for automated algorithm discovery.**
+> **The fully-open alternative to Google DeepMind’s AlphaEvolve for automated algorithm discovery.**
 > First released 📅 Nov 2024 • MIT License • 100 % reproducible.
 > Also read the  <a href="https://xai-liacs.github.io/LLaMEA/" target="_blank">Documentation</a>.
 > 🥈 Winner of the Silver <a href="https://www.human-competitive.org/awards">Humies 2025</a> at GECCO!
