@@ -1146,6 +1146,7 @@ The selected solutions to update are:\n\n"""
             self.logevent(f"An exception occured: {traceback.format_exc()}.")
 
         # self.progress_bar.update(1)
+        evolved_individual.set_operator(operator.__getstate__())
         return evolved_individual
 
     # endregion

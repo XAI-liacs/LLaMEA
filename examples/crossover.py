@@ -15,7 +15,7 @@ class Location:
 
     def vectorise(self):
         return [self.id, self.x, self.y, self.weight]
-    
+
     def __repr__(self):
         return f"Location(id: {self.id}, coordinates: ({self.x}, {self.y}), weight: {self.weight})"
 
@@ -57,7 +57,7 @@ def evaluate(solution: Solution, explogger: Optional[ExperimentLogger] = None):
     )
     local_ns = {}
 
-    global_ns['Location'] = Location
+    local_ns['Location'] = Location
 
     feedback = ""
     if issues:

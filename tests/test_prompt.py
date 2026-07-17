@@ -1,3 +1,4 @@
+from llamea import Fitness
 import pytest
 import random
 from llamea import LLaMEA, Dummy_LLM, Operator, Solution
@@ -11,12 +12,12 @@ def f(solution: Solution):
     return solution
 
 def test_operator_null_handling():
-    operator = Operator(None, "Hi there", None, None)
+    operator = Operator(prompt="Hi there")
 
     assert operator.name == 'mutation'
     assert operator.prompt == "Hi there"
     assert operator.number_of_parents == 1
-    assert operator.weight == 1
+    assert operator.weight == 0.5
 
 
 
@@ -75,7 +76,7 @@ def substractor(a, b):
     'A calculator module for substracting.'
     )
     solution2.set_scores(1, 'Substractor works as expected.')
-    
+
     solution3 = Solution(
 '''
 def summation(upto):
@@ -168,3 +169,81 @@ def test_operator_picker_works_correctly(monkeypatch):
     assert captured["k"] == 1
     assert captured_2['individual'] in llamea.population
     assert captured_2['operator'] is operator2
+
+def test_operator_hashes_properly():
+    o1 = Operator('Hi there')
+    o2 = Operator('Hi there')
+    assert o1 == o2
+
+
+    o1 = Operator('Hi there', 'greetings', 1.0, 2)
+    o2 = Operator('Hi there', 'greetings', 1.0, 2)
+
+    assert o1 == o2
+
+def test_operator_hasher_ignores_weights():
+    o1 = Operator('Hi there', 'greetings', 1.0, 2)
+    o2 = Operator('Hi there', 'greetings', 3.0, 2)
+
+    assert o1 == o2
+
+def test_post_init_script_triggered():
+    o1 = Operator('Hi there', 'greetings', 1.0, 2)
+    assert o1._fitness_contribution == 0
+    assert o1._use_count == 0
+
+def test_weight_update_works_on_valid_fitness():
+    o1 = Operator('Hi there', 'greetings', number_of_parents=4)
+    og_weight = o1.weight
+    vector = o1.update_weight_function([0.4, 0.2, 0.1, 0.8], 0.41, True)
+    expected_vector = [-1, -1, -1, 1]
+    for i in range(len(vector)):
+        assert vector[i] == expected_vector[i]
+    print(og_weight, o1.weight)
+    assert og_weight > o1.weight
+
+    o1 = Operator('Hi there', 'greetings', number_of_parents=4)
+    og_wight = o1.weight
+    vector = o1.update_weight_function([0.4, 0.2, 0.1, 0.8], 0.41, False)
+    print(vector, og_weight, o1.weight, o1._fitness_contribution, o1._use_count)
+    expected_vector = [1, 1, 1, -1]
+    for i in range(len(vector)):
+        assert vector[i] == expected_vector[i]
+
+    assert og_wight < o1.weight
+
+def test_weight_update_works_on_invalid_fitness():
+    o1 = Operator('Hi there', 'greetings', number_of_parents=4)
+    og_weight = o1.weight
+    vector = o1.update_weight_function([0.4, 0.2, 0.1, 0.8], float('inf'), True)
+    expected_vector = [-1, -1, -1, -1]
+    for i in range(len(vector)):
+        assert vector[i] == expected_vector[i]
+    print(og_weight, o1.weight)
+    assert og_weight > o1.weight
+
+    o1 = Operator('Hi there', 'greetings', number_of_parents=4)
+    og_wight = o1.weight
+    vector = o1.update_weight_function([0.4, 0.2, 0.1, 0.8], float('inf'), False)
+    expected_vector = [-1, -1, -1, -1]
+    for i in range(len(vector)):
+        assert vector[i] == expected_vector[i]
+
+    assert og_wight > o1.weight
+
+def test_weight_handles_fitness_class():
+    o1 = Operator('Hi there', 'greeting', number_of_parents=4)
+
+    parent_fitness = [
+        Fitness({'Distance': 101, 'Fuel': 131}),
+        Fitness({'Distance': 121, 'Fuel': 201}),
+        Fitness({'Distance': 116, 'Fuel': 189}),
+        Fitness({'Distance': 134, 'Fuel': 301}),
+    ]
+
+    offspring_fitness = Fitness({'Distance': 83, 'Fuel': 119})
+    og_weight = o1.weight
+    assert [1, 1, 1, 1] == o1.update_weight_function(parent_fitness, offspring_fitness, True)
+    assert og_weight < o1.weight
+
+    assert [-1, -1, -1, -1] == o1.update_weight_function(parent_fitness, float('inf'), True)

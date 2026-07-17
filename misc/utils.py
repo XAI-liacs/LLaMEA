@@ -127,5 +127,3 @@ class budget_logger(AbstractLogger):
 
     def reset(self):
         super().reset()
-
-
