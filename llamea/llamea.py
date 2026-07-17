@@ -15,6 +15,10 @@ import warnings
 from typing import Callable, Optional
 import pickle
 import jsonlines
+import faulthandler
+
+# Enable faulthandler to capture native crashes (segfaults) in child processes
+faulthandler.enable()
 
 
 import numpy as np
@@ -425,7 +429,11 @@ for i in range(m):
                 for _ in range(self.n_parents - len(population))
             )
         except Exception as e:
-            print(f"Parallel time out in initialization {e}, retrying.")
+            import traceback, sys
+            print("Parallel initialization raised an exception:", file=sys.stderr)
+            traceback.print_exc()
+            print(f"Exception type: {type(e)} repr: {e!r}", file=sys.stderr)
+            
         for p in population_gen:
             population.append(p)
 
@@ -1161,7 +1169,10 @@ Feedback:
                     for individual in new_offspring_population
                 )
             except Exception as e:
-                print("Parallel time out .")
+                import traceback, sys
+                print("Parallel offspring generation raised an exception:", file=sys.stderr)
+                traceback.print_exc()
+                print(f"Exception type: {type(e)} repr: {e!r}", file=sys.stderr)
 
             for p in new_population_gen:
                 if math.isnan(p.fitness):

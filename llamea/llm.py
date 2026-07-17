@@ -9,6 +9,7 @@ import random
 import re
 import time
 from abc import ABC, abstractmethod
+from concurrent.futures import ThreadPoolExecutor, TimeoutError as FuturesTimeoutError
 
 try:
     from google import genai
@@ -45,6 +46,22 @@ from .utils import NoCodeException, apply_code_delta
 from .diffmodemanager import DiffModeManager
 
 
+def _run_with_timeout(func, timeout: int | None):
+    """Run callable `func` in a thread and enforce timeout (seconds).
+
+    Raises built-in TimeoutError on timeout so callers can catch and continue.
+    """
+    if timeout is None:
+        return func()
+    with ThreadPoolExecutor(max_workers=1) as ex:
+        fut = ex.submit(func)
+        try:
+            return fut.result(timeout=timeout)
+        except FuturesTimeoutError:
+            fut.cancel()
+            raise TimeoutError(f"LLM request timed out after {timeout} seconds")
+
+
 class LLM(ABC):
     def __init__(
         self,
@@ -56,6 +73,7 @@ class LLM(ABC):
         desc_pattern=None,
         cs_pattern=None,
         logger=None,
+        request_timeout: int | None = None,
     ):
         """
         Initializes the LLM manager with an API key, model name and base_url.
@@ -75,6 +93,8 @@ class LLM(ABC):
         self.model = model
         self.logger = logger
         self.log = self.logger != None
+        # per-request timeout (seconds) for blocking LLM calls; None=unbounded
+        self.request_timeout = request_timeout
         self.code_pattern = (
             code_pattern
             if code_pattern is not None
@@ -107,6 +127,9 @@ class LLM(ABC):
             str: The text content of the LLM's response.
         """
         pass
+
+
+    
 
     def set_logger(self, logger):
         """
@@ -289,11 +312,14 @@ class OpenAI_LLM(LLM):
         attempt = 0
         while True:
             try:
-                response = self.client.chat.completions.create(
-                    model=self.model,
-                    messages=session_messages,
-                    temperature=self.temperature,
-                )
+                def _call():
+                    return self.client.chat.completions.create(
+                        model=self.model,
+                        messages=session_messages,
+                        temperature=self.temperature,
+                    )
+
+                response = _run_with_timeout(_call, self.request_timeout)
                 return response.choices[0].message.content
 
             except openai.RateLimitError as err:
@@ -489,10 +515,13 @@ class Ollama_LLM(LLM):
         attempt = 0
         while True:
             try:
-                response = ollama.chat(
-                    model=self.model,
-                    messages=[{"role": "user", "content": big_message}],
-                )
+                def _call():
+                    return ollama.chat(
+                        model=self.model,
+                        messages=[{"role": "user", "content": big_message}],
+                    )
+
+                response = _run_with_timeout(_call, self.request_timeout)
                 return response["message"]["content"]
 
             except ollama.ResponseError as err:
@@ -500,6 +529,10 @@ class Ollama_LLM(LLM):
                 if attempt > max_retries or err.status_code not in (429, 500, 503):
                     raise
                 time.sleep(default_delay * attempt)
+
+            except TimeoutError:
+                # propagate timeout so caller can handle and continue
+                raise
 
             except Exception:
                 attempt += 1
