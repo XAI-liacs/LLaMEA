@@ -1,0 +1,24 @@
+# Train-from-scratch-on-this-run configuration: fine-tunes a frozen
+# pretrained T5Gemma encoder + digit decoder directly on one run's train
+# split. Requires network access to HuggingFace with the Gemma license
+# accepted (`huggingface-cli login`) -- see README in this directory.
+encoder_type: t5gemma
+t5gemma_model_name: google/t5gemma-s-s-prefixlm
+freeze_encoder: true
+num_decoder_layers: 2
+max_input_len: 2048
+max_num_objs: 1
+
+optimizer: adafactor
+lr: 1.0e-3
+weight_decay: 0.0
+warmup_steps: 200
+total_steps: null
+
+max_epochs: 100
+batch_size: null
+patience: 5
+seed: 0
+
+num_samples_point_pred: 64
+pretrained_checkpoint: null
