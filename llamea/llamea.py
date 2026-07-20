@@ -5,6 +5,7 @@ algorithms to automatically evaluate (for example metaheuristics evaluated on BB
 
 import concurrent.futures
 import contextlib
+import copy
 import logging
 import math
 import os
@@ -23,6 +24,7 @@ faulthandler.enable()
 
 import numpy as np
 from joblib import Parallel, delayed
+from joblib.externals.loky.process_executor import TerminatedWorkerError
 from .llm import LLM
 from .feature_guidance import FeatureGuidance, compute_feature_guidance
 from .ast_features import extract_ast_features
@@ -326,7 +328,7 @@ for i in range(m):
         self.parent_selection = parent_selection  # "random" | "roulette" | "tournament"
         self.tournament_size = tournament_size
 
-        if self.log:
+        if self.log and getattr(self, "logger", None) is None:
             modelname = self.model.replace(":", "_")
             modelname = self.model.replace("/", "_")
             self.logger = ExperimentLogger(f"LLaMEA-{modelname}-{experiment_name}")
@@ -357,8 +359,11 @@ for i in range(m):
             path_to_archive_dir: Directory of instance for which warm start needs to be executed.
         """
         try:
-            with open(f"{path_to_archive_dir}/llamea_config.pkl", "rb") as file:
+            with open(
+                os.path.join(path_to_archive_dir, "llamea_config.pkl"), "rb") as file:
+                print("Warm start called.")
                 obj = pickle.load(file)
+                print("Logger in warm start object:", getattr(obj, "logger", None))
                 obj.warm_started = True
             return obj
         except Exception as e:
@@ -428,14 +433,19 @@ for i in range(m):
                 delayed(self.initialize_single)()
                 for _ in range(self.n_parents - len(population))
             )
+
+            # Joblib generators execute lazily, so worker exceptions (including
+            # timeouts) are raised while consuming the generator.
+            for p in population_gen:
+                population.append(p)
         except Exception as e:
             import traceback, sys
             print("Parallel initialization raised an exception:", file=sys.stderr)
             traceback.print_exc()
             print(f"Exception type: {type(e)} repr: {e!r}", file=sys.stderr)
-            
-        for p in population_gen:
-            population.append(p)
+
+        if not population:
+            raise RuntimeError("Population initialization produced no individuals.")
 
         if self.evaluate_population:
             population = self.evaluate_population_fitness(population)
@@ -888,6 +898,7 @@ Feedback:
         Returns:
             list: List of new selected population.
         """
+
         if not self.multi_objective:
             reverse = self.minimization == False
             if self.niching == "novelty":
@@ -1111,7 +1122,7 @@ Feedback:
             selected.append(self.population[best_i])
         return selected
 
-    def run(self, archive_path=None):
+    def run(self, archive_path=None, max_worker_attempts=2):
         """
         Main loop to evolve the solutions until the evolutionary budget is exhausted.
         The method iteratively refines solutions through interaction with the language model,
@@ -1119,9 +1130,13 @@ Feedback:
 
         Args:
             archive_path: Runs the algorithm with a given known population, and performs
+            max_worker_attempts: Maximum number of attempts to generate offspring in case of worker failures.
         Returns:
             tuple: A tuple containing the best solution and its fitness at the end of the evolutionary process.
         """
+        if max_worker_attempts < 1:
+            raise ValueError("max_worker_attempts must be at least 1.")
+
         if archive_path != None:
             self.logevent(f"Loading population from {archive_path}/log.jsonl...")
             self.get_population_from(archive_path)
@@ -1132,6 +1147,12 @@ Feedback:
                 self.logevent("Initializing first population")
                 self.initialize()  # Initialize a population
             # self.progress_bar.update(self.n_parents)
+            else:
+                if len(self.population) < self.n_parents:
+                    self.logevent(
+                        "Insufficient population size, re-initialising parent population."
+                    )
+                    self.initialize()
 
         if self.log:
             self.logger.log_population(self.population)
@@ -1154,30 +1175,59 @@ Feedback:
             self._update_feature_guidance()
         while len(self.run_history) < self.budget:
             # pick a new offspring population using random sampling
-            new_offspring_population = self._select_parents()
+            selected_parents = list(self._select_parents())
 
-            new_population = []
-            try:
-                timeout = self.eval_timeout
-                new_population_gen = Parallel(
-                    n_jobs=self.max_workers,
-                    timeout=timeout + 15,
-                    backend=self.parallel_backend,
-                    return_as="generator_unordered",
-                )(
-                    delayed(self.evolve_solution)(individual)
-                    for individual in new_offspring_population
-                )
-            except Exception as e:
-                import traceback, sys
-                print("Parallel offspring generation raised an exception:", file=sys.stderr)
-                traceback.print_exc()
-                print(f"Exception type: {type(e)} repr: {e!r}", file=sys.stderr)
+            for worker_attempt in range(max_worker_attempts):
+                # Retry from isolated snapshots of the originally selected parents.
+                # deepcopy preserves their IDs (and therefore lineage) while
+                # preventing mutable metadata from leaking between attempts.
+                attempt_parents = []
+                for parent in selected_parents:
+                    parent_snapshot = copy.deepcopy(parent)
+                    # Solution.__getstate__ serializes ConfigSpace to a dict.
+                    # Restore an actual isolated ConfigSpace object for retries.
+                    parent_snapshot.configspace = copy.deepcopy(parent.configspace)
+                    attempt_parents.append(parent_snapshot)
+                new_population = []
+                try:
+                    timeout = self.eval_timeout
+                    workers = self.max_workers if worker_attempt == 0 else 1
+                    new_population_gen = Parallel(
+                        n_jobs=workers,
+                        timeout=timeout + 15,
+                        backend=self.parallel_backend,
+                        return_as="generator_unordered",
+                    )(
+                        delayed(self.evolve_solution)(individual)
+                        for individual in attempt_parents
+                    )
 
-            for p in new_population_gen:
-                if math.isnan(p.fitness):
-                    p.fitness = self.worst_value
-                new_population.append(p)
+                    # Consume the lazy generator inside the exception boundary;
+                    # otherwise worker failures escape from this loop uncaught.
+                    for p in new_population_gen:
+                        if math.isnan(p.fitness):
+                            p.fitness = self.worst_value
+                        new_population.append(p)
+                    break
+                except TerminatedWorkerError as e:
+                    # A broken worker invalidates the batch. Discard any partial
+                    # results and recreate the pool for the next attempt.
+                    new_population = []
+                    self.logevent(
+                        f"Worker terminated during generation {self.generation}; "
+                        f"attempt {worker_attempt + 1}/{max_worker_attempts}."
+                    )
+                    if worker_attempt + 1 == max_worker_attempts:
+                        raise RuntimeError(
+                            f"Generation {self.generation} failed after "
+                            f"{max_worker_attempts} worker-pool attempts."
+                        ) from e
+                except Exception as e:
+                    import traceback, sys
+                    print("Parallel offspring generation raised an exception:", file=sys.stderr)
+                    traceback.print_exc()
+                    print(f"Exception type: {type(e)} repr: {e!r}", file=sys.stderr)
+                    break
 
             if self.evaluate_population:
                 new_population = self.evaluate_population_fitness(new_population)

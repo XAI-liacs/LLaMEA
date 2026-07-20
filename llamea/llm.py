@@ -3,6 +3,7 @@ LLM modules to connect to different LLM providers. Also extracts code, name and 
 """
 
 import copy
+import httpx
 import logging
 import pickle
 import random
@@ -515,13 +516,13 @@ class Ollama_LLM(LLM):
         attempt = 0
         while True:
             try:
-                def _call():
-                    return ollama.chat(
-                        model=self.model,
-                        messages=[{"role": "user", "content": big_message}],
-                    )
-
-                response = _run_with_timeout(_call, self.request_timeout)
+                # Enforce the timeout at the HTTP transport layer. A timeout around
+                # a worker thread cannot stop an already-running Ollama request.
+                client = ollama.Client(timeout=self.request_timeout)
+                response = client.chat(
+                    model=self.model,
+                    messages=[{"role": "user", "content": big_message}],
+                )
                 return response["message"]["content"]
 
             except ollama.ResponseError as err:
@@ -529,6 +530,11 @@ class Ollama_LLM(LLM):
                 if attempt > max_retries or err.status_code not in (429, 500, 503):
                     raise
                 time.sleep(default_delay * attempt)
+
+            except httpx.TimeoutException as err:
+                raise TimeoutError(
+                    f"LLM request timed out after {self.request_timeout} seconds"
+                ) from err
 
             except TimeoutError:
                 # propagate timeout so caller can handle and continue
