@@ -304,7 +304,8 @@ Give a novel Python class with an optimization landscape function and a short de
         code = solution.code
         algorithm_name = solution.name
 
-        exec(code, globals())
+        execution_namespace = {}
+        exec(code, execution_namespace)
 
         algorithm = None
         # Final validation
@@ -312,7 +313,7 @@ Give a novel Python class with an optimization landscape function and a short de
         results = []
         for DIM in self.dims:
             #DIM = 5 #change to appropriate dimensionality
-            algorithm = globals()[algorithm_name](DIM)
+            algorithm = execution_namespace[algorithm_name](DIM)
             f = algorithm.f
 
             problem = f
@@ -433,8 +434,8 @@ if __name__ == "__main__":
     api_key_openai = os.getenv("OPENAI_API_KEY")
 
     # Use a Multi_LLM combining two local Ollama models and run all feature combinations
-    llm1 = Ollama_LLM("devstral-small-2", request_timeout=1800)
-    llm2 = Ollama_LLM("qwen3.5:27b", request_timeout=1800)
+    llm1 = Ollama_LLM("devstral-small-2", request_timeout=3600)
+    llm2 = Ollama_LLM("qwen3.5:27b", request_timeout=3600)
     llm3 = OpenAI_LLM(api_key_openai, "gpt-5.4-nano-2026-03-17", temperature=1.0)
 
     llm = Multi_LLM([llm1, llm2, llm3])
@@ -454,7 +455,7 @@ if __name__ == "__main__":
         feature_combinations.append([nf])
 
     # rem_feat_combinations = [["Basins"],["NOT Basins"],["Multimodality", "Basins"], ["GlobalLocal", "Basins"]]
-    rem_feat_combinations = [["Basins"]]
+    rem_feat_combinations = [["NOT Basins"]]
     
     for combi in rem_feat_combinations:
         niching="novelty"
@@ -471,8 +472,8 @@ if __name__ == "__main__":
             try:
                 es = LLaMEA(
                     problem.evaluate_function,
-                    n_parents=2,
-                    n_offspring=2,
+                    n_parents=10,
+                    n_offspring=30,
                     llm=llm,
                     role_prompt="You are a highly skilled computer scientist in the field optimization and benchmarking. Your task is to design novel mathematical functions to be used as black-box optimization benchmark landscapes.",
                     task_prompt=problem.task_prompt,
@@ -488,8 +489,11 @@ if __name__ == "__main__":
                     niching=niching,
                     novelty_k=5,
                     distance_metric=ela_distance,
-                    eval_timeout=3600,
+                    eval_timeout=7200,
                 )
                 print(es.run())
             except Exception as e:
+                import traceback
+                traceback.print_exc()
+                print(f"Time at error: {time.strftime('%Y-%m-%d %H:%M:%S', time.localtime())}")
                 print(f"Experiment {experiment_name} failed with error: {e.__repr__()}")
