@@ -1191,7 +1191,7 @@ Feedback:
                 new_population = []
                 try:
                     timeout = self.eval_timeout
-                    workers = self.max_workers if worker_attempt == 0 else 1
+                    workers = self.max_workers
                     new_population_gen = Parallel(
                         n_jobs=workers,
                         timeout=timeout + 15,
