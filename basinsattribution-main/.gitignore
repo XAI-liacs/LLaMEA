@@ -1,5 +1,8 @@
 __pycache__/*
-outputs/*
 build/*
 *.pyd
 external/
+
+# Override the repository-level `exp-*` rule for this project's output records.
+!outputs/
+!outputs/**
