@@ -63,9 +63,10 @@ class Solution:
         Sets the operator name that generated this individual.
 
         Args:
-            operator (str): The name of the operator (for logging purposes).
+            `operator: tuple(operator, parent.id)`: The operator and the parents used for generating current individual.
         """
-        self.operator = operator
+        self.operator = f"Operator: {operator[0]}, with parents: {operator[1:]}."
+        self.operator_id = operator[0].id
 
     def add_metadata(self, key, value):
         """

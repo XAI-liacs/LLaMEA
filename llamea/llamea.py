@@ -76,6 +76,7 @@ class LLaMEA:
         elitism=True,
         HPO=False,
         operators=[],
+        operator_weight_update_function=None,
         adaptive_mutation=False,
         adaptive_prompt=False,
         feature_guided_mutation: bool = False,
@@ -127,6 +128,7 @@ class LLaMEA:
                 In case it is, a configuration space should be asked from the LLM as additional output in json format.
             operators (list): A list of `Operator` | `str` to specify operators to the LLM model. If provided as `str` it is typecasted to `Operator`
                 of `mutation` type. Each mutation, a random choice from this list is made.
+            operator_weight_update_function: A function that takes in operator: Operator, reward: float, and updates the operator's weight.
             adaptive_mutation (bool): If set to True, the mutation prompt 'Change X% of the lines of code' will be used in an adaptive control setting.
                 This overwrites operator.
             adaptive_prompt (bool): If True, the task prompt is optimized before each mutation, allowing it to co-evolve with the individuals.
@@ -298,8 +300,10 @@ class LLaMEA:
                 assert (
                     operator.number_of_parents <= n_parents
                 ), f"An operator cannot operate on more the {n_parents} individuals."
-                assert operator.weight >= 0, f"Cannot assign negative weight."
+                assert operator.weight >= 0, "Cannot assign negative weight."
                 self.operators.append(operator)
+
+        self.operator_update_function = operator_weight_update_function
 
         self.adaptive_mutation = adaptive_mutation
 
@@ -482,7 +486,7 @@ class LLaMEA:
                 with open(f"{self.logger.dirname}/llamea_config.pkl", "wb") as file:
                     pickle.dump(self, file)
         except Exception as e:
-            print(f"\tPickle error type: {type(e).__name__}, finding reason....")
+            print(f"\tPickle error type: {e}, finding reason....")
             bad_path = self._find_unpicklable(self, "llamea")
             if bad_path:
                 print(f"\t❗ First unpicklable element at: {bad_path}.")
@@ -577,7 +581,7 @@ class LLaMEA:
                         fitness[key] = self.worst_value
                     individual.fitness = Fitness(fitness)
             else:
-                if math.isnan(individual.fitness):
+                if not math.isfinite(individual.fitness):
                     individual.fitness = self.worst_value
             return_population.append(individual)
         return return_population
@@ -690,10 +694,7 @@ This changing rate {(prob*100):.1f}% is a mandatory requirement, you cannot chan
         if guidance_message:
             mutation_operator = f"{operator}\n\n{guidance_message}"
 
-        ids = [individual.id for individual in individuals]
-        for individual in individuals:
-            individual.set_operator(f"{mutation_operator}. Parent IDs: {ids}")
-
+        individual = random.choice(individuals)
         task_prompt = (
             individual.task_prompt if self.adaptive_prompt else self.task_prompt
         )
@@ -740,6 +741,7 @@ The selected solutions to update are:\n\n"""
         return session_messages
 
     # endregion
+    # region FeatureGuidance
     def _update_feature_guidance(self, parent: Solution | None = None) -> None:
         """Train the archive model and refresh mutation guidance."""
 
@@ -1079,6 +1081,48 @@ The selected solutions to update are:\n\n"""
             return sorted_pool
 
     # endregion
+    # region Operator management.
+    def _operator_rewards(self, parents: list[Solution], offspring: Solution) -> float:
+        if self.multi_objective:
+            fitness = offspring.fitness.to_vector()
+        else:
+            fitness = [offspring.fitness]
+        if any(not math.isfinite(x) for x in fitness):
+            return -len(parents)
+
+        score = 0
+
+        for parent in parents:
+            if isinstance(parent.fitness, Fitness):
+                if not all([math.isfinite(fit) for fit in parent.fitness.to_vector()]):
+                    score += 1
+                    continue
+            else:
+                if not math.isfinite(parent.fitness):
+                    score += 1
+                    continue
+            current_score = (-1) ** (
+                self.minimization ^ int(offspring.fitness < parent.fitness)
+            )
+            current_score *= int(offspring.fitness != parent.fitness)
+            score += current_score
+        return score
+
+    def update_weight(
+        self, operator: Operator, parents: list[Solution], offspring: Solution
+    ):
+        if self.operator_update_function is None:
+            reward = self._operator_rewards(parents, offspring)
+            operator.rewards += reward
+            alpha = (self.budget / len(self.operators)) ** 0.5
+            weight = 1 / (1 + (np.e ** -(operator.rewards / alpha)))
+            operator.weight = weight
+        else:
+            weight = self.operator_update_function(operator, reward)
+            operator.weight = weight
+
+    # endregion
+
     # region Evolution
     def evolve_solution(self, individual: Solution):
         weights = [operator.weight or 1.0 for operator in self.operators]
@@ -1098,7 +1142,7 @@ The selected solutions to update are:\n\n"""
         parent_ids = []
         if operator.number_of_parents == 1:
             new_prompt = self.construct_prompt([individual_copy], operator)
-            parent_ids = individual_copy.parent_ids
+            parent_ids = [individual_copy.parent_ids]
         else:
             parents = self._select_parents(
                 count=(operator.number_of_parents or 2) - 1
@@ -1146,7 +1190,7 @@ The selected solutions to update are:\n\n"""
             self.logevent(f"An exception occured: {traceback.format_exc()}.")
 
         # self.progress_bar.update(1)
-        evolved_individual.set_operator(operator.__getstate__())
+        evolved_individual.set_operator((operator, *parent_ids))
         return evolved_individual
 
     # endregion
@@ -1234,7 +1278,7 @@ The selected solutions to update are:\n\n"""
         Args:
             archive_path: Runs the algorithm with a given known population, and performs
         Returns:
-            tuple: A tuple containing the best solution and its fitness at the end of the evolutionary process.
+            tuple: A tuple containing the best scolution and its fitness at the end of the evolutionary process.
         """
         if archive_path != None:
             self.logevent(f"Loading population from {archive_path}/log.jsonl...")
@@ -1328,4 +1372,5 @@ The selected solutions to update are:\n\n"""
             return self.best_so_far.get_best()
         return self.best_so_far
 
-    # endregion
+
+# endregion
