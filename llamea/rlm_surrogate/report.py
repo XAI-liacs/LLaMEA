@@ -98,6 +98,30 @@ def _make_plots(eval_results: dict[str, Any], figures_dir: Path) -> dict[str, st
     return paths
 
 
+def _by_problem_table(arms: dict[str, Any]) -> str:
+    problem_ids: set[str] = set()
+    for arm in arms.values():
+        problem_ids.update(arm.get("by_problem", {}).keys())
+    if not problem_ids:
+        return "_No `problem_id` grouping available for this dataset (flat layout)._\n"
+
+    lines = [
+        "| Problem | " + " | ".join(f"{name} (n / rho / tau)" for name in arms) + " |",
+        "|---|" + "---|" * len(arms),
+    ]
+    for problem_id in sorted(problem_ids):
+        cells = []
+        for arm in arms.values():
+            m = arm.get("by_problem", {}).get(problem_id)
+            cells.append(
+                f"{m['n']} / {_fmt(m['spearman_rho'])} / {_fmt(m['kendall_tau'])}"
+                if m
+                else "n/a"
+            )
+        lines.append(f"| {problem_id} | " + " | ".join(cells) + " |")
+    return "\n".join(lines) + "\n"
+
+
 def _within_run_table(within_run: dict[str, Any]) -> str:
     per_run = within_run.get("per_run", {})
     if not per_run:
@@ -145,16 +169,31 @@ def build_report(
 
     # --- Data ---
     lines.append("## 1. Data\n")
+    is_multi_problem = stats.get("layout") == "per_problem_subdir"
+    n_sources = (
+        len(stats.get("problems", [])) if is_multi_problem else stats.get("n_files")
+    )
+    source_label = "problem(s)" if is_multi_problem else "file(s)/run(s)"
     lines.append(
-        f"Ingested **{stats['n_records_total']}** records from **{stats['n_files']}** "
-        f"file(s)/run(s). Dropped **{stats['n_errored_total']}** "
-        f"({stats['error_fraction_total']:.1%}) for a non-empty `error` field. "
+        f"Ingested **{stats['n_records_total']}** records "
+        f"({'problems: ' + ', '.join(stats.get('problems', [])) if is_multi_problem else f'from **{n_sources}** {source_label}'})"
+        f". Dropped **{stats['n_errored_total']}** "
+        f"({stats['error_fraction_total']:.1%}) as invalid -- a non-empty `error` field "
+        "OR a non-finite (`inf`/`-inf`/`nan`) `fitness` with an empty `error` (some "
+        "logger versions never populate `error` on failure; see `BladeRecord.is_invalid`). "
         f"**{stats['n_examples_total']}** usable `(x, y)` examples remain "
         f"(target = `{stats['target']}`, description included = "
         f"{stats['include_description']}, configspace included = "
         f"{stats['include_configspace']}).\n"
     )
-    lines.append("### Per-file summary\n")
+    if is_multi_problem and stats.get("excluded_experiment_folders"):
+        lines.append(
+            '> **Excluded folders** (name contained "debug"/"wrong", treated as '
+            "scratch/known-bad runs, not real experiments): "
+            f"{', '.join(stats['excluded_experiment_folders'])}. Rerun "
+            "`data_pipeline.py --exclude-dir-substring ''` to include everything.\n"
+        )
+    lines.append("### Per-run summary\n")
     lines.append(
         "| File | n | Errored (frac) | fitness min/max/mean | fitness skew | "
         "gen-vs-fitness Spearman | warnings |"
@@ -198,6 +237,18 @@ def build_report(
         lines.append(
             f"- per-run generation cutoff used for test: `{split['test_generation_cutoffs']}`"
         )
+    if split.get("by_problem"):
+        lines.append(
+            "\nThe split was run **independently per problem** and then merged, so "
+            "one problem's runs can't dominate the held-out set:\n"
+        )
+        lines.append("| Problem | n_runs | strategy | train | val | test |")
+        lines.append("|---|---|---|---|---|---|")
+        for problem_id, log in sorted(split["by_problem"].items()):
+            lines.append(
+                f"| {problem_id} | {log.get('n_runs', 'n/a')} | {log.get('strategy')} | "
+                f"{log.get('n_train')} | {log.get('n_val')} | {log.get('n_test')} |"
+            )
     lines.append("")
 
     # --- Model ---
@@ -230,7 +281,10 @@ def build_report(
             f"![Predicted vs true]({Path(figures['predicted_vs_true']).name})\n"
         )
 
-    lines.append("### 4.2 Within-run ranking and selection accuracy (RLM)\n")
+    lines.append("### 4.2 Ranking quality by benchmark problem\n")
+    lines.append(_by_problem_table(arms))
+
+    lines.append("### 4.3 Within-run ranking and selection accuracy (RLM)\n")
     lines.append(
         "This is the number that most directly answers whether pre-screening "
         "helps: for each run with enough held-out candidates, the "
@@ -243,7 +297,7 @@ def build_report(
             f"\n![Within-run Spearman]({Path(figures['within_run_spearman']).name})\n"
         )
 
-    lines.append("### 4.3 Budget-reduction simulation\n")
+    lines.append("### 4.4 Budget-reduction simulation\n")
     lines.append(
         "Given a generation of N candidates, evaluating only the top-k "
         "predicted by the RLM vs. k random candidates vs. all N:\n"
@@ -310,12 +364,16 @@ def _recommendation(stats: dict[str, Any], eval_results: dict[str, Any]) -> str:
         "pool of at least a few hundred historical examples across multiple runs exists; "
         "its value can't be assessed from a single run's data alone."
     )
-    parts.append(
-        "No field in the current BLADE schema identifies the benchmark function/problem "
-        "for each candidate, so ranking quality could only be broken out by run, not by "
-        "problem. If per-function breakdown is needed, add a `problem_id`-style field to "
-        "the logger."
+    has_problem_breakdown = any(
+        arm.get("by_problem") for arm in eval_results.get("arms", {}).values()
     )
+    if not has_problem_breakdown:
+        parts.append(
+            "No `problem_id` grouping was available for this dataset (flat single-"
+            "directory layout), so ranking quality could only be broken out by run, "
+            "not by benchmark problem. Use `--layout per_problem_subdir` if the data "
+            "has one experiment-folder per benchmark problem."
+        )
     return "\n\n".join(f"- {p}" for p in parts) + "\n"
 
 

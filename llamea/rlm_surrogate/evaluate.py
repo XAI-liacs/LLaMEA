@@ -220,10 +220,17 @@ def evaluate_predictions(
         mask = [e.run_id == run_id for e in examples]
         by_run[run_id] = rank_metrics(y_true_arr[mask], y_pred_arr[mask])
 
+    by_problem = {}
+    problem_ids = sorted({e.problem_id for e in examples if e.problem_id})
+    for problem_id in problem_ids:
+        mask = [e.problem_id == problem_id for e in examples]
+        by_problem[problem_id] = rank_metrics(y_true_arr[mask], y_pred_arr[mask])
+
     return {
         "label": label,
         "overall": overall,
         "by_run": by_run,
+        "by_problem": by_problem,
         "within_run_ranking": within_run_ranking(
             examples, y_pred, min_n=min_n_within_run, top_p_list=top_p_list
         ),
@@ -333,6 +340,7 @@ def _predictions_payload(
     return {
         "id": [e.id for e in examples],
         "run_id": [e.run_id for e in examples],
+        "problem_id": [e.problem_id for e in examples],
         "generation": [e.generation for e in examples],
         "y_true": [e.fitness for e in examples],
         "y_pred": [float(v) for v in y_pred],

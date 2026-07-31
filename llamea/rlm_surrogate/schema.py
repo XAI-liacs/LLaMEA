@@ -9,6 +9,7 @@ so it is derived from the source filename.
 from __future__ import annotations
 
 import json
+import math
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Iterator
@@ -48,6 +49,7 @@ class BladeRecord:
 
     # Derived, not part of the raw schema.
     run_id: str = ""
+    problem_id: str = ""
     source_file: str = ""
     line_no: int = -1
 
@@ -62,9 +64,26 @@ class BladeRecord:
     def has_error(self) -> bool:
         return bool(self.error)
 
+    @property
+    def is_invalid(self) -> bool:
+        """True if this record's fitness isn't meaningful and it should be
+        dropped -- either an explicit ``error`` string, OR a non-finite
+        fitness with no ``error`` set. The latter shows up in real data (a
+        logger convention that records a failure via ``feedback``/an
+        inf/-inf ``fitness`` sentinel without ever populating ``error``);
+        relying on ``error`` alone would silently undercount failures for
+        those files."""
+        return self.has_error or not math.isfinite(self.fitness)
+
     @classmethod
     def from_dict(
-        cls, d: dict[str, Any], *, run_id: str, source_file: str, line_no: int
+        cls,
+        d: dict[str, Any],
+        *,
+        run_id: str,
+        source_file: str,
+        line_no: int,
+        problem_id: str = "",
     ) -> "BladeRecord":
         return cls(
             id=str(d.get("id", "")),
@@ -80,6 +99,7 @@ class BladeRecord:
             operator=d.get("operator"),
             metadata=dict(d.get("metadata") or {}),
             run_id=run_id,
+            problem_id=problem_id,
             source_file=source_file,
             line_no=line_no,
         )
@@ -105,10 +125,21 @@ def derive_run_id(file_path: str | Path) -> str:
     return Path(file_path).stem
 
 
-def iter_blade_records(file_path: str | Path) -> Iterator[BladeRecord]:
-    """Yields ``BladeRecord``s from one jsonl file, skipping malformed lines."""
+def iter_blade_records(
+    file_path: str | Path,
+    *,
+    run_id: str | None = None,
+    problem_id: str = "",
+) -> Iterator[BladeRecord]:
+    """Yields ``BladeRecord``s from one jsonl file, skipping malformed lines.
+
+    ``run_id`` defaults to the filename stem; pass an explicit value (e.g.
+    ``f"{experiment_folder}/{run_folder}"``) when ingesting a nested
+    per-problem/per-run directory layout where filenames alone (``log.jsonl``
+    everywhere) wouldn't be unique.
+    """
     path = Path(file_path)
-    run_id = derive_run_id(path)
+    run_id = run_id if run_id is not None else derive_run_id(path)
     with open(path, "r") as fh:
         for line_no, line in enumerate(fh, start=1):
             line = line.strip()
@@ -119,7 +150,11 @@ def iter_blade_records(file_path: str | Path) -> Iterator[BladeRecord]:
             except json.JSONDecodeError:
                 continue
             yield BladeRecord.from_dict(
-                d, run_id=run_id, source_file=str(path), line_no=line_no
+                d,
+                run_id=run_id,
+                source_file=str(path),
+                line_no=line_no,
+                problem_id=problem_id,
             )
 
 
@@ -184,12 +219,21 @@ def validate_records(records: list[BladeRecord], label: str) -> SchemaReport:
             warnings=["No records found."],
         )
 
-    n_errored = sum(r.has_error for r in records)
+    n_errored = sum(r.is_invalid for r in records)
     error_fraction = n_errored / n
+    n_silent_errored = sum((not r.has_error) and r.is_invalid for r in records)
     if error_fraction > 0.3:
         warnings.append(
             f"High error rate ({error_fraction:.1%}) -- worth investigating "
             "the run itself, not just discarding these records."
+        )
+    if n_silent_errored:
+        warnings.append(
+            f"{n_silent_errored} record(s) have a non-finite fitness "
+            "(inf/-inf/nan) but an EMPTY `error` field -- this logger "
+            "convention doesn't always populate `error` on failure. These "
+            "are still counted/dropped as invalid (via non-finite fitness), "
+            "but the `error` field alone would have undercounted them."
         )
 
     n_missing_fields = 0
@@ -198,7 +242,7 @@ def validate_records(records: list[BladeRecord], label: str) -> SchemaReport:
         n_missing_fields += len(missing)
 
     valid_fitness = np.array(
-        [r.fitness for r in records if not r.has_error and np.isfinite(r.fitness)],
+        [r.fitness for r in records if not r.is_invalid],
         dtype=float,
     )
     if valid_fitness.size:
@@ -259,11 +303,7 @@ def _skew(arr: np.ndarray) -> float:
 
 def _generation_fitness_trend(records: list[BladeRecord]) -> float:
     """Spearman rho between generation and fitness, as a direction sanity check."""
-    valid = [
-        (r.generation, r.fitness)
-        for r in records
-        if not r.has_error and np.isfinite(r.fitness)
-    ]
+    valid = [(r.generation, r.fitness) for r in records if not r.is_invalid]
     if len(valid) < 5:
         return float("nan")
     from scipy import stats as scipy_stats

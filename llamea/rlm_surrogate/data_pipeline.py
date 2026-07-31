@@ -14,6 +14,7 @@ from __future__ import annotations
 import argparse
 import json
 import random
+import re
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any, Literal
@@ -22,11 +23,18 @@ from .schema import BladeRecord, derive_run_id, iter_blade_records, validate_rec
 
 TargetKind = Literal["fitness", "aucs"]
 
+# Folder-name substrings that mark a run as scratch/known-bad rather than a
+# real experiment, for the nested per-problem-subdir layout. Excluded by
+# default (see `run_pipeline_multi_problem`'s `exclude_dirs`); pass an
+# explicit `exclude_dirs=set()` to include everything instead.
+DEFAULT_EXCLUDE_DIR_SUBSTRINGS = ("debug", "wrong")
+
 
 @dataclass
 class RLMExample:
     """One (x, y) training example, plus lineage metadata needed for
-    generation/lineage-aware splitting and later per-run evaluation."""
+    generation/lineage-aware splitting and later per-run/per-problem
+    evaluation."""
 
     id: str
     run_id: str
@@ -35,6 +43,7 @@ class RLMExample:
     x: str
     y: float | list[float]
     fitness: float  # raw scalar fitness, always kept for reporting/eval
+    problem_id: str = ""
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -71,8 +80,11 @@ def build_y(record: BladeRecord, *, target: TargetKind) -> float | list[float] |
 
 
 def filter_errored(records: list[BladeRecord]) -> tuple[list[BladeRecord], int]:
-    """Drops records with a non-empty ``error`` -- their fitness isn't meaningful."""
-    kept = [r for r in records if not r.has_error]
+    """Drops invalid records -- either a non-empty ``error``, or a non-finite
+    fitness with an empty ``error`` (some logger versions never populate
+    ``error`` on failure; see ``BladeRecord.is_invalid``). Either way the
+    fitness isn't meaningful."""
+    kept = [r for r in records if not r.is_invalid]
     return kept, len(records) - len(kept)
 
 
@@ -105,6 +117,7 @@ def make_examples(
                 ),
                 y=y,
                 fitness=r.fitness,
+                problem_id=r.problem_id,
             )
         )
     return examples
@@ -329,13 +342,227 @@ def run_pipeline(
     return summary
 
 
+# --------------------------------------------------------------------------
+# Nested `<experiment_folder>/run-*/log.jsonl` layout (real BLADE-results
+# exports), with `problem_id` derived from the experiment folder name.
+# --------------------------------------------------------------------------
+
+
+def classify_problem(
+    folder_name: str, problem_map: dict[str, str] | None = None
+) -> str:
+    """Maps an experiment-folder name to a problem_id.
+
+    ``problem_map`` (folder name -> problem_id) takes precedence when given.
+    Otherwise, folders starting with "MA-BBOB"/"MABBOB"/"MA_BBOB" (any
+    case/separator) are grouped as "MA-BBOB", any other folder containing
+    "BBOB" is grouped as "BBOB", and anything else falls back to using its
+    own folder name as a singleton problem_id (surfaced, not silently
+    dropped, so an unrecognized folder doesn't get mis-grouped)."""
+    if problem_map is not None and folder_name in problem_map:
+        return problem_map[folder_name]
+    if re.match(r"^MA[-_]?BBOB", folder_name, re.IGNORECASE):
+        return "MA-BBOB"
+    if "BBOB" in folder_name.upper():
+        return "BBOB"
+    return folder_name
+
+
+def load_nested_directory(
+    root_dir: str | Path,
+    *,
+    exclude_dir_substrings: tuple[str, ...] = DEFAULT_EXCLUDE_DIR_SUBSTRINGS,
+    problem_map: dict[str, str] | None = None,
+) -> tuple[list[BladeRecord], list[str]]:
+    """Loads a `<experiment_folder>/run-*/log.jsonl` tree (as produced by
+    ``llamea.loggers.ExperimentLogger`` -- ``conversationlog.jsonl``,
+    ``experimentlog.jsonl``, and ``progress.json`` are intentionally
+    ignored, they aren't per-candidate BLADE records).
+
+    ``problem_id`` is derived per experiment folder via ``classify_problem``;
+    ``run_id`` is ``f"{experiment_folder}/{run_folder}"`` so it stays
+    globally unique even though every run folder contains a same-named
+    ``log.jsonl``. Experiment folders whose name contains any of
+    ``exclude_dir_substrings`` (case-insensitive) are skipped -- default
+    excludes anything with "debug" or "wrong" in the name, since those
+    folders showed up as scratch/known-bad runs in practice; pass
+    ``exclude_dir_substrings=()`` to include everything.
+
+    Returns ``(records, excluded_experiment_folder_names)``.
+    """
+    root_dir = Path(root_dir)
+    records: list[BladeRecord] = []
+    excluded: list[str] = []
+    for exp_dir in sorted(p for p in root_dir.iterdir() if p.is_dir()):
+        if any(s.lower() in exp_dir.name.lower() for s in exclude_dir_substrings):
+            excluded.append(exp_dir.name)
+            continue
+        problem_id = classify_problem(exp_dir.name, problem_map)
+        for run_dir in sorted(exp_dir.glob("run-*")):
+            log_file = run_dir / "log.jsonl"
+            if not log_file.exists():
+                continue
+            run_id = f"{exp_dir.name}/{run_dir.name}"
+            records.extend(
+                iter_blade_records(log_file, run_id=run_id, problem_id=problem_id)
+            )
+    return records, excluded
+
+
+def run_pipeline_multi_problem(
+    root_dir: str | Path,
+    output_dir: str | Path,
+    *,
+    include_description: bool = True,
+    include_configspace: bool = True,
+    target: TargetKind = "fitness",
+    split_config: SplitConfig | None = None,
+    exclude_dir_substrings: tuple[str, ...] = DEFAULT_EXCLUDE_DIR_SUBSTRINGS,
+    problem_map: dict[str, str] | None = None,
+) -> dict[str, Any]:
+    """Like ``run_pipeline``, but for the nested per-experiment-folder
+    layout, with the train/val/test split run independently per
+    ``problem_id`` and then merged -- so whole-run test-holdout and
+    generation-based val-holdout are each stratified by problem instead of
+    one problem's runs dominating the held-out set."""
+    root_dir = Path(root_dir)
+    output_dir = Path(output_dir)
+
+    all_records, excluded_dirs = load_nested_directory(
+        root_dir,
+        exclude_dir_substrings=exclude_dir_substrings,
+        problem_map=problem_map,
+    )
+    if not all_records:
+        raise FileNotFoundError(
+            f"No `<experiment>/run-*/log.jsonl` files found under {root_dir} "
+            f"(excluded folders: {excluded_dirs})"
+        )
+
+    by_source_file: dict[str, list[BladeRecord]] = {}
+    for r in all_records:
+        by_source_file.setdefault(r.source_file, []).append(r)
+    per_file_stats = [
+        validate_records(recs, label=recs[0].run_id).to_dict()
+        for _, recs in sorted(by_source_file.items())
+    ]
+
+    overall_report = validate_records(all_records, label="__overall__")
+
+    kept, n_dropped = filter_errored(all_records)
+    examples = make_examples(
+        kept,
+        include_description=include_description,
+        include_configspace=include_configspace,
+        target=target,
+    )
+    n_skipped_missing_target = len(kept) - len(examples)
+
+    by_problem: dict[str, list[RLMExample]] = {}
+    for e in examples:
+        by_problem.setdefault(e.problem_id, []).append(e)
+
+    train: list[RLMExample] = []
+    val: list[RLMExample] = []
+    test: list[RLMExample] = []
+    split_log_by_problem: dict[str, Any] = {}
+    for problem_id, problem_examples in sorted(by_problem.items()):
+        result = lineage_generation_split(problem_examples, split_config)
+        train.extend(result.train)
+        val.extend(result.val)
+        test.extend(result.test)
+        split_log_by_problem[problem_id] = result.log
+
+    write_examples_jsonl(train, output_dir / "train.jsonl")
+    write_examples_jsonl(val, output_dir / "val.jsonl")
+    write_examples_jsonl(test, output_dir / "test.jsonl")
+
+    per_problem_stats = {
+        problem_id: validate_records(
+            [r for r in all_records if r.problem_id == problem_id],
+            label=problem_id,
+        ).to_dict()
+        for problem_id in sorted(by_problem)
+    }
+
+    strategies = sorted(
+        {log.get("strategy", "") for log in split_log_by_problem.values()}
+    )
+    summary: dict[str, Any] = {
+        "layout": "per_problem_subdir",
+        "root_dir": str(root_dir),
+        "excluded_experiment_folders": excluded_dirs,
+        "problems": sorted(by_problem),
+        "target": target,
+        "include_description": include_description,
+        "include_configspace": include_configspace,
+        "n_records_total": len(all_records),
+        "n_errored_total": n_dropped,
+        "error_fraction_total": (n_dropped / len(all_records)) if all_records else 0.0,
+        "n_skipped_missing_target": n_skipped_missing_target,
+        "n_examples_total": len(examples),
+        "per_file": per_file_stats,
+        "per_problem": per_problem_stats,
+        "overall": overall_report.to_dict(),
+        "split": {
+            "strategy": "+".join(strategies),
+            "n_train": len(train),
+            "n_val": len(val),
+            "n_test": len(test),
+            "by_problem": split_log_by_problem,
+            "test_runs": sorted(
+                r
+                for log in split_log_by_problem.values()
+                for r in log.get("test_runs", [])
+            ),
+        },
+    }
+
+    if len(examples) < 1000:
+        summary.setdefault("warnings", []).append(
+            f"Only {len(examples)} usable examples across "
+            f"{len(by_problem)} problem(s). The RLM paper's strongest "
+            "results come from tens-of-thousands to millions of examples; "
+            "at this scale, treat correlation numbers as a few-shot/"
+            "fine-tuning signal, not a trained-model guarantee."
+        )
+
+    with open(output_dir / "stats.json", "w") as fh:
+        json.dump(summary, fh, indent=2, default=str)
+
+    return summary
+
+
 def _build_arg_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument(
-        "--data-dir", required=True, help="Directory of BLADE-schema .jsonl logs."
+        "--data-dir",
+        required=True,
+        help="Directory of BLADE-schema .jsonl logs (--layout flat), or the "
+        "root containing one experiment-folder-per-run-group "
+        "(--layout per_problem_subdir).",
     )
     p.add_argument(
         "--output-dir", required=True, help="Where to write train/val/test/stats."
+    )
+    p.add_argument(
+        "--layout",
+        choices=["flat", "per_problem_subdir"],
+        default="flat",
+        help="'flat': --data-dir directly contains .jsonl run files. "
+        "'per_problem_subdir': --data-dir contains "
+        "<experiment_folder>/run-*/log.jsonl (problem_id derived from the "
+        "experiment folder name).",
+    )
+    p.add_argument(
+        "--exclude-dir-substring",
+        action="append",
+        default=None,
+        dest="exclude_dir_substrings",
+        help="(per_problem_subdir only) Skip experiment folders whose name "
+        "contains this substring, case-insensitive. Repeatable. Defaults to "
+        f"{DEFAULT_EXCLUDE_DIR_SUBSTRINGS}; pass this flag with an empty "
+        "string once to include everything.",
     )
     p.add_argument("--pattern", default="*.jsonl")
     p.add_argument(
@@ -369,24 +596,50 @@ def main(argv: list[str] | None = None) -> None:
         test_fraction=args.test_fraction,
         seed=args.seed,
     )
-    summary = run_pipeline(
-        args.data_dir,
-        args.output_dir,
-        include_description=args.include_description,
-        include_configspace=args.include_configspace,
-        target=args.target,
-        split_config=split_config,
-        pattern=args.pattern,
-    )
-    print(
-        f"Ingested {summary['n_records_total']} records from {summary['n_files']} "
-        f"file(s); dropped {summary['n_errored_total']} "
-        f"({summary['error_fraction_total']:.1%}) for errors; "
-        f"{summary['n_examples_total']} usable examples -> "
-        f"train={summary['split']['n_train']} val={summary['split']['n_val']} "
-        f"test={summary['split']['n_test']} "
-        f"(strategy={summary['split']['strategy']})."
-    )
+    if args.layout == "per_problem_subdir":
+        exclude_dir_substrings = (
+            tuple(args.exclude_dir_substrings)
+            if args.exclude_dir_substrings is not None
+            else DEFAULT_EXCLUDE_DIR_SUBSTRINGS
+        )
+        summary = run_pipeline_multi_problem(
+            args.data_dir,
+            args.output_dir,
+            include_description=args.include_description,
+            include_configspace=args.include_configspace,
+            target=args.target,
+            split_config=split_config,
+            exclude_dir_substrings=exclude_dir_substrings,
+        )
+        print(
+            f"Ingested {summary['n_records_total']} records for problems "
+            f"{summary['problems']} (excluded folders: "
+            f"{summary['excluded_experiment_folders']}); dropped "
+            f"{summary['n_errored_total']} ({summary['error_fraction_total']:.1%}) "
+            f"as invalid; {summary['n_examples_total']} usable examples -> "
+            f"train={summary['split']['n_train']} val={summary['split']['n_val']} "
+            f"test={summary['split']['n_test']} "
+            f"(strategy={summary['split']['strategy']})."
+        )
+    else:
+        summary = run_pipeline(
+            args.data_dir,
+            args.output_dir,
+            include_description=args.include_description,
+            include_configspace=args.include_configspace,
+            target=args.target,
+            split_config=split_config,
+            pattern=args.pattern,
+        )
+        print(
+            f"Ingested {summary['n_records_total']} records from {summary['n_files']} "
+            f"file(s); dropped {summary['n_errored_total']} "
+            f"({summary['error_fraction_total']:.1%}) for errors; "
+            f"{summary['n_examples_total']} usable examples -> "
+            f"train={summary['split']['n_train']} val={summary['split']['n_val']} "
+            f"test={summary['split']['n_test']} "
+            f"(strategy={summary['split']['strategy']})."
+        )
     for w in summary.get("warnings", []):
         print(f"WARNING: {w}")
 
