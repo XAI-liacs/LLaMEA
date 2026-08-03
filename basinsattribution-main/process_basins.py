@@ -10,6 +10,48 @@ import sys
 
 print(" works")
 
+
+def load_completed_ids(output_file):
+    """Return IDs of completed rows and discard a crash-truncated final line."""
+    if not os.path.exists(output_file):
+        return set()
+
+    completed_ids = set()
+    last_valid_offset = 0
+
+    with open(output_file, "rb") as f_out:
+        while True:
+            line = f_out.readline()
+            if not line:
+                break
+
+            if not line.strip():
+                last_valid_offset = f_out.tell()
+                continue
+
+            try:
+                row = json.loads(line)
+            except (json.JSONDecodeError, UnicodeDecodeError):
+                # Appending can only leave an incomplete record at the end.
+                # Refuse to silently discard corruption in the middle.
+                if f_out.read().strip():
+                    raise ValueError(
+                        f"Malformed JSONL record before the end of {output_file}"
+                    )
+                with open(output_file, "r+b") as repair_file:
+                    repair_file.truncate(last_valid_offset)
+                break
+
+            if (
+                row.get("id") is not None
+                and "basin_info" in row
+                and "nr_of_basins" in row
+            ):
+                completed_ids.add(row["id"])
+            last_valid_offset = f_out.tell()
+
+    return completed_ids
+
 def process_bbob(fid=1):
     output_file = os.path.join("outputs", f"bbob.jsonl")
     n = 10
@@ -62,16 +104,19 @@ def process_experiment(exp_dir, base_dir):
     datadir = os.path.join(base_dir, exp_dir)
     output_file = os.path.join("outputs", f"{exp_dir}.jsonl")
 
-    # Skip if already processed (optional)
-    if os.path.exists(output_file):
-        return f"Skipped {exp_dir} (exists)"
-
     with open(f"{datadir}/log.jsonl", "r") as f:
         data = [json.loads(line) for line in f if line.strip()]
 
-    for row in tqdm.tqdm(data, desc=exp_dir, leave=False):
-        if row["fitness"] < 0.5:
-            continue
+    completed_ids = load_completed_ids(output_file)
+    eligible_rows = [row for row in data if row["fitness"] >= 0.5]
+    remaining_rows = [
+        row for row in eligible_rows if row.get("id") not in completed_ids
+    ]
+
+    if not remaining_rows:
+        return f"Skipped {exp_dir} ({len(completed_ids)} rows already complete)"
+
+    for row in tqdm.tqdm(remaining_rows, desc=exp_dir, leave=False):
         ns = {}
         exec(row["code"], ns)
         F = getattr(ns[row["name"]](dim=2), "f")
@@ -110,11 +155,18 @@ def process_experiment(exp_dir, base_dir):
         row["basin_info"] = basin_info
         row["nr_of_basins"] = int(nr_of_optima)
 
+        # Write a complete JSONL record in one call and flush it so this row is
+        # a durable checkpoint before starting the next expensive calculation.
+        record = json.dumps(row) + "\n"
         with open(output_file, "a") as f_out:
-            json.dump(row, f_out)
-            f_out.write("\n")
+            f_out.write(record)
+            f_out.flush()
+            os.fsync(f_out.fileno())
 
-    return f"Done {exp_dir}"
+    return (
+        f"Done {exp_dir} (processed {len(remaining_rows)}, "
+        f"resumed past {len(completed_ids)})"
+    )
 
 if __name__ == "__main__":
 
@@ -122,7 +174,7 @@ if __name__ == "__main__":
 
     os.makedirs("outputs", exist_ok=True)
 
-    base_dir = "/local/bodasap/exp_res_local/"
+    base_dir = "/local/bodasap/LLaMEA-ELA/exp_res_oai/"
     # get a list of folders in base_dir that start with "exp"
     experiment_dirs = [f for f in os.listdir(base_dir) if f.startswith("exp")]
 
