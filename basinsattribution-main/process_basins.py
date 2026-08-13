@@ -5,10 +5,15 @@ import analyze_basins
 import tqdm
 from concurrent.futures import ProcessPoolExecutor, as_completed
 import ioh
+import signal
 
 import sys
 
-print(" works")
+ROW_TIMEOUT_SECONDS = 6000
+
+
+def timeout_handler(signum, frame):
+    raise TimeoutError
 
 
 def load_completed_ids(output_file):
@@ -117,43 +122,54 @@ def process_experiment(exp_dir, base_dir):
         return f"Skipped {exp_dir} ({len(completed_ids)} rows already complete)"
 
     for row in tqdm.tqdm(remaining_rows, desc=exp_dir, leave=False):
-        ns = {}
-        exec(row["code"], ns)
-        F = getattr(ns[row["name"]](dim=2), "f")
+        signal.signal(signal.SIGALRM, timeout_handler)
+        signal.alarm(ROW_TIMEOUT_SECONDS)
+        try:
+            ns = {}
+            exec(row["code"], ns)
+            F = getattr(ns[row["name"]](dim=2), "f")
 
-        n = 10
-        x1 = np.linspace(-5, 5, n)
-        x2 = np.linspace(-5, 5, n)
-        X1, X2 = np.meshgrid(x1, x2)
-        X_data = np.column_stack([X1.ravel(), X2.ravel()])
-        y_data = np.array([F(x) for x in X_data])
+            n = 10
+            x1 = np.linspace(-5, 5, n)
+            x2 = np.linspace(-5, 5, n)
+            X1, X2 = np.meshgrid(x1, x2)
+            X_data = np.column_stack([X1.ravel(), X2.ravel()])
+            y_data = np.array([F(x) for x in X_data])
 
-        bloc = analyze_basins.BasinsLoc()
-        nr_of_optima = bloc.alg_closest_points(F, X=X_data, y=y_data)
+            bloc = analyze_basins.BasinsLoc()
+            nr_of_optima = bloc.alg_closest_points(F, X=X_data, y=y_data)
 
-        def find_root(i, to):
-            while to[i] != i:
-                to[i] = to[to[i]]
-                i = to[i]
-            return i
+            def find_root(i, to):
+                while to[i] != i:
+                    to[i] = to[to[i]]
+                    i = to[i]
+                return i
 
-        def collapse_to(to):
-            for i in range(len(to)):
-                to[i] = find_root(i, to)
-            return to
+            def collapse_to(to):
+                for i in range(len(to)):
+                    to[i] = find_root(i, to)
+                return to
 
-        to = np.array(bloc.to).copy()
-        roots = collapse_to(to)
-        roots_init = roots[:len(X_data)]
+            to = np.array(bloc.to).copy()
+            roots = collapse_to(to)
+            roots_init = roots[:len(X_data)]
 
-        unique_basins, counts = np.unique(roots_init, return_counts=True)
-        basin_info = [
-            (int(size), bloc.X[basin_id].tolist(), float(F(bloc.X[basin_id])))
-            for basin_id, size in zip(unique_basins, counts)
-        ]
+            unique_basins, counts = np.unique(roots_init, return_counts=True)
+            basin_info = [
+                (int(size), bloc.X[basin_id].tolist(), float(F(bloc.X[basin_id])))
+                for basin_id, size in zip(unique_basins, counts)
+            ]
 
-        row["basin_info"] = basin_info
-        row["nr_of_basins"] = int(nr_of_optima)
+            row["basin_info"] = basin_info
+            row["nr_of_basins"] = int(nr_of_optima)
+        except TimeoutError:
+            tqdm.tqdm.write(
+                f"Timed out {exp_dir} row {row.get('id')} "
+                f"after {ROW_TIMEOUT_SECONDS} seconds"
+            )
+            continue
+        finally:
+            signal.alarm(0)
 
         # Write a complete JSONL record in one call and flush it so this row is
         # a durable checkpoint before starting the next expensive calculation.
@@ -190,7 +206,7 @@ if __name__ == "__main__":
                     tqdm.tqdm.write(msg)
                     pbar.update(1)
 
-    # Process BBOB functions
+    # Process BBOB functions[]
     #process_bbob(15)
     # with tqdm.tqdm(total=24, desc="BBOB Functions", ncols=90) as pbar:
     #     with ProcessPoolExecutor(max_workers=24) as executor:
