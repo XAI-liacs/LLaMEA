@@ -11,8 +11,12 @@ import math
 import os
 import random
 import re
+import sys
 import time
 import traceback
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent / "pflacco"))
 
 import numpy as np
 import pandas as pd
@@ -424,20 +428,20 @@ Give a novel Python class with an optimization landscape function and a short de
 
 # "not homogeneous", "not basins"
 
-budget = 300
+budget = 200
 DEBUG = False
 if __name__ == "__main__":
     # run multiple local llm runs
     import os
 
-    api_key_openai = os.getenv("OPENAI_API_KEY")
+    # api_key_openai = os.getenv("OPENAI_API_KEY")
 
     # Use a Multi_LLM combining two local Ollama models and run all feature combinations
     llm1 = Ollama_LLM("devstral-small-2")
     llm2 = Ollama_LLM("qwen3.5:27b")
-    llm3 = OpenAI_LLM(api_key_openai, "gpt-5.4-nano-2026-03-17", temperature=1.0)
+    # llm3 = OpenAI_LLM(api_key_openai, "gpt-5.4-nano-2026-03-17", temperature=1.0)
 
-    llm = Multi_LLM([llm1, llm2, llm3])
+    llm = Multi_LLM([llm1, llm2])
 
     all_features = ["Separable", "GlobalLocal", "Multimodality", "Basins", "Homogeneous"]
     feature_combinations = []
@@ -453,8 +457,20 @@ if __name__ == "__main__":
             feature_combinations.append([nf, rf])
         feature_combinations.append([nf])
 
-    rem_feat_combinations = [["Basins"],["NOT Basins"],["Multimodality", "Basins"], ["GlobalLocal", "Basins"]]
-    script_dir = os.path.dirname(os.path.abspath(__file__))
+    rem_feat_combinations = [
+    ["Separable", "Basins"],
+    ["Separable", "Homogeneous"],
+    ["GlobalLocal", "Basins"],
+    ["GlobalLocal", "Homogeneous"],
+    ["Multimodality", "Basins"],
+    ["Basins"],
+    ["NOT Basins", "Separable"],
+    ["NOT Basins", "GlobalLocal"],
+    ["NOT Basins", "Multimodality"],
+    ["NOT Basins"],
+]
+
+    script_dir = os.path.dirname("/local/bodasap/exp_res_local/")
 
     def find_archive_path(experiment_name):
         matches = []
@@ -482,7 +498,8 @@ if __name__ == "__main__":
                 es = LLaMEA.warm_start(archive_path)
                 if es is not None:
                     print(f"Resuming {experiment_name} from {archive_path}")
-                    print(es.run())
+                    es.logger.dirname = archive_path
+                    es.run()
                     continue
                 print(f"Warm start failed for {experiment_name}")
             except Exception as e:
