@@ -1,0 +1,22 @@
+# Fully offline, tiny-dimensional configuration used by tests/CI and to
+# sanity-check the pipeline before real data/network access is available.
+# NOT representative of paper-quality results -- see README.
+encoder_type: char
+d_model: 32
+num_decoder_layers: 1
+max_input_len: 512
+max_num_objs: 1
+
+optimizer: adamw
+lr: 3.0e-3
+weight_decay: 0.0
+warmup_steps: 5
+total_steps: null
+
+max_epochs: 3
+batch_size: 8
+patience: null
+seed: 0
+
+num_samples_point_pred: 8
+pretrained_checkpoint: null

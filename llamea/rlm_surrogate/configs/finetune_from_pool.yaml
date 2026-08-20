@@ -1,0 +1,30 @@
+# Pretrain-on-pool, fine-tune-on-run configuration: start from a checkpoint
+# already trained on a large pool of historical LLaMEA/BLADE logs (across
+# multiple past projects/runs), then fine-tune on a specific new run's
+# early-generation evaluations. Mirrors the paper's NAS fine-tuning result
+# (Table 13): fine-tuning from a broader pretrained pool improves ranking
+# quality on a new, low-resource run/space versus training from scratch on
+# that run's (typically small) data alone.
+encoder_type: t5gemma
+t5gemma_model_name: google/t5gemma-s-s-prefixlm
+freeze_encoder: true
+num_decoder_layers: 2
+max_input_len: 2048
+max_num_objs: 1
+
+optimizer: adafactor
+lr: 3.0e-4          # smaller LR than from-scratch: this is a fine-tune, not a cold start
+weight_decay: 0.0
+warmup_steps: 50
+total_steps: null
+
+max_epochs: 30       # fewer epochs: adapting, not learning from scratch
+batch_size: null
+patience: 3
+seed: 0
+
+num_samples_point_pred: 64
+
+# Set this to the checkpoint produced by a prior `train.py --config default.yaml`
+# run over the pooled historical data.
+pretrained_checkpoint: null

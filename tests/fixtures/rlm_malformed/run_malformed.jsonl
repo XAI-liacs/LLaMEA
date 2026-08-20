@@ -1,0 +1,3 @@
+{"id": "x1", "fitness": 0.5, "name": "A", "description": "d", "code": "class A:\n    pass\n", "configspace": "", "generation": 0, "feedback": "ok", "error": "", "parent_ids": [], "operator": null, "metadata": {}}
+not valid json
+
