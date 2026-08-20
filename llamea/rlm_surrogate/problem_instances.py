@@ -4,30 +4,37 @@ of it, so a training example can carry real problem-side signal -- not just
 an aggregate ``fitness`` blind to which landscape produced it.
 
 Background: each BladeRecord's ``fitness`` is the *mean* AOCC over many
-problem instances (see ``benchmarks/ma_bbob/run_mabbob.py`` and
-``examples/black-box-optimization.py``), and ``metadata.aucs`` holds the
-per-instance breakdown in a fixed loop order. ``InstanceSweepConfig``
-describes that loop order so index ``i`` can be decoded back to which
-instance produced ``aucs[i]``.
+problem instances, and ``metadata.aucs`` holds the per-instance breakdown.
+Two real sources give the exact instance behind each ``aucs[i]``, confirmed
+against real BLADE-results logs (both attached and read directly):
 
-IMPORTANT CAVEAT: the two shipped presets (``BBOB_DEFAULT``,
-``MA_BBOB_DEFAULT``) mirror the two evaluation scripts in this repo, but
-have NOT been verified against real ``BLADE-results`` logs (the data
-wasn't reachable while this module was written). If a real file's
-``len(aucs)`` doesn't match either preset's ``expected_length``,
-``match_sweep_config`` returns ``None`` and the caller must skip that
-record rather than guess -- see ``data_pipeline.explode_aucs_with_problem_features``.
-Build a custom ``InstanceSweepConfig`` (optionally from YAML via
-``--sweep-config``) once the real sweep is known.
+1. **``metadata.performance_data``** (BBOB only, present on every non-errored
+   BBOB record seen): a list aligned 1:1 with ``aucs``, each entry
+   self-describing -- ``{"fid": 1, "iid": 1, "dim": 10, "auc": 0.85...}``
+   with ``performance_data[i]["auc"] == aucs[i]`` exactly. No external file
+   needed.
+2. **The sibling ``experimentlog.jsonl``** (MA_BBOB always, and the fallback
+   for any BBOB record without ``performance_data``): one line per run,
+   keyed by ``log_dir`` (the run folder name), carrying
+   ``problem.training_instances`` -- for BBOB a literal list of ``[fid,
+   iid]`` pairs, for MA_BBOB a string like ``"range(0, 10)"`` -- aligned 1:1
+   with that run's ``aucs``, plus ``problem.dims`` (a single-element list in
+   every run seen). Verified position-by-position identical to
+   ``performance_data`` on a record from the same run.
 
-Requires the ``ioh`` extra (``uv sync --group rlm-surrogate``). Imported
-lazily so the rest of the pipeline works without it installed.
+``resolve_instances_for_record`` tries (1) then (2) and returns ``None`` if
+neither works -- callers must skip that record rather than guess.
+
+Requires the ``ioh`` extra (``uv sync --group rlm-surrogate``) only for
+``reconstruct_problem``/``lhs_fingerprint``; imported lazily there so the
+rest of the pipeline (including instance resolution) works without it.
 """
 
 from __future__ import annotations
 
-import dataclasses
 import functools
+import json
+import re
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Literal
@@ -36,85 +43,140 @@ import numpy as np
 
 MA_BBOB_DATA_DIR = Path(__file__).resolve().parents[2] / "benchmarks" / "ma_bbob"
 
+# The raw `problem.name` values seen in experimentlog.jsonl -- distinct from
+# `data_pipeline.classify_problem`'s folder-derived `problem_id` grouping
+# ("BBOB"/"MA-BBOB", hyphen). Don't conflate the two.
+_BBOB_PROBLEM_NAME = "BBOB"
+_MA_BBOB_PROBLEM_NAME = "MA_BBOB"
 
-@dataclass
-class InstanceSweepConfig:
-    """Describes the fixed nested-loop order used to build one run's
-    ``metadata.aucs``, so index ``i`` can be decoded back to a specific
-    problem instance.
 
-    Matches ``for dim in dims: for fid_or_idx in fids_or_idxs: for iid in
-    iids: for rep in range(reps):`` (outermost to innermost) -- the order
-    both reference evaluation scripts in this repo use. ``iids``/``reps``
-    default to length-1 for MA-BBOB, which doesn't loop over them.
-    """
+@dataclass(frozen=True)
+class ProblemInstance:
+    """One concrete, reconstructable problem instance."""
 
     kind: Literal["bbob", "ma_bbob"]
-    dims: list[int]
-    fids_or_idxs: list[int]  # BBOB: function ids 1..24. MA-BBOB: table row idx.
-    iids: list[int] = dataclasses.field(default_factory=lambda: [1])
-    reps: int = 1
-
-    @property
-    def expected_length(self) -> int:
-        return len(self.dims) * len(self.fids_or_idxs) * len(self.iids) * self.reps
-
-    def decode(self, i: int) -> dict[str, int]:
-        """Returns ``{"dim", "fid_or_idx", "iid", "rep"}`` for ``aucs[i]``."""
-        if not 0 <= i < self.expected_length:
-            raise IndexError(
-                f"{i} out of range for expected_length={self.expected_length}"
-            )
-        n_reps, n_iids, n_fids = self.reps, len(self.iids), len(self.fids_or_idxs)
-        rep = i % n_reps
-        i //= n_reps
-        iid = self.iids[i % n_iids]
-        i //= n_iids
-        fid_or_idx = self.fids_or_idxs[i % n_fids]
-        i //= n_fids
-        dim = self.dims[i]
-        return {"dim": dim, "fid_or_idx": fid_or_idx, "iid": iid, "rep": rep}
-
-    @classmethod
-    def from_yaml(cls, path: str | Path) -> "InstanceSweepConfig":
-        import yaml
-
-        with open(path, "r") as fh:
-            raw = yaml.safe_load(fh) or {}
-        return cls(**raw)
-
-    def to_yaml(self, path: str | Path) -> None:
-        import yaml
-
-        with open(path, "w") as fh:
-            yaml.safe_dump(dataclasses.asdict(self), fh, sort_keys=False)
+    dim: int
+    fid_or_idx: int  # BBOB: function id 1..24. MA-BBOB: row idx into the CSVs.
+    iid: int = 1  # BBOB only; unused for ma_bbob.
 
 
-# Mirrors examples/black-box-optimization.py:
-#   for dim in [5]: for fid in range(1,25): for iid in [1,2,3]: for rep in range(3):
-BBOB_DEFAULT = InstanceSweepConfig(
-    kind="bbob", dims=[5], fids_or_idxs=list(range(1, 25)), iids=[1, 2, 3], reps=3
-)
-
-# Mirrors benchmarks/ma_bbob/run_mabbob.py:
-#   for dim in [2, 5]: for idx in range(100):
-# (weights.csv/iids.csv/opt_locs.csv actually hold 1000 rows -- the script
-# only used the first 100; widen fids_or_idxs if a run used more.)
-MA_BBOB_DEFAULT = InstanceSweepConfig(
-    kind="ma_bbob", dims=[2, 5], fids_or_idxs=list(range(100)), iids=[1], reps=1
-)
+def instances_from_performance_data(
+    performance_data: list[dict[str, Any]],
+) -> list[ProblemInstance]:
+    """Reads instances directly from a BBOB record's own
+    ``metadata.performance_data`` -- no external file needed."""
+    return [
+        ProblemInstance(
+            kind="bbob", dim=int(e["dim"]), fid_or_idx=int(e["fid"]), iid=int(e["iid"])
+        )
+        for e in performance_data
+    ]
 
 
-def match_sweep_config(
-    aucs_length: int, candidates: list[InstanceSweepConfig]
-) -> InstanceSweepConfig | None:
-    """Returns the first candidate whose ``expected_length`` matches
-    ``aucs_length``, else ``None`` -- callers must skip on ``None``, never
-    guess which sweep produced a mismatched-length ``aucs``."""
-    for cfg in candidates:
-        if cfg.expected_length == aucs_length:
-            return cfg
+def _parse_range_string(s: str) -> list[int] | None:
+    """Parses a logged Python ``range(a, b)`` repr into ``list(range(a, b))``
+    without ``eval``. Returns ``None`` if it doesn't match that shape."""
+    m = re.fullmatch(r"range\((\d+),\s*(\d+)\)", s.strip())
+    if not m:
+        return None
+    return list(range(int(m.group(1)), int(m.group(2))))
+
+
+def parse_training_instances(
+    problem_spec: dict[str, Any],
+) -> list[ProblemInstance] | None:
+    """Reads the ordered instance list from an ``experimentlog.jsonl`` entry's
+    ``problem`` block (``problem.name`` + ``problem.dims`` +
+    ``problem.training_instances``). Returns ``None`` -- caller skips, never
+    guesses -- when ``dims`` isn't a single value or the shape/name isn't
+    recognized."""
+    dims = problem_spec.get("dims") or []
+    if len(dims) != 1:
+        return None
+    dim = int(dims[0])
+    name = problem_spec.get("name")
+    training_instances = problem_spec.get("training_instances")
+
+    if name == _BBOB_PROBLEM_NAME:
+        if not isinstance(training_instances, list):
+            return None
+        try:
+            return [
+                ProblemInstance(kind="bbob", dim=dim, fid_or_idx=int(fid), iid=int(iid))
+                for fid, iid in training_instances
+            ]
+        except (TypeError, ValueError):
+            return None
+
+    if name == _MA_BBOB_PROBLEM_NAME:
+        if isinstance(training_instances, str):
+            idxs = _parse_range_string(training_instances)
+        elif isinstance(training_instances, list):
+            idxs = [int(i) for i in training_instances]
+        else:
+            idxs = None
+        if idxs is None:
+            return None
+        return [
+            ProblemInstance(kind="ma_bbob", dim=dim, fid_or_idx=idx) for idx in idxs
+        ]
+
     return None
+
+
+def load_experiment_instances(
+    experimentlog_path: str | Path,
+) -> dict[str, list[ProblemInstance]]:
+    """Maps ``log_dir`` (run folder name) -> ordered instance list, from one
+    ``experimentlog.jsonl`` file's ``problem`` blocks. Missing/malformed
+    lines and entries whose `problem` block can't be parsed are skipped
+    (not fatal -- other runs in the same file may still resolve)."""
+    result: dict[str, list[ProblemInstance]] = {}
+    path = Path(experimentlog_path)
+    if not path.exists():
+        return result
+    with open(path, "r") as fh:
+        for line in fh:
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                d = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            log_dir = d.get("log_dir")
+            if not log_dir or log_dir in result:
+                continue
+            instances = parse_training_instances(d.get("problem", {}))
+            if instances is not None:
+                result[log_dir] = instances
+    return result
+
+
+def resolve_instances_for_record(
+    record: Any, experiment_instance_cache: dict[str, dict[str, list[ProblemInstance]]]
+) -> list[ProblemInstance] | None:
+    """Resolves the ordered instance list behind one BladeRecord's
+    ``metadata.aucs``: ``metadata.performance_data`` first, else the
+    sibling ``experimentlog.jsonl`` two directories up from
+    ``record.source_file`` (``<experiment_folder>/run-*/log.jsonl`` ->
+    ``<experiment_folder>/experimentlog.jsonl``), looked up by the run
+    folder's name. ``experiment_instance_cache`` is keyed by experiment
+    folder path so each ``experimentlog.jsonl`` is read once per call site.
+    Returns ``None`` if neither source resolves -- caller must skip."""
+    metadata = record.metadata or {}
+    if metadata.get("performance_data"):
+        return instances_from_performance_data(metadata["performance_data"])
+
+    source_file = Path(record.source_file)
+    run_dir = source_file.parent
+    experiment_dir = run_dir.parent
+    key = str(experiment_dir)
+    if key not in experiment_instance_cache:
+        experiment_instance_cache[key] = load_experiment_instances(
+            experiment_dir / "experimentlog.jsonl"
+        )
+    return experiment_instance_cache[key].get(run_dir.name)
 
 
 @functools.lru_cache(maxsize=1)
@@ -127,17 +189,17 @@ def _load_ma_bbob_tables():
     return weights, iids, opt_locs
 
 
-def reconstruct_problem(cfg: InstanceSweepConfig, decoded: dict[str, int]) -> Any:
-    """Rebuilds the ``ioh`` problem instance ``decoded`` (from
-    ``InstanceSweepConfig.decode``) refers to. Lazily imports ``ioh``."""
+def reconstruct_problem(instance: ProblemInstance) -> Any:
+    """Rebuilds the ``ioh`` problem instance ``instance`` refers to. Lazily
+    imports ``ioh``."""
     import ioh
 
-    dim = decoded["dim"]
-    if cfg.kind == "bbob":
-        return ioh.get_problem(decoded["fid_or_idx"], decoded["iid"], dim)
-    if cfg.kind == "ma_bbob":
+    if instance.kind == "bbob":
+        return ioh.get_problem(instance.fid_or_idx, instance.iid, instance.dim)
+    if instance.kind == "ma_bbob":
         weights, iids_table, opt_locs = _load_ma_bbob_tables()
-        idx = decoded["fid_or_idx"]
+        idx = instance.fid_or_idx
+        dim = instance.dim
         f_new = ioh.problem.ManyAffine(
             xopt=np.array(opt_locs.iloc[idx])[:dim],
             weights=np.array(weights.iloc[idx]),
@@ -147,7 +209,7 @@ def reconstruct_problem(cfg: InstanceSweepConfig, decoded: dict[str, int]) -> An
         f_new.set_id(100)
         f_new.set_instance(idx)
         return f_new
-    raise ValueError(f"Unknown InstanceSweepConfig.kind: {cfg.kind!r}")
+    raise ValueError(f"Unknown ProblemInstance.kind: {instance.kind!r}")
 
 
 def lhs_fingerprint(problem: Any, dim: int, n_points: int = 20, seed: int = 0) -> str:
@@ -175,12 +237,11 @@ def lhs_fingerprint(problem: Any, dim: int, n_points: int = 20, seed: int = 0) -
 
 
 def compute_problem_feature_text(
-    cfg: InstanceSweepConfig, aucs_index: int, *, n_points: int = 20, seed: int = 0
+    instance: ProblemInstance, *, n_points: int = 20, seed: int = 0
 ) -> str:
-    """Decodes ``aucs_index`` under ``cfg``, reconstructs the problem, and
-    returns its LHS fingerprint text. Raises on failure (unknown
-    ``ioh``/data issues) -- callers should catch, skip, and count/warn per
-    the pipeline's "surface anomalies, never silently guess" convention."""
-    decoded = cfg.decode(aucs_index)
-    problem = reconstruct_problem(cfg, decoded)
-    return lhs_fingerprint(problem, decoded["dim"], n_points=n_points, seed=seed)
+    """Reconstructs ``instance`` and returns its LHS fingerprint text.
+    Raises on failure (unknown ``ioh``/data issues) -- callers should catch,
+    skip, and count/warn per the pipeline's "surface anomalies, never
+    silently guess" convention."""
+    problem = reconstruct_problem(instance)
+    return lhs_fingerprint(problem, instance.dim, n_points=n_points, seed=seed)

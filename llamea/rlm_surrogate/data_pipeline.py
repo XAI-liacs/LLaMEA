@@ -17,10 +17,7 @@ import random
 import re
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Literal
-
-if TYPE_CHECKING:
-    from .problem_instances import InstanceSweepConfig
+from typing import Any, Literal
 
 from .schema import BladeRecord, derive_run_id, iter_blade_records, validate_records
 
@@ -150,7 +147,6 @@ def _is_finite(v: float) -> bool:
 def explode_aucs_with_problem_features(
     records: list[BladeRecord],
     *,
-    sweep_configs: list[InstanceSweepConfig],
     include_description: bool = True,
     include_configspace: bool = True,
     n_lhs_points: int = 20,
@@ -160,33 +156,45 @@ def explode_aucs_with_problem_features(
     instance, `x` = code(+context) + that instance's LHS fingerprint,
     `y` = `aucs[i]`.
 
-    A record is skipped entirely (counted, never guessed) when it has no
-    `aucs`, or when `len(aucs)` doesn't match any `sweep_configs` entry's
-    `expected_length` -- see `problem_instances.match_sweep_config`.
-    Per-instance reconstruction failures (e.g. a bad row in the MA-BBOB
-    tables) are also skipped and counted individually.
+    Instance identity comes from real metadata, never a guess --
+    `problem_instances.resolve_instances_for_record` tries
+    `metadata.performance_data` first, then falls back to the sibling
+    `experimentlog.jsonl`. A record is skipped entirely (counted) when it
+    has no `aucs`, when neither source resolves an instance list, or when
+    the resolved list's length doesn't match `len(aucs)`. Per-instance
+    reconstruction failures (e.g. a bad row in the MA-BBOB tables) are also
+    skipped and counted individually.
 
-    Returns `(examples, counts)` where `counts` has
-    `n_no_aucs`, `n_unmatched_sweep`, `n_instance_errors`, `n_exploded`.
+    Returns `(examples, counts)` where `counts` has `n_no_aucs`,
+    `n_no_instance_mapping`, `n_length_mismatch`, `n_instance_errors`,
+    `n_exploded`.
     """
-    from .problem_instances import compute_problem_feature_text, match_sweep_config
+    from .problem_instances import (
+        compute_problem_feature_text,
+        resolve_instances_for_record,
+    )
 
     examples: list[RLMExample] = []
     counts = {
         "n_no_aucs": 0,
-        "n_unmatched_sweep": 0,
+        "n_no_instance_mapping": 0,
+        "n_length_mismatch": 0,
         "n_instance_errors": 0,
         "n_exploded": 0,
     }
+    experiment_instance_cache: dict[str, Any] = {}
 
     for r in records:
         aucs = r.aucs
         if not aucs:
             counts["n_no_aucs"] += 1
             continue
-        cfg = match_sweep_config(len(aucs), sweep_configs)
-        if cfg is None:
-            counts["n_unmatched_sweep"] += 1
+        instances = resolve_instances_for_record(r, experiment_instance_cache)
+        if instances is None:
+            counts["n_no_instance_mapping"] += 1
+            continue
+        if len(instances) != len(aucs):
+            counts["n_length_mismatch"] += 1
             continue
 
         base_x = build_x(
@@ -194,12 +202,12 @@ def explode_aucs_with_problem_features(
             include_description=include_description,
             include_configspace=include_configspace,
         )
-        for i, y in enumerate(aucs):
+        for i, (y, instance) in enumerate(zip(aucs, instances)):
             if not _is_finite(y):
                 continue
             try:
                 fingerprint = compute_problem_feature_text(
-                    cfg, i, n_points=n_lhs_points, seed=lhs_seed
+                    instance, n_points=n_lhs_points, seed=lhs_seed
                 )
             except Exception:
                 counts["n_instance_errors"] += 1
@@ -229,7 +237,6 @@ def _build_examples(
     include_description: bool,
     include_configspace: bool,
     target: TargetKind,
-    sweep_configs: list[InstanceSweepConfig] | None,
     n_lhs_points: int,
     lhs_seed: int,
 ) -> tuple[list[RLMExample], dict[str, Any]]:
@@ -237,13 +244,8 @@ def _build_examples(
     `explode_aucs_with_problem_features`. Returns `(examples, extra_stats)`
     where `extra_stats` is empty except for the exploded case."""
     if target == "aucs_per_instance":
-        if not sweep_configs:
-            from .problem_instances import BBOB_DEFAULT, MA_BBOB_DEFAULT
-
-            sweep_configs = [BBOB_DEFAULT, MA_BBOB_DEFAULT]
         examples, counts = explode_aucs_with_problem_features(
             records,
-            sweep_configs=sweep_configs,
             include_description=include_description,
             include_configspace=include_configspace,
             n_lhs_points=n_lhs_points,
@@ -403,7 +405,6 @@ def run_pipeline(
     target: TargetKind = "fitness",
     split_config: SplitConfig | None = None,
     pattern: str = "*.jsonl",
-    sweep_configs: list[InstanceSweepConfig] | None = None,
     n_lhs_points: int = 20,
     lhs_seed: int = 0,
 ) -> dict[str, Any]:
@@ -434,13 +435,16 @@ def run_pipeline(
         include_description=include_description,
         include_configspace=include_configspace,
         target=target,
-        sweep_configs=sweep_configs,
         n_lhs_points=n_lhs_points,
         lhs_seed=lhs_seed,
     )
     if "instance_explosion" in extra_stats:
         counts = extra_stats["instance_explosion"]
-        n_skipped_missing_target = counts["n_no_aucs"] + counts["n_unmatched_sweep"]
+        n_skipped_missing_target = (
+            counts["n_no_aucs"]
+            + counts["n_no_instance_mapping"]
+            + counts["n_length_mismatch"]
+        )
     else:
         n_skipped_missing_target = len(all_kept) - len(examples)
 
@@ -563,7 +567,6 @@ def run_pipeline_multi_problem(
     split_config: SplitConfig | None = None,
     exclude_dir_substrings: tuple[str, ...] = DEFAULT_EXCLUDE_DIR_SUBSTRINGS,
     problem_map: dict[str, str] | None = None,
-    sweep_configs: list[InstanceSweepConfig] | None = None,
     n_lhs_points: int = 20,
     lhs_seed: int = 0,
 ) -> dict[str, Any]:
@@ -602,13 +605,16 @@ def run_pipeline_multi_problem(
         include_description=include_description,
         include_configspace=include_configspace,
         target=target,
-        sweep_configs=sweep_configs,
         n_lhs_points=n_lhs_points,
         lhs_seed=lhs_seed,
     )
     if "instance_explosion" in extra_stats:
         counts = extra_stats["instance_explosion"]
-        n_skipped_missing_target = counts["n_no_aucs"] + counts["n_unmatched_sweep"]
+        n_skipped_missing_target = (
+            counts["n_no_aucs"]
+            + counts["n_no_instance_mapping"]
+            + counts["n_length_mismatch"]
+        )
     else:
         n_skipped_missing_target = len(kept) - len(examples)
 
@@ -740,18 +746,10 @@ def _build_arg_parser() -> argparse.ArgumentParser:
         "metadata.aucs vector as one multi-objective example. "
         "'aucs_per_instance': explode each record into one example per "
         "metadata.aucs[i], x augmented with that instance's own Latin "
-        "Hypercube problem fingerprint (see problem_instances.py). "
-        "Requires `ioh`; see --sweep-config.",
-    )
-    p.add_argument(
-        "--sweep-config",
-        default=None,
-        help="(aucs_per_instance only) Path to a custom InstanceSweepConfig "
-        "YAML describing the real nested-loop order used to build "
-        "metadata.aucs for this data. Defaults to trying the two presets "
-        "shipped in problem_instances.py (BBOB_DEFAULT, MA_BBOB_DEFAULT), "
-        "which are UNVERIFIED against real data -- records whose aucs "
-        "length matches neither are skipped, not guessed.",
+        "Hypercube problem fingerprint (see problem_instances.py). Instance "
+        "identity comes from metadata.performance_data or the sibling "
+        "experimentlog.jsonl -- records where neither resolves are skipped, "
+        "not guessed. Requires `ioh`.",
     )
     p.add_argument(
         "--lhs-points",
@@ -787,11 +785,6 @@ def main(argv: list[str] | None = None) -> None:
         test_fraction=args.test_fraction,
         seed=args.seed,
     )
-    sweep_configs = None
-    if args.sweep_config:
-        from .problem_instances import InstanceSweepConfig
-
-        sweep_configs = [InstanceSweepConfig.from_yaml(args.sweep_config)]
 
     if args.layout == "per_problem_subdir":
         exclude_dir_substrings = (
@@ -807,7 +800,6 @@ def main(argv: list[str] | None = None) -> None:
             target=args.target,
             split_config=split_config,
             exclude_dir_substrings=exclude_dir_substrings,
-            sweep_configs=sweep_configs,
             n_lhs_points=args.n_lhs_points,
             lhs_seed=args.lhs_seed,
         )
@@ -830,7 +822,6 @@ def main(argv: list[str] | None = None) -> None:
             target=args.target,
             split_config=split_config,
             pattern=args.pattern,
-            sweep_configs=sweep_configs,
             n_lhs_points=args.n_lhs_points,
             lhs_seed=args.lhs_seed,
         )

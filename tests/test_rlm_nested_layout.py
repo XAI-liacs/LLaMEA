@@ -149,3 +149,99 @@ def test_run_pipeline_multi_problem_raises_when_everything_excluded(tmp_path):
     _write_jsonl(root / "BBOB_debug" / "run-x" / "log.jsonl", [_record("x", 0.5)])
     with pytest.raises(FileNotFoundError):
         run_pipeline_multi_problem(root, tmp_path / "out")
+
+
+# --- aucs_per_instance over the real nested layout (needs the `ioh` extra) ---
+
+ioh = pytest.importorskip("ioh")
+
+
+def _record_with_performance_data(id_, aucs, fid_iid_pairs, dim=2):
+    r = _record(id_, sum(aucs) / len(aucs))
+    r["metadata"] = {
+        "aucs": aucs,
+        "performance_data": [
+            {"fid": fid, "iid": iid, "dim": dim, "auc": auc}
+            for (fid, iid), auc in zip(fid_iid_pairs, aucs)
+        ],
+    }
+    return r
+
+
+@pytest.fixture()
+def nested_root_with_instance_metadata(tmp_path):
+    """Mirrors the real `<experiment>/run-*/log.jsonl` +
+    `experimentlog.jsonl` layout, with a BBOB experiment resolving instances
+    via each record's own `metadata.performance_data`, and an MA_BBOB
+    experiment relying on the sibling `experimentlog.jsonl` fallback --
+    exactly the two real resolution paths confirmed against real
+    BLADE-results logs."""
+    root = tmp_path / "BLADE-results"
+
+    bbob_run = root / "BBOB_exp1" / "run-a"
+    _write_jsonl(
+        bbob_run / "log.jsonl",
+        [
+            _record_with_performance_data(f"bbob-{i}", [0.5, 0.6], [(1, 1), (1, 2)])
+            for i in range(3)
+        ],
+    )
+
+    ma_run_dir = root / "MA_BBOB_exp1" / "run-LLaMEA-MA_BBOB-1"
+    _write_jsonl(
+        ma_run_dir / "log.jsonl",
+        [_record(f"ma-{i}", 0.4 + 0.01 * i) for i in range(3)],
+    )
+    _write_jsonl(
+        root / "MA_BBOB_exp1" / "experimentlog.jsonl",
+        [
+            {
+                "log_dir": "run-LLaMEA-MA_BBOB-1",
+                "problem": {
+                    "name": "MA_BBOB",
+                    "dims": [2],
+                    "training_instances": "range(0, 2)",
+                },
+            }
+        ],
+    )
+
+    return root
+
+
+def test_run_pipeline_multi_problem_aucs_per_instance_resolves_both_sources(
+    nested_root_with_instance_metadata, tmp_path
+):
+    out_dir = tmp_path / "out"
+    summary = run_pipeline_multi_problem(
+        nested_root_with_instance_metadata,
+        out_dir,
+        target="aucs_per_instance",
+        n_lhs_points=2,
+    )
+
+    counts = summary["instance_explosion"]
+    assert counts["n_no_instance_mapping"] == 0
+    assert counts["n_length_mismatch"] == 0
+    # 3 BBOB records x 2 instances + 3 MA_BBOB records x 2 instances.
+    assert counts["n_exploded"] == 12
+    assert summary["n_examples_total"] == 12
+
+    from llamea.rlm_surrogate.data_pipeline import read_examples_jsonl
+
+    all_examples = (
+        read_examples_jsonl(out_dir / "train.jsonl")
+        + read_examples_jsonl(out_dir / "val.jsonl")
+        + read_examples_jsonl(out_dir / "test.jsonl")
+    )
+    assert len(all_examples) == 12
+    assert all("# Problem" in e.x and "LHS[2pts" in e.x for e in all_examples)
+    candidate_ids = {e.candidate_id for e in all_examples}
+    assert candidate_ids == {
+        "bbob-0",
+        "bbob-1",
+        "bbob-2",
+        "ma-0",
+        "ma-1",
+        "ma-2",
+    }

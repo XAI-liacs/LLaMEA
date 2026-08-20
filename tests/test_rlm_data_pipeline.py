@@ -178,14 +178,25 @@ def test_run_pipeline_raises_on_empty_dir(tmp_path):
 
 ioh = pytest.importorskip("ioh")
 
-from llamea.rlm_surrogate.problem_instances import InstanceSweepConfig  # noqa: E402
+_PERF_DATA_2D = [
+    {"fid": 1, "iid": 1, "dim": 2, "auc": 0.0},
+    {"fid": 1, "iid": 2, "dim": 2, "auc": 0.0},
+]
 
-_TINY_SWEEP = InstanceSweepConfig(
-    kind="bbob", dims=[2], fids_or_idxs=[1, 2], iids=[1], reps=1
-)
 
-
-def _blade_record(id_, aucs, run_id="r1", generation=0, parent_ids=None):
+def _blade_record(
+    id_,
+    aucs,
+    *,
+    metadata_extra=None,
+    run_id="r1",
+    generation=0,
+    parent_ids=None,
+    source_file="x.jsonl",
+):
+    metadata = dict(metadata_extra or {})
+    if aucs is not None:
+        metadata["aucs"] = aucs
     return BladeRecord(
         id=id_,
         fitness=0.5,
@@ -198,25 +209,30 @@ def _blade_record(id_, aucs, run_id="r1", generation=0, parent_ids=None):
         error="",
         parent_ids=parent_ids or [],
         operator=None,
-        metadata={"aucs": aucs} if aucs is not None else {},
+        metadata=metadata,
         run_id=run_id,
         problem_id="BBOB",
-        source_file="x.jsonl",
+        source_file=source_file,
         line_no=1,
     )
 
 
 def test_explode_aucs_with_problem_features_cardinality_and_fields():
     records = [
-        _blade_record("cand1", [0.1, 0.2]),  # matches _TINY_SWEEP length (2)
-        _blade_record("cand2", [0.3, 0.4]),
+        _blade_record(
+            "cand1", [0.1, 0.2], metadata_extra={"performance_data": _PERF_DATA_2D}
+        ),
+        _blade_record(
+            "cand2", [0.3, 0.4], metadata_extra={"performance_data": _PERF_DATA_2D}
+        ),
     ]
     examples, counts = explode_aucs_with_problem_features(
-        records, sweep_configs=[_TINY_SWEEP], n_lhs_points=2, lhs_seed=0
+        records, n_lhs_points=2, lhs_seed=0
     )
     assert counts == {
         "n_no_aucs": 0,
-        "n_unmatched_sweep": 0,
+        "n_no_instance_mapping": 0,
+        "n_length_mismatch": 0,
         "n_instance_errors": 0,
         "n_exploded": 4,
     }
@@ -234,25 +250,64 @@ def test_explode_aucs_with_problem_features_cardinality_and_fields():
 def test_explode_aucs_with_problem_features_skips_missing_and_unmatched():
     records = [
         _blade_record("no_aucs", None),
-        _blade_record("wrong_length", [0.1, 0.2, 0.3]),  # length 3, sweep expects 2
-        _blade_record("ok", [0.5, 0.6]),
+        _blade_record(
+            "no_mapping", [0.1, 0.2]
+        ),  # no performance_data, no experimentlog
+        _blade_record(
+            "wrong_length",
+            [0.1, 0.2, 0.3],  # length 3, performance_data has 2 entries
+            metadata_extra={"performance_data": _PERF_DATA_2D},
+        ),
+        _blade_record(
+            "ok", [0.5, 0.6], metadata_extra={"performance_data": _PERF_DATA_2D}
+        ),
     ]
-    examples, counts = explode_aucs_with_problem_features(
-        records, sweep_configs=[_TINY_SWEEP], n_lhs_points=2
-    )
+    examples, counts = explode_aucs_with_problem_features(records, n_lhs_points=2)
     assert counts["n_no_aucs"] == 1
-    assert counts["n_unmatched_sweep"] == 1
+    assert counts["n_no_instance_mapping"] == 1
+    assert counts["n_length_mismatch"] == 1
     assert counts["n_exploded"] == 2
     assert {e.candidate_id for e in examples} == {"ok"}
 
 
+def test_explode_aucs_with_problem_features_falls_back_to_experimentlog(tmp_path):
+    experiment_dir = tmp_path / "MA_BBOB_experiment"
+    run_dir = experiment_dir / "run-LLaMEA-MA_BBOB-1"
+    run_dir.mkdir(parents=True)
+    (experiment_dir / "experimentlog.jsonl").write_text(
+        json.dumps(
+            {
+                "log_dir": "run-LLaMEA-MA_BBOB-1",
+                "problem": {
+                    "name": "MA_BBOB",
+                    "dims": [2],
+                    "training_instances": "range(0, 2)",
+                },
+            }
+        )
+        + "\n"
+    )
+    records = [
+        _blade_record("cand1", [0.1, 0.2], source_file=str(run_dir / "log.jsonl"))
+    ]
+    examples, counts = explode_aucs_with_problem_features(records, n_lhs_points=2)
+    assert counts["n_no_instance_mapping"] == 0
+    assert counts["n_exploded"] == 2
+    assert {e.id for e in examples} == {"cand1#0", "cand1#1"}
+
+
 def test_explode_aucs_with_problem_features_preserves_lineage_fields():
     records = [
-        _blade_record("cand1", [0.1, 0.2], run_id="r9", generation=3, parent_ids=["p1"])
+        _blade_record(
+            "cand1",
+            [0.1, 0.2],
+            metadata_extra={"performance_data": _PERF_DATA_2D},
+            run_id="r9",
+            generation=3,
+            parent_ids=["p1"],
+        )
     ]
-    examples, _ = explode_aucs_with_problem_features(
-        records, sweep_configs=[_TINY_SWEEP]
-    )
+    examples, _ = explode_aucs_with_problem_features(records)
     assert all(e.run_id == "r9" for e in examples)
     assert all(e.generation == 3 for e in examples)
     assert all(e.parent_ids == ["p1"] for e in examples)

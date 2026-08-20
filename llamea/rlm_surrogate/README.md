@@ -133,30 +133,30 @@ uv run python -m llamea.rlm_surrogate.data_pipeline \
 
 Requires `ioh` (already in the `rlm-surrogate` group as of this README).
 
-**Read this before trusting it on your data.** Reconstructing the exact
-landscape behind `aucs[i]` requires knowing the nested-loop order the
-evaluation harness used to build that list (which `(dim, function)`
-combination each index corresponds to) -- see `problem_instances.py`'s
-`InstanceSweepConfig`. Two presets ship
-(`BBOB_DEFAULT`/`MA_BBOB_DEFAULT`, mirroring
-`examples/black-box-optimization.py` and
-`benchmarks/ma_bbob/run_mabbob.py`), but **they were not verified against
-real `BLADE-results` logs** -- the `aucs` lengths seen in this dataset
-during development didn't match either preset's expected length, meaning
-real runs likely used a smaller/different sweep. The pipeline never
-guesses: any record whose `len(aucs)` doesn't match a known
-`InstanceSweepConfig` is skipped and counted (`instance_explosion` in
-`stats.json` -- check `n_unmatched_sweep`). Once you know the real sweep
-(dims/function-ids/instances/repetitions actually used), write it as YAML
-and pass `--sweep-config path.yaml`:
+**How instance identity is resolved (no guessing).** Reconstructing the
+exact landscape behind `aucs[i]` needs to know which `(dim, function,
+instance)` each entry corresponds to. `problem_instances.py` reads this
+from real metadata, in order:
 
-```yaml
-kind: bbob            # or ma_bbob
-dims: [5]
-fids_or_idxs: [1, 2, 3, ..., 24]
-iids: [1, 2, 3]
-reps: 3
-```
+1. **`metadata.performance_data`** (BBOB records only): present on every
+   non-errored BBOB record in the datasets checked. Each entry
+   self-describes its instance -- `{"fid": 1, "iid": 1, "dim": 10, "auc":
+   0.85}` -- aligned 1:1 with `aucs`. No external file needed.
+2. **The sibling `experimentlog.jsonl`** (one level up from each
+   `<experiment>/run-*/log.jsonl`, keyed by `log_dir` == the run folder
+   name): used for every MA_BBOB record (which never carries
+   `performance_data`) and as the BBOB fallback. Its `problem` block gives
+   `problem.dims` (a single-element list) and `problem.training_instances`
+   -- for BBOB a literal list of `[fid, iid]` pairs, for MA_BBOB a string
+   like `"range(0, 10)"` -- aligned 1:1 with that run's `aucs`.
+
+A record is skipped (never guessed) and counted in `stats.json`'s
+`instance_explosion` block when neither source resolves
+(`n_no_instance_mapping`) or the resolved instance list's length doesn't
+match `len(aucs)` (`n_length_mismatch`); `n_no_aucs` counts records with no
+`metadata.aucs` at all, and `n_instance_errors` counts per-instance
+reconstruction failures (e.g. a bad MA-BBOB table row). Check these counts
+after a run to see how much of your data this feature could actually use.
 
 `evaluate.py`/`report.py` handle exploded data automatically: candidate-level
 metrics (Spearman, within-run ranking, budget-reduction) still work
