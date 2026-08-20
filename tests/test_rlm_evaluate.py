@@ -3,6 +3,7 @@ import pytest
 
 from llamea.rlm_surrogate.data_pipeline import RLMExample
 from llamea.rlm_surrogate.evaluate import (
+    aggregate_instance_predictions,
     budget_reduction_simulation,
     evaluate_predictions,
     random_topk_overlap_expected,
@@ -123,3 +124,58 @@ def test_evaluate_predictions_end_to_end_pure():
     assert "by_run" in report
     assert "within_run_ranking" in report
     assert "budget_reduction" in report
+
+
+def _exploded_example(candidate_id, instance_index, fitness):
+    return RLMExample(
+        id=f"{candidate_id}#{instance_index}",
+        run_id="r1",
+        generation=0,
+        parent_ids=[],
+        x="code",
+        y=float(instance_index),
+        fitness=fitness,
+        candidate_id=candidate_id,
+        instance_index=instance_index,
+    )
+
+
+def test_aggregate_instance_predictions_passthrough_when_not_exploded():
+    examples = [_example(str(i), "r1", 0, float(i)) for i in range(4)]
+    y_pred = [e.fitness for e in examples]
+    agg_examples, agg_pred = aggregate_instance_predictions(examples, y_pred)
+    assert agg_examples == examples
+    assert list(agg_pred) == y_pred
+
+
+def test_aggregate_instance_predictions_averages_per_candidate():
+    examples = [
+        _exploded_example("c1", 0, fitness=0.5),
+        _exploded_example("c1", 1, fitness=0.5),
+        _exploded_example("c2", 0, fitness=0.8),
+        _exploded_example("c2", 1, fitness=0.8),
+    ]
+    y_pred = [0.2, 0.4, 0.9, 0.7]  # c1 -> mean 0.3, c2 -> mean 0.8
+    agg_examples, agg_pred = aggregate_instance_predictions(examples, y_pred)
+
+    assert len(agg_examples) == 2
+    by_id = dict(zip((e.id for e in agg_examples), agg_pred))
+    assert by_id["c1"] == pytest.approx(0.3)
+    assert by_id["c2"] == pytest.approx(0.8)
+    # Aggregated examples no longer look "exploded".
+    for e in agg_examples:
+        assert e.candidate_id == ""
+        assert e.instance_index == -1
+    # Ground truth stays each candidate's own `fitness` (not re-derived).
+    assert {e.fitness for e in agg_examples} == {0.5, 0.8}
+
+
+def test_aggregate_instance_predictions_feeds_existing_candidate_level_metrics():
+    examples = [_exploded_example("c1", i, fitness=0.2) for i in range(3)] + [
+        _exploded_example("c2", i, fitness=0.9) for i in range(3)
+    ]
+    y_pred = [0.1, 0.2, 0.3, 0.8, 0.9, 1.0]  # c1 mean=0.2, c2 mean=0.9 -- matches truth
+    agg_examples, agg_pred = aggregate_instance_predictions(examples, y_pred)
+    report = evaluate_predictions(agg_examples, agg_pred, label="rlm")
+    assert report["overall"]["n"] == 2
+    assert report["overall"]["spearman_rho"] == pytest.approx(1.0)

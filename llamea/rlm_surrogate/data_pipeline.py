@@ -17,11 +17,14 @@ import random
 import re
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
-from typing import Any, Literal
+from typing import TYPE_CHECKING, Any, Literal
+
+if TYPE_CHECKING:
+    from .problem_instances import InstanceSweepConfig
 
 from .schema import BladeRecord, derive_run_id, iter_blade_records, validate_records
 
-TargetKind = Literal["fitness", "aucs"]
+TargetKind = Literal["fitness", "aucs", "aucs_per_instance"]
 
 # Folder-name substrings that mark a run as scratch/known-bad rather than a
 # real experiment, for the nested per-problem-subdir layout. Excluded by
@@ -44,6 +47,16 @@ class RLMExample:
     y: float | list[float]
     fitness: float  # raw scalar fitness, always kept for reporting/eval
     problem_id: str = ""
+
+    # Set only when this example was produced by
+    # `explode_aucs_with_problem_features` -- one row per `metadata.aucs[i]`
+    # rather than one row per candidate. `candidate_id` is the original
+    # BladeRecord.id (shared across all of that candidate's exploded rows);
+    # empty for non-exploded examples (the common case). See
+    # `evaluate.aggregate_instance_predictions` for rolling these back up
+    # to one prediction per candidate.
+    candidate_id: str = ""
+    instance_index: int = -1
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -125,6 +138,126 @@ def make_examples(
 
 def _is_finite(v: float) -> bool:
     return v == v and v not in (float("inf"), float("-inf"))
+
+
+# --------------------------------------------------------------------------
+# Per-instance explosion: one example per `metadata.aucs[i]`, with that
+# instance's own problem-landscape fingerprint in `x` (see
+# `problem_instances.py`). Requires `ioh`.
+# --------------------------------------------------------------------------
+
+
+def explode_aucs_with_problem_features(
+    records: list[BladeRecord],
+    *,
+    sweep_configs: list[InstanceSweepConfig],
+    include_description: bool = True,
+    include_configspace: bool = True,
+    n_lhs_points: int = 20,
+    lhs_seed: int = 0,
+) -> tuple[list[RLMExample], dict[str, int]]:
+    """Explodes each record's `metadata.aucs` into one `RLMExample` per
+    instance, `x` = code(+context) + that instance's LHS fingerprint,
+    `y` = `aucs[i]`.
+
+    A record is skipped entirely (counted, never guessed) when it has no
+    `aucs`, or when `len(aucs)` doesn't match any `sweep_configs` entry's
+    `expected_length` -- see `problem_instances.match_sweep_config`.
+    Per-instance reconstruction failures (e.g. a bad row in the MA-BBOB
+    tables) are also skipped and counted individually.
+
+    Returns `(examples, counts)` where `counts` has
+    `n_no_aucs`, `n_unmatched_sweep`, `n_instance_errors`, `n_exploded`.
+    """
+    from .problem_instances import compute_problem_feature_text, match_sweep_config
+
+    examples: list[RLMExample] = []
+    counts = {
+        "n_no_aucs": 0,
+        "n_unmatched_sweep": 0,
+        "n_instance_errors": 0,
+        "n_exploded": 0,
+    }
+
+    for r in records:
+        aucs = r.aucs
+        if not aucs:
+            counts["n_no_aucs"] += 1
+            continue
+        cfg = match_sweep_config(len(aucs), sweep_configs)
+        if cfg is None:
+            counts["n_unmatched_sweep"] += 1
+            continue
+
+        base_x = build_x(
+            r,
+            include_description=include_description,
+            include_configspace=include_configspace,
+        )
+        for i, y in enumerate(aucs):
+            if not _is_finite(y):
+                continue
+            try:
+                fingerprint = compute_problem_feature_text(
+                    cfg, i, n_points=n_lhs_points, seed=lhs_seed
+                )
+            except Exception:
+                counts["n_instance_errors"] += 1
+                continue
+            examples.append(
+                RLMExample(
+                    id=f"{r.id}#{i}",
+                    run_id=r.run_id,
+                    generation=r.generation,
+                    parent_ids=list(r.parent_ids),
+                    x=f"{base_x}\n\n# Problem\n{fingerprint}",
+                    y=float(y),
+                    fitness=r.fitness,
+                    problem_id=r.problem_id,
+                    candidate_id=r.id,
+                    instance_index=i,
+                )
+            )
+            counts["n_exploded"] += 1
+
+    return examples, counts
+
+
+def _build_examples(
+    records: list[BladeRecord],
+    *,
+    include_description: bool,
+    include_configspace: bool,
+    target: TargetKind,
+    sweep_configs: list[InstanceSweepConfig] | None,
+    n_lhs_points: int,
+    lhs_seed: int,
+) -> tuple[list[RLMExample], dict[str, Any]]:
+    """Dispatches to `make_examples` or (for `target="aucs_per_instance"`)
+    `explode_aucs_with_problem_features`. Returns `(examples, extra_stats)`
+    where `extra_stats` is empty except for the exploded case."""
+    if target == "aucs_per_instance":
+        if not sweep_configs:
+            from .problem_instances import BBOB_DEFAULT, MA_BBOB_DEFAULT
+
+            sweep_configs = [BBOB_DEFAULT, MA_BBOB_DEFAULT]
+        examples, counts = explode_aucs_with_problem_features(
+            records,
+            sweep_configs=sweep_configs,
+            include_description=include_description,
+            include_configspace=include_configspace,
+            n_lhs_points=n_lhs_points,
+            lhs_seed=lhs_seed,
+        )
+        return examples, {"instance_explosion": counts}
+
+    examples = make_examples(
+        records,
+        include_description=include_description,
+        include_configspace=include_configspace,
+        target=target,
+    )
+    return examples, {}
 
 
 # --------------------------------------------------------------------------
@@ -270,6 +403,9 @@ def run_pipeline(
     target: TargetKind = "fitness",
     split_config: SplitConfig | None = None,
     pattern: str = "*.jsonl",
+    sweep_configs: list[InstanceSweepConfig] | None = None,
+    n_lhs_points: int = 20,
+    lhs_seed: int = 0,
 ) -> dict[str, Any]:
     """Runs the full Step 1 pipeline and writes train/val/test + stats to
     ``output_dir``. Returns the summary dict that also gets written out."""
@@ -293,13 +429,20 @@ def run_pipeline(
 
     overall_report = validate_records(all_records, label="__overall__")
 
-    examples = make_examples(
+    examples, extra_stats = _build_examples(
         all_kept,
         include_description=include_description,
         include_configspace=include_configspace,
         target=target,
+        sweep_configs=sweep_configs,
+        n_lhs_points=n_lhs_points,
+        lhs_seed=lhs_seed,
     )
-    n_skipped_missing_target = len(all_kept) - len(examples)
+    if "instance_explosion" in extra_stats:
+        counts = extra_stats["instance_explosion"]
+        n_skipped_missing_target = counts["n_no_aucs"] + counts["n_unmatched_sweep"]
+    else:
+        n_skipped_missing_target = len(all_kept) - len(examples)
 
     split = lineage_generation_split(examples, split_config)
 
@@ -325,6 +468,7 @@ def run_pipeline(
         "per_file": per_file_stats,
         "overall": overall_report.to_dict(),
         "split": split.log,
+        **extra_stats,
     }
 
     if len(examples) < 1000:
@@ -419,6 +563,9 @@ def run_pipeline_multi_problem(
     split_config: SplitConfig | None = None,
     exclude_dir_substrings: tuple[str, ...] = DEFAULT_EXCLUDE_DIR_SUBSTRINGS,
     problem_map: dict[str, str] | None = None,
+    sweep_configs: list[InstanceSweepConfig] | None = None,
+    n_lhs_points: int = 20,
+    lhs_seed: int = 0,
 ) -> dict[str, Any]:
     """Like ``run_pipeline``, but for the nested per-experiment-folder
     layout, with the train/val/test split run independently per
@@ -450,13 +597,20 @@ def run_pipeline_multi_problem(
     overall_report = validate_records(all_records, label="__overall__")
 
     kept, n_dropped = filter_errored(all_records)
-    examples = make_examples(
+    examples, extra_stats = _build_examples(
         kept,
         include_description=include_description,
         include_configspace=include_configspace,
         target=target,
+        sweep_configs=sweep_configs,
+        n_lhs_points=n_lhs_points,
+        lhs_seed=lhs_seed,
     )
-    n_skipped_missing_target = len(kept) - len(examples)
+    if "instance_explosion" in extra_stats:
+        counts = extra_stats["instance_explosion"]
+        n_skipped_missing_target = counts["n_no_aucs"] + counts["n_unmatched_sweep"]
+    else:
+        n_skipped_missing_target = len(kept) - len(examples)
 
     by_problem: dict[str, list[RLMExample]] = {}
     for e in examples:
@@ -516,6 +670,7 @@ def run_pipeline_multi_problem(
                 for r in log.get("test_runs", [])
             ),
         },
+        **extra_stats,
     }
 
     if len(examples) < 1000:
@@ -577,7 +732,43 @@ def _build_arg_parser() -> argparse.ArgumentParser:
         action="store_false",
         help="Exclude the configspace field from x.",
     )
-    p.add_argument("--target", choices=["fitness", "aucs"], default="fitness")
+    p.add_argument(
+        "--target",
+        choices=["fitness", "aucs", "aucs_per_instance"],
+        default="fitness",
+        help="'fitness': scalar aggregate score. 'aucs': the whole "
+        "metadata.aucs vector as one multi-objective example. "
+        "'aucs_per_instance': explode each record into one example per "
+        "metadata.aucs[i], x augmented with that instance's own Latin "
+        "Hypercube problem fingerprint (see problem_instances.py). "
+        "Requires `ioh`; see --sweep-config.",
+    )
+    p.add_argument(
+        "--sweep-config",
+        default=None,
+        help="(aucs_per_instance only) Path to a custom InstanceSweepConfig "
+        "YAML describing the real nested-loop order used to build "
+        "metadata.aucs for this data. Defaults to trying the two presets "
+        "shipped in problem_instances.py (BBOB_DEFAULT, MA_BBOB_DEFAULT), "
+        "which are UNVERIFIED against real data -- records whose aucs "
+        "length matches neither are skipped, not guessed.",
+    )
+    p.add_argument(
+        "--lhs-points",
+        type=int,
+        default=20,
+        dest="n_lhs_points",
+        help="(aucs_per_instance only) Number of Latin Hypercube sample "
+        "points per problem fingerprint.",
+    )
+    p.add_argument(
+        "--lhs-seed",
+        type=int,
+        default=0,
+        help="(aucs_per_instance only) Seed for the LHS sampler -- fixed "
+        "across instances of the same dimensionality so fingerprints share "
+        "probe locations and stay comparable.",
+    )
     p.add_argument("--test-run-fraction", type=float, default=0.2)
     p.add_argument("--min-runs-for-file-holdout", type=int, default=3)
     p.add_argument("--val-fraction", type=float, default=0.15)
@@ -596,6 +787,12 @@ def main(argv: list[str] | None = None) -> None:
         test_fraction=args.test_fraction,
         seed=args.seed,
     )
+    sweep_configs = None
+    if args.sweep_config:
+        from .problem_instances import InstanceSweepConfig
+
+        sweep_configs = [InstanceSweepConfig.from_yaml(args.sweep_config)]
+
     if args.layout == "per_problem_subdir":
         exclude_dir_substrings = (
             tuple(args.exclude_dir_substrings)
@@ -610,6 +807,9 @@ def main(argv: list[str] | None = None) -> None:
             target=args.target,
             split_config=split_config,
             exclude_dir_substrings=exclude_dir_substrings,
+            sweep_configs=sweep_configs,
+            n_lhs_points=args.n_lhs_points,
+            lhs_seed=args.lhs_seed,
         )
         print(
             f"Ingested {summary['n_records_total']} records for problems "
@@ -630,6 +830,9 @@ def main(argv: list[str] | None = None) -> None:
             target=args.target,
             split_config=split_config,
             pattern=args.pattern,
+            sweep_configs=sweep_configs,
+            n_lhs_points=args.n_lhs_points,
+            lhs_seed=args.lhs_seed,
         )
         print(
             f"Ingested {summary['n_records_total']} records from {summary['n_files']} "

@@ -95,8 +95,11 @@ Useful flags:
   whose name contains `SUBSTRING`, case-insensitive. Defaults to excluding
   anything with "debug" or "wrong" in the name. Pass
   `--exclude-dir-substring ''` once to include everything instead.
-- `--target {fitness,aucs}`: train against the scalar `fitness` (default)
-  or the per-instance `metadata.aucs` sequence (multi-objective decoding).
+- `--target {fitness,aucs,aucs_per_instance}`: train against the scalar
+  `fitness` (default), the whole `metadata.aucs` sequence as one
+  multi-objective example, or explode each candidate into one example per
+  `aucs[i]` with a real problem-landscape fingerprint in `x` -- see
+  "Problem features (optional)" below.
 - `--no-description` / `--no-configspace`: code-only ablation (drop the
   prepended context from `x`).
 - `--test-run-fraction`, `--min-runs-for-file-holdout`, `--val-fraction`,
@@ -104,11 +107,70 @@ Useful flags:
   (see `SplitConfig` in `data_pipeline.py`). Defaults are reasonable for
   datasets with dozens+ runs per problem, which this dataset has.
 
-## 5. Step 2 -- training
+## 5. Problem features (optional): `--target aucs_per_instance`
+
+By default `x` = code (+ description/configspace) only -- nothing tells
+the model *which* landscape a candidate was scored on beyond the coarse
+`BBOB`/`MA-BBOB` `problem_id`. `--target aucs_per_instance` fixes that:
+each candidate's `metadata.aucs` (its per-instance AOCC breakdown -- the
+scalar `fitness` you'd otherwise train on is just `mean(aucs)`) is
+exploded into one training example per instance, each with a Latin
+Hypercube fingerprint of the *actual* reconstructed BBOB/MA-BBOB function
+appended to `x`. This is what turns "predict this candidate's aggregate
+score" into "predict this candidate's score on *this* landscape" -- the
+only way to get real cross-problem generalization (e.g. zero-shot to a
+BBOB function never seen in training) rather than memorizing per-problem
+score ranges.
+
+```bash
+uv run python -m llamea.rlm_surrogate.data_pipeline \
+    --data-dir /data/BLADE-results \
+    --output-dir data_instances/ \
+    --layout per_problem_subdir \
+    --target aucs_per_instance \
+    --lhs-points 20
+```
+
+Requires `ioh` (already in the `rlm-surrogate` group as of this README).
+
+**Read this before trusting it on your data.** Reconstructing the exact
+landscape behind `aucs[i]` requires knowing the nested-loop order the
+evaluation harness used to build that list (which `(dim, function)`
+combination each index corresponds to) -- see `problem_instances.py`'s
+`InstanceSweepConfig`. Two presets ship
+(`BBOB_DEFAULT`/`MA_BBOB_DEFAULT`, mirroring
+`examples/black-box-optimization.py` and
+`benchmarks/ma_bbob/run_mabbob.py`), but **they were not verified against
+real `BLADE-results` logs** -- the `aucs` lengths seen in this dataset
+during development didn't match either preset's expected length, meaning
+real runs likely used a smaller/different sweep. The pipeline never
+guesses: any record whose `len(aucs)` doesn't match a known
+`InstanceSweepConfig` is skipped and counted (`instance_explosion` in
+`stats.json` -- check `n_unmatched_sweep`). Once you know the real sweep
+(dims/function-ids/instances/repetitions actually used), write it as YAML
+and pass `--sweep-config path.yaml`:
+
+```yaml
+kind: bbob            # or ma_bbob
+dims: [5]
+fids_or_idxs: [1, 2, 3, ..., 24]
+iids: [1, 2, 3]
+reps: 3
+```
+
+`evaluate.py`/`report.py` handle exploded data automatically: candidate-level
+metrics (Spearman, within-run ranking, budget-reduction) still work
+unchanged by averaging each candidate's per-instance predictions back
+together first (`aggregate_instance_predictions`); an added
+"Instance-level generalization" section in the report shows the raw,
+un-aggregated per-instance Spearman -- the direct signal of whether the
+model distinguishes landscapes at all.
+
+## 6. Step 2 -- training
 
 Two starting points, both in `configs/`:
 
-### 5a. Train from scratch on the full pooled data
+### 6a. Train from scratch on the full pooled data
 
 ```bash
 uv run python -m llamea.rlm_surrogate.train \
@@ -136,7 +198,7 @@ throughput:
   C defaults (in `configs/default.yaml` already) are a better starting
   point with real compute.
 
-### 5b. Pretrain on a pool, fine-tune per problem
+### 6b. Pretrain on a pool, fine-tune per problem
 
 Once you have a checkpoint from 5a trained on pooled historical data,
 fine-tune it on a specific problem's (typically early-generation)
@@ -166,7 +228,7 @@ to `--output-dir`.
 `vanilla` encoder (not T5Gemma) at reduced width specifically to fit a CPU
 time budget -- start fresh with 5a on the GPU box instead.
 
-## 6. Step 3 -- evaluate
+## 7. Step 3 -- evaluate
 
 ```bash
 uv run python -m llamea.rlm_surrogate.evaluate \
@@ -183,7 +245,7 @@ top-k selection accuracy vs. random, and the budget-reduction (evaluate
 top-k of N vs. random-k vs. all-N) simulation. Add `--no-baselines` to
 skip the feature/random baselines if you only want the RLM numbers.
 
-## 7. Step 4 -- report
+## 8. Step 4 -- report
 
 ```bash
 uv run python -m llamea.rlm_surrogate.report \
@@ -200,7 +262,7 @@ report structure as the CPU dry run, just with real numbers this time --
 diff it against the current `results/report.md` in this repo to see
 exactly what changes.
 
-## 8. Keep data and checkpoints out of git
+## 9. Keep data and checkpoints out of git
 
 `data/train.jsonl` alone was ~90MB on the real dataset at CPU-fallback
 settings, and checkpoints/full `eval_results.json` predictions payloads

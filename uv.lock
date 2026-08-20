@@ -2631,6 +2631,7 @@ llm-extras = [
     { name = "transformers" },
 ]
 rlm-surrogate = [
+    { name = "ioh" },
     { name = "pandas" },
     { name = "peft" },
     { name = "pyyaml" },
@@ -2703,6 +2704,7 @@ llm-extras = [
     { name = "transformers", specifier = ">=4.49.0,<=5" },
 ]
 rlm-surrogate = [
+    { name = "ioh", specifier = ">=0.3.22,<0.4" },
     { name = "pandas", specifier = ">=2.2.3,<3" },
     { name = "peft", specifier = ">=0.19.0" },
     { name = "pyyaml", specifier = ">=6.0,<7" },

@@ -8,6 +8,7 @@ from llamea.rlm_surrogate.data_pipeline import (
     SplitConfig,
     build_x,
     build_y,
+    explode_aucs_with_problem_features,
     filter_errored,
     lineage_generation_split,
     make_examples,
@@ -15,7 +16,7 @@ from llamea.rlm_surrogate.data_pipeline import (
     run_pipeline,
     write_examples_jsonl,
 )
-from llamea.rlm_surrogate.schema import iter_blade_records, load_directory
+from llamea.rlm_surrogate.schema import BladeRecord, iter_blade_records, load_directory
 
 FIXTURES = Path(__file__).parent / "fixtures" / "rlm"
 
@@ -171,3 +172,90 @@ def test_run_pipeline_raises_on_empty_dir(tmp_path):
     empty_dir.mkdir()
     with pytest.raises(FileNotFoundError):
         run_pipeline(empty_dir, tmp_path / "out")
+
+
+# --- explode_aucs_with_problem_features (needs the `ioh` extra) ---
+
+ioh = pytest.importorskip("ioh")
+
+from llamea.rlm_surrogate.problem_instances import InstanceSweepConfig  # noqa: E402
+
+_TINY_SWEEP = InstanceSweepConfig(
+    kind="bbob", dims=[2], fids_or_idxs=[1, 2], iids=[1], reps=1
+)
+
+
+def _blade_record(id_, aucs, run_id="r1", generation=0, parent_ids=None):
+    return BladeRecord(
+        id=id_,
+        fitness=0.5,
+        name="Algo",
+        description="desc",
+        code="class Algo:\n    pass\n",
+        configspace="",
+        generation=generation,
+        feedback="",
+        error="",
+        parent_ids=parent_ids or [],
+        operator=None,
+        metadata={"aucs": aucs} if aucs is not None else {},
+        run_id=run_id,
+        problem_id="BBOB",
+        source_file="x.jsonl",
+        line_no=1,
+    )
+
+
+def test_explode_aucs_with_problem_features_cardinality_and_fields():
+    records = [
+        _blade_record("cand1", [0.1, 0.2]),  # matches _TINY_SWEEP length (2)
+        _blade_record("cand2", [0.3, 0.4]),
+    ]
+    examples, counts = explode_aucs_with_problem_features(
+        records, sweep_configs=[_TINY_SWEEP], n_lhs_points=2, lhs_seed=0
+    )
+    assert counts == {
+        "n_no_aucs": 0,
+        "n_unmatched_sweep": 0,
+        "n_instance_errors": 0,
+        "n_exploded": 4,
+    }
+    assert len(examples) == 4
+    assert {e.id for e in examples} == {"cand1#0", "cand1#1", "cand2#0", "cand2#1"}
+    for e in examples:
+        assert e.candidate_id in ("cand1", "cand2")
+        assert e.instance_index in (0, 1)
+        assert "# Problem" in e.x
+        assert "LHS[2pts" in e.x
+    cand1_ys = sorted(e.y for e in examples if e.candidate_id == "cand1")
+    assert cand1_ys == [0.1, 0.2]
+
+
+def test_explode_aucs_with_problem_features_skips_missing_and_unmatched():
+    records = [
+        _blade_record("no_aucs", None),
+        _blade_record("wrong_length", [0.1, 0.2, 0.3]),  # length 3, sweep expects 2
+        _blade_record("ok", [0.5, 0.6]),
+    ]
+    examples, counts = explode_aucs_with_problem_features(
+        records, sweep_configs=[_TINY_SWEEP], n_lhs_points=2
+    )
+    assert counts["n_no_aucs"] == 1
+    assert counts["n_unmatched_sweep"] == 1
+    assert counts["n_exploded"] == 2
+    assert {e.candidate_id for e in examples} == {"ok"}
+
+
+def test_explode_aucs_with_problem_features_preserves_lineage_fields():
+    records = [
+        _blade_record("cand1", [0.1, 0.2], run_id="r9", generation=3, parent_ids=["p1"])
+    ]
+    examples, _ = explode_aucs_with_problem_features(
+        records, sweep_configs=[_TINY_SWEEP]
+    )
+    assert all(e.run_id == "r9" for e in examples)
+    assert all(e.generation == 3 for e in examples)
+    assert all(e.parent_ids == ["p1"] for e in examples)
+    assert all(
+        e.fitness == 0.5 for e in examples
+    )  # candidate-level fitness carried through

@@ -18,7 +18,7 @@ from __future__ import annotations
 import argparse
 import json
 from collections import defaultdict
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, replace
 from pathlib import Path
 from typing import Any, Sequence
 
@@ -289,6 +289,40 @@ def predict_random(examples: Sequence[RLMExample], seed: int = 0) -> np.ndarray:
     return rng.uniform(size=len(examples))
 
 
+def aggregate_instance_predictions(
+    examples: Sequence[RLMExample], y_pred: Sequence[float]
+) -> tuple[list[RLMExample], np.ndarray]:
+    """Rolls per-instance predictions (from `target="aucs_per_instance"`
+    exploded examples, one row per `metadata.aucs[i]`) back up to one
+    prediction per candidate, by averaging `y_pred` across each
+    candidate's exploded rows -- this is what "which candidate to
+    evaluate next" decisions (within-run ranking, budget-reduction sim)
+    actually need. No-op passthrough (returns inputs unchanged) when
+    `examples` weren't exploded (every `candidate_id` empty).
+
+    Ground truth for the aggregated view is each candidate's own
+    `fitness` field (already the true mean of `aucs`), not re-derived
+    from `y_true`.
+    """
+    if not any(e.candidate_id for e in examples):
+        return list(examples), np.asarray(y_pred, dtype=float)
+
+    y_pred_arr = np.asarray(y_pred, dtype=float)
+    groups: dict[str, list[int]] = defaultdict(list)
+    for i, e in enumerate(examples):
+        groups[e.candidate_id or e.id].append(i)
+
+    agg_examples = []
+    agg_pred = []
+    for candidate_id, idxs in groups.items():
+        representative = examples[idxs[0]]
+        agg_examples.append(
+            replace(representative, id=candidate_id, candidate_id="", instance_index=-1)
+        )
+        agg_pred.append(float(np.mean(y_pred_arr[idxs])))
+    return agg_examples, np.array(agg_pred)
+
+
 def run_full_evaluation(
     checkpoint_dir: str | Path,
     train_path: str | Path,
@@ -299,37 +333,57 @@ def run_full_evaluation(
 ) -> dict[str, Any]:
     train_examples = read_examples_jsonl(train_path)
     eval_examples = read_examples_jsonl(eval_path)
+    is_exploded = any(e.candidate_id for e in eval_examples)
 
     reg_lm, config = load_trained_rlm(checkpoint_dir)
-    rlm_pred = predict_with_rlm(reg_lm, config, eval_examples)
+    rlm_pred_raw = predict_with_rlm(reg_lm, config, eval_examples)
+    eval_examples_agg, rlm_pred = aggregate_instance_predictions(
+        eval_examples, rlm_pred_raw
+    )
 
     report: dict[str, Any] = {
         "n_train": len(train_examples),
-        "n_eval": len(eval_examples),
+        "n_eval": len(eval_examples_agg),
         "checkpoint_dir": str(checkpoint_dir),
         "arms": {
-            "rlm": evaluate_predictions(eval_examples, rlm_pred, label="rlm"),
+            "rlm": evaluate_predictions(eval_examples_agg, rlm_pred, label="rlm"),
         },
-        "predictions": {"rlm": _predictions_payload(eval_examples, rlm_pred)},
+        "predictions": {"rlm": _predictions_payload(eval_examples_agg, rlm_pred)},
     }
+    if is_exploded:
+        report["instance_level"] = {
+            "rlm": rank_metrics([e.y for e in eval_examples], rlm_pred_raw)
+        }
 
     if include_baselines:
-        feature_pred = predict_with_feature_baseline(
+        feature_pred_raw = predict_with_feature_baseline(
             train_examples, eval_examples, seed=seed
         )
-        random_pred = predict_random(eval_examples, seed=seed)
+        random_pred_raw = predict_random(eval_examples, seed=seed)
+        _, feature_pred = aggregate_instance_predictions(
+            eval_examples, feature_pred_raw
+        )
+        _, random_pred = aggregate_instance_predictions(eval_examples, random_pred_raw)
+
         report["arms"]["feature_baseline"] = evaluate_predictions(
-            eval_examples, feature_pred, label="feature_baseline"
+            eval_examples_agg, feature_pred, label="feature_baseline"
         )
         report["arms"]["random"] = evaluate_predictions(
-            eval_examples, random_pred, label="random"
+            eval_examples_agg, random_pred, label="random"
         )
         report["predictions"]["feature_baseline"] = _predictions_payload(
-            eval_examples, feature_pred
+            eval_examples_agg, feature_pred
         )
         report["predictions"]["random"] = _predictions_payload(
-            eval_examples, random_pred
+            eval_examples_agg, random_pred
         )
+        if is_exploded:
+            report["instance_level"]["feature_baseline"] = rank_metrics(
+                [e.y for e in eval_examples], feature_pred_raw
+            )
+            report["instance_level"]["random"] = rank_metrics(
+                [e.y for e in eval_examples], random_pred_raw
+            )
 
     return report
 

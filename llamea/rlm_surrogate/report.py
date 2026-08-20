@@ -140,6 +140,22 @@ def _within_run_table(within_run: dict[str, Any]) -> str:
     return "\n".join(lines) + "\n"
 
 
+def _instance_level_table(instance_level: dict[str, Any]) -> str:
+    if not instance_level:
+        return (
+            "_Not applicable -- this dataset wasn't built with "
+            "`--target aucs_per_instance`, so there's no per-instance "
+            "problem-landscape signal to report separately from the "
+            "candidate-level numbers above._\n"
+        )
+    lines = ["| Arm | n | Spearman-rho | Kendall-tau |", "|---|---|---|---|"]
+    for name, m in instance_level.items():
+        lines.append(
+            f"| {name} | {m['n']} | {_fmt(m['spearman_rho'])} | {_fmt(m['kendall_tau'])} |"
+        )
+    return "\n".join(lines) + "\n"
+
+
 def _budget_table(budget: dict[str, Any]) -> str:
     results = budget.get("results", [])
     if not results:
@@ -307,6 +323,17 @@ def build_report(
         lines.append(
             f"\n![Budget reduction]({Path(figures['budget_reduction']).name})\n"
         )
+
+    lines.append("### 4.5 Instance-level generalization\n")
+    lines.append(
+        "Raw per-instance Spearman/Kendall (predicted vs. true score on "
+        "each individual reconstructed problem landscape, before rolling "
+        "back up to one prediction per candidate) -- the direct measure "
+        "of whether the model distinguishes landscapes at all, as opposed "
+        "to the candidate-level numbers above which answer the practical "
+        '"which candidate to evaluate next" question.\n'
+    )
+    lines.append(_instance_level_table(eval_results.get("instance_level", {})))
 
     # --- Recommendation ---
     lines.append("## 5. Recommendation\n")
