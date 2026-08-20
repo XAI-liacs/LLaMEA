@@ -3,10 +3,7 @@ A operator class for managing mutation / crossover prompts.
 """
 
 import uuid
-from typing import Callable, Optional
 from dataclasses import dataclass, field
-
-from llamea.multi_objective_fitness import Fitness
 
 
 @dataclass
@@ -18,7 +15,7 @@ class Operator:
 
     def __post_init__(self):
         self.id = uuid.uuid4().hex
-        self.rewards = 0
+        self.rewards = 0.0
 
     def __repr__(self) -> str:
         return self.prompt or ""
@@ -32,5 +29,5 @@ class Operator:
     def __hash__(self):
         return hash(self.id)
 
-    def __eq__(self, value: object) -> bool:
+    def __eq__(self, value: 'Operator') -> bool:
         return self.id == value.id

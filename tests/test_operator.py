@@ -2,6 +2,7 @@ from llamea import Fitness
 import pytest
 import random
 from llamea import LLaMEA, Dummy_LLM, Operator, Solution
+from llamea.weight_updaters import DefaultWeightUpdater, DiscountedUCBState
 
 def f(solution: Solution):
     evaluation = random.random()
@@ -254,45 +255,40 @@ def test_operator_rewards_multi_objective_fitness_fitness_properly():
     score = llamea._operator_rewards([parent1, parent2, parent3], offspring)
     assert score == 1
 
-def test_default_weight_updater():
+
+def test_default_operator_always_returns_1():
+    o1 = Operator('Refine the program, by optimising the hyper-parameters', 'mutation', 0.5, 1)
+    o2 = Operator('Refine the program, by optimising the methods', 'mutation', 0.5, 1)
+    o3 = Operator('Combine the strengths of the provided algorithm.', 'mutation', 0.5, 3)
+
+    operators = [o1, o2, o3]
+    wu = DefaultWeightUpdater(list(map(lambda x: x.id, operators)))
+
+    for i in range(10):
+        for operator in operators:
+            assert wu.update(operator.id, random.random()) == 1.0
+
+def test_ubc_weight_updater_updates_weight_properly():
 
     o1 = Operator('Refine the program, by optimising the hyper-parameters', 'mutation', 0.5, 1)
     o2 = Operator('Refine the program, by optimising the methods', 'mutation', 0.5, 1)
     o3 = Operator('Combine the strengths of the provided algorithm.', 'mutation', 0.5, 3)
 
-    llm = Dummy_LLM()
+    operators = [o1, o2, o3]
+    wu = DiscountedUCBState(list(map(lambda x: x.id, operators)))
 
-    llamea = LLaMEA(f, llm, operators=[o1, o2, o3], log=False)
-
-    offspring = Solution()
-    offspring.set_scores(0.55, 'Scored 0.55, best solution 1.0')
-
-    parent1 = Solution()
-    parent1.set_scores(float('nan'), 'Compile time error.')
-    parent2 = Solution()
-    parent2.set_scores(0.76, 'Scored 0.76, best solution 1.0')
-    parent3 = Solution()
-    parent3.set_scores(0.22, 'Scored 0.22, best solution 1.0')
-
-    o1weight = o1.weight
-    llamea.update_weight(llamea.operators[0], [parent1], offspring)
-    assert o1weight < llamea.operators[0].weight
-
-    o3weight = o3.weight
-    llamea.update_weight(llamea.operators[2], [parent1, parent2, parent3], offspring)
-    assert o3weight < llamea.operators[2].weight
-
-def test_llamea_pickles_when_member_from_other_class_is_provided_as_function():
-    import pickle
-    from misc.ubc_weight_update import DiscountedUCBState
-
-    o1 = Operator('Refine the program, by optimising the hyper-parameters', 'mutation', 0.5, 1)
-    o2 = Operator('Refine the program, by optimising the methods', 'mutation', 0.5, 1)
-    o3 = Operator('Combine the strengths of the provided algorithm.', 'mutation', 0.5, 3)
-
-    ucb = DiscountedUCBState([operator.id for operator in [o1, o2, o3]])
-
-    llm = Dummy_LLM()
-
-    llamea = LLaMEA(f, llm, operators=[o1, o2, o3], log=False, operator_weight_update_function=ucb.update)
-    _ = pickle.dumps(llamea)
+    for i in range(10):
+        print(f'iteration: {i}')
+        for operator in operators:
+            old_weight = wu.score(operator.id)
+            weight = wu.update(operator.id, i)
+            print(f'\t Operator: {operator.id}, weight=({old_weight} -> {weight})')
+            if old_weight != float('inf'):
+                assert old_weight < weight
+    for i in range(-1, -10, -1):
+        print(f'iteration: {i}')
+        for operator in operators:
+            old_weight = wu.score(operator.id)
+            weight = wu.update(operator.id, i)
+            print(f'\t Operator: {operator.id}, weight=({old_weight} -> {weight})')
+            assert old_weight > weight

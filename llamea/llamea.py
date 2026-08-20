@@ -25,6 +25,7 @@ from .llm import LLM
 from .operator import Operator
 from .multi_objective_fitness import Fitness
 from .ast_features import extract_ast_features
+from .weight_updaters import DefaultWeightUpdater
 from .feature_guidance import FeatureGuidance, compute_feature_guidance
 
 try:
@@ -76,7 +77,7 @@ class LLaMEA:
         elitism=True,
         HPO=False,
         operators=[],
-        operator_weight_update_function=None,
+        operator_weight_updater=None,
         adaptive_mutation=False,
         adaptive_prompt=False,
         feature_guided_mutation: bool = False,
@@ -128,7 +129,8 @@ class LLaMEA:
                 In case it is, a configuration space should be asked from the LLM as additional output in json format.
             operators (list): A list of `Operator` | `str` to specify operators to the LLM model. If provided as `str` it is typecasted to `Operator`
                 of `mutation` type. Each mutation, a random choice from this list is made.
-            operator_weight_update_function: A function that takes in operator: Operator, reward: float, and updates the operator's weight.
+            operator_weight_updater (WeightUpdater): An operator updater object, that inherits form WeightUpdater ABC. Used to define weight
+                update behaviour for operators. Defaults to `DefaultWeightUpdater` if none provided.
             adaptive_mutation (bool): If set to True, the mutation prompt 'Change X% of the lines of code' will be used in an adaptive control setting.
                 This overwrites operator.
             adaptive_prompt (bool): If True, the task prompt is optimized before each mutation, allowing it to co-evolve with the individuals.
@@ -303,7 +305,7 @@ class LLaMEA:
                 assert operator.weight >= 0, "Cannot assign negative weight."
                 self.operators.append(operator)
 
-        self.operator_update_function = operator_weight_update_function
+        self.operator_weight_updater = DefaultWeightUpdater([o.id for o in self.operators])
 
         self.adaptive_mutation = adaptive_mutation
 
@@ -1111,16 +1113,9 @@ The selected solutions to update are:\n\n"""
     def update_weight(
         self, operator: Operator, parents: list[Solution], offspring: Solution
     ):
-        if self.operator_update_function is None:
-            reward = self._operator_rewards(parents, offspring)
-            operator.rewards += reward
-            alpha = (self.budget / len(self.operators)) ** 0.5
-            weight = 1 / (1 + (np.e ** -(operator.rewards / alpha)))
-            operator.weight = weight
-        else:
-            weight = self.operator_update_function(operator, reward)
-            operator.weight = weight
-
+        reward = self._operator_rewards(parents, offspring)
+        weight = self.operator_weight_updater.update(operator.id, reward)
+        operator.weight = weight
     # endregion
 
     # region Evolution

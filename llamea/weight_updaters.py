@@ -1,7 +1,33 @@
 import math
+from abc import ABC, abstractmethod
 
-class DiscountedUCBState:
-    def __init__(self, operator_ids, gamma=0.95, c=1.0):
+class WeightUpdater(ABC):
+    @abstractmethod
+    def __init__(self, operator_ids: list[str], **kwargs):
+        pass
+
+    @abstractmethod
+    def update(self, id: str, reward: float) -> float:
+        pass
+
+
+class DefaultWeightUpdater(WeightUpdater):
+    """Always sets the weight of the operator = 1, mimicking random operator selector."""
+    def __init__(self, operator_ids: list[str]):
+        self.weights: dict[str, float] = {}
+        for operator_id in operator_ids:
+            self.weights[operator_id] = 1.0
+
+
+    def update(self, id: str, reward: float) -> float:
+        return self.weights[id]
+
+    def score(self, id: str) -> float:
+        return self.weights[id]
+
+class DiscountedUCBState(WeightUpdater):
+    """Returns discounted UBC scores, mimicking MCTS weight updates."""
+    def __init__(self, operator_ids: list[str], gamma=0.95, c=1.0):
         self.gamma = gamma
         self.c = c
 
@@ -20,7 +46,7 @@ class DiscountedUCBState:
         )
         return mean + bonus
 
-    def update(self, operator, reward) -> float:
+    def update(self, operator_id: str, reward: float) -> float:
         # discount everything
         for k in self.sum_rewards:
             self.sum_rewards[k] *= self.gamma
@@ -29,10 +55,10 @@ class DiscountedUCBState:
         self.total_weight *= self.gamma
 
         # add new reward
-        self.sum_rewards[operator.id] += reward
-        self.sum_weights[operator.id] += 1.0
+        self.sum_rewards[operator_id] += reward
+        self.sum_weights[operator_id] += 1.0
         self.total_weight += 1.0
-        return self.score(operator.id)
+        return self.score(operator_id)
 
     def snapshot(self):
         rows = []
