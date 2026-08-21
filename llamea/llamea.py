@@ -130,7 +130,7 @@ class LLaMEA:
             operators (list): A list of `Operator` | `str` to specify operators to the LLM model. If provided as `str` it is typecasted to `Operator`
                 of `mutation` type. Each mutation, a random choice from this list is made.
             operator_weight_updater (WeightUpdater): An operator updater object, that inherits form WeightUpdater ABC. Used to define weight
-                update behaviour for operators. Defaults to `DefaultWeightUpdater` if none provided.
+                update behaviour for operators. Defaults to `DefaultWeightUpdater` if None provided.
             adaptive_mutation (bool): If set to True, the mutation prompt 'Change X% of the lines of code' will be used in an adaptive control setting.
                 This overwrites operator.
             adaptive_prompt (bool): If True, the task prompt is optimized before each mutation, allowing it to co-evolve with the individuals.

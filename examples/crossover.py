@@ -55,9 +55,9 @@ def evaluate(solution: Solution, explogger: Optional[ExperimentLogger] = None):
         ['numpy', 'pymoo', 'typing', 'scipy'],
         explogger
     )
-    local_ns = {}
+    ns = {}
 
-    local_ns['Location'] = Location
+    ns['Location'] = Location
 
     feedback = ""
     if issues:
@@ -65,9 +65,9 @@ def evaluate(solution: Solution, explogger: Optional[ExperimentLogger] = None):
         print(f"Potential Issues {issues}.")
 
     compiled = compile(code, "<llm_code>", "exec")
-    exec(compiled, global_ns, local_ns)
+    exec(compiled, ns, ns)
 
-    cls = local_ns[solution.name]
+    cls = ns[solution.name]
     try:
         path_index = cls(
             depot.vectorise(),
@@ -209,7 +209,28 @@ class Multi_Objective_TSP:
         parent_selection='tournament',
         task_prompt=task_prompt,
         role_prompt=role_prompt,
-        example_prompt=example_prompt
+        example_prompt=example_prompt,
+        minimization=True
+    )
+
+    llamea.run()
+
+    from llamea.weight_updaters import DiscountedUCBState
+
+    d_ucb = DiscountedUCBState(operator_ids=[o.id for o in operators])
+
+    llamea = LLaMEA(
+        evaluate,
+        llm,
+        5,
+        5,
+        operators=operators,
+        parent_selection='tournament',
+        operator_weight_updater=d_ucb,
+        task_prompt=task_prompt,
+        role_prompt=role_prompt,
+        example_prompt=example_prompt,
+        minimization=True
     )
 
     llamea.run()
