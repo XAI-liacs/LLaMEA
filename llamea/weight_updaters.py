@@ -1,6 +1,7 @@
 import math
 from abc import ABC, abstractmethod
 
+
 class WeightUpdater(ABC):
     @abstractmethod
     def __init__(self, operator_ids: list[str], **kwargs):
@@ -30,6 +31,7 @@ class WeightUpdater(ABC):
 
 class DefaultWeightUpdater(WeightUpdater):
     """Always sets the weight of the operator = 1, mimicking random operator selector."""
+
     def __init__(self, operator_ids: list[str]):
         """
         Instantiation of Weight Updater:
@@ -40,7 +42,6 @@ class DefaultWeightUpdater(WeightUpdater):
         self.weights: dict[str, float] = {}
         for operator_id in operator_ids:
             self.weights[operator_id] = 1.0
-
 
     def update(self, id: str, reward: float) -> float:
         """
@@ -55,8 +56,10 @@ class DefaultWeightUpdater(WeightUpdater):
     def score(self, id: str) -> float:
         return self.weights[id]
 
+
 class DiscountedUCBState(WeightUpdater):
     """Returns discounted UBC scores, mimicking MCTS weight updates."""
+
     def __init__(self, operator_ids: list[str], gamma=0.95, c=1.0):
         """
         Instantiation of Discounted UBC Weight Updater:
@@ -88,9 +91,7 @@ class DiscountedUCBState(WeightUpdater):
             return float("inf")
 
         mean = self.sum_rewards[op_id] / w
-        bonus = self.c * math.sqrt(
-            math.log(max(1.0, self.total_weight)) / w
-        )
+        bonus = self.c * math.sqrt(math.log(max(1.0, self.total_weight)) / w)
         return mean + bonus
 
     def update(self, operator_id: str, reward: float) -> float:

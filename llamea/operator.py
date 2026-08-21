@@ -29,5 +29,5 @@ class Operator:
     def __hash__(self):
         return hash(self.id)
 
-    def __eq__(self, value: 'Operator') -> bool:
+    def __eq__(self, value: "Operator") -> bool:
         return self.id == value.id

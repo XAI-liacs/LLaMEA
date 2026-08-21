@@ -305,7 +305,9 @@ class LLaMEA:
                 assert operator.weight >= 0, "Cannot assign negative weight."
                 self.operators.append(operator)
 
-        self.operator_weight_updater = DefaultWeightUpdater([o.id for o in self.operators])
+        self.operator_weight_updater = DefaultWeightUpdater(
+            [o.id for o in self.operators]
+        )
 
         self.adaptive_mutation = adaptive_mutation
 
@@ -1116,6 +1118,7 @@ The selected solutions to update are:\n\n"""
         reward = self._operator_rewards(parents, offspring)
         weight = self.operator_weight_updater.update(operator.id, reward)
         operator.weight = weight
+
     # endregion
 
     # region Evolution

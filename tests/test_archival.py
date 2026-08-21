@@ -3,7 +3,7 @@ import unittest
 import random
 import time
 
-from llamea import LLaMEA, Dummy_LLM, ExperimentLogger, Solution
+from llamea import LLaMEA, Dummy_LLM, ExperimentLogger, Solution, DefaultWeightUpdater
 
 
 def evaluationFunction(solution, explogger=None):
@@ -39,14 +39,14 @@ class TestArchival(unittest.TestCase):
         archived_es = es_start_archive.__dict__
         for key, value in es.__dict__.items():
             if isinstance(
-                value, Logger | ExperimentLogger | Solution | None | Dummy_LLM
+                value, Logger | ExperimentLogger | Solution | None | Dummy_LLM | DefaultWeightUpdater
             ):  # Objects when resurrected will not have same identifier.
                 pass
             else:
                 self.assertEqual(archived_es[key], value)
 
     def test_archival_diagnostics(self):
-        es = LLaMEA(evaluationFunction, 
+        es = LLaMEA(evaluationFunction,
                     llm=Dummy_LLM(),
                     n_parents=1)
 
