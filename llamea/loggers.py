@@ -62,12 +62,12 @@ class ExperimentLogger:
         Returns:
             str: The name of the created directory.
         """
-        model_name = name.split("/")[-1]
         today = self.working_date
         dirname = f"exp-{today}-{name}"
-        os.mkdir(dirname)
-        os.mkdir(f"{dirname}/configspace")
-        os.mkdir(f"{dirname}/code")
+        if dirname not in os.listdir(os.getcwd()):
+            os.mkdir(dirname)
+            os.mkdir(f"{dirname}/configspace")
+            os.mkdir(f"{dirname}/code")
         return dirname
 
     def log_conversation(self, role, content):

@@ -43,7 +43,7 @@ class TestArchival(unittest.TestCase):
             ):  # Objects when resurrected will not have same identifier.
                 pass
             else:
-                self.assertEqual(archived_es[key], value)
+                assert archived_es[key] == value, f'{key} did not match before and after archive.'
 
     def test_archival_diagnostics(self):
         es = LLaMEA(evaluationFunction,

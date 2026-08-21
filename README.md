@@ -35,7 +35,7 @@
    <a href="https://colab.research.google.com/github/XAI-liacs/LLaMEA/blob/main/docs/notebooks/simple_example.ipynb" target="_blank">Check our demo on Colab</a>
 </p>
 
-> **The fully-open successor to Google DeepMind’s AlphaEvolve for automated algorithm discovery.**
+> **The fully-open alternative to Google DeepMind’s AlphaEvolve for automated algorithm discovery.**
 > First released 📅 Nov 2024 • MIT License • 100 % reproducible.
 > Also read the  <a href="https://xai-liacs.github.io/LLaMEA/" target="_blank">Documentation</a>.
 > 🥈 Winner of the Silver <a href="https://www.human-competitive.org/awards">Humies 2025</a> at GECCO!
@@ -52,6 +52,7 @@ LLaMEA couples large-language-model reasoning with an evolutionary loop to **inv
   - [Running `black-box-optimization.py`](#running-black-box-optimizationpy)
   - [Running `black-box-opt-with-HPO.py` (LLaMEA-HPO)](#running-black-box-opt-with-hpopy-llamea-hpo)
   - [Running `automl_example.py`](#running-automl_examplepy)
+- [Documentation](https://xai-liacs.github.io/LLaMEA/)
 - [Contributing](#-contributing)
 - [License](#-license)
 - [Citation](#-citation)

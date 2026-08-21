@@ -352,7 +352,7 @@ class LLaMEA:
         self.parent_selection = parent_selection  # "random" | "roulette" | "tournament"
         self.tournament_size = tournament_size
 
-        if self.log:
+        if self.log and getattr(self, "logger", None) is None:
             modelname = self.model.replace(":", "_")
             modelname = self.model.replace("/", "_")
             self.logger = ExperimentLogger(f"LLaMEA-{modelname}-{experiment_name}")
@@ -371,6 +371,7 @@ class LLaMEA:
         else:
             self.best_so_far = Solution(name="", code="")
             self.best_so_far = self._ensure_fitness_evaluates([self.best_so_far])[0]
+        self.warm_started = False
         self.pickle_archive()
 
     # endregion
@@ -385,8 +386,13 @@ class LLaMEA:
             path_to_archive_dir: Directory of instance for which warm start needs to be executed.
         """
         try:
-            with open(f"{path_to_archive_dir}/llamea_config.pkl", "rb") as file:
+            with open(
+                os.path.join(path_to_archive_dir, "llamea_config.pkl"), "rb"
+            ) as file:
+                print("Warm start called.")
                 obj = pickle.load(file)
+                print("Logger in warm start object:", getattr(obj, "logger", None))
+                obj.warm_started = True
             return obj
         except Exception as e:
             print(
@@ -1282,12 +1288,18 @@ The selected solutions to update are:\n\n"""
             self.logevent(f"Loading population from {archive_path}/log.jsonl...")
             self.get_population_from(archive_path)
         else:
-            self.logevent("No archive path provided, standard initialisation.")
             # self.progress_bar = tqdm(total=self.budget)
-            self.logevent("Initializing first population")
-            self.initialize()  # Initialize a population
+            if not self.warm_started:
+                self.logevent("No archive path provided, standard initialisation.")
+                self.logevent("Initializing first population")
+                self.initialize()  # Initialize a population
             # self.progress_bar.update(self.n_parents)
-
+            else:
+                if len(self.population) < self.n_parents:
+                    self.logevent(
+                        "Insufficient population size, re-initialising parent population."
+                    )
+                    self.initialize()
         if self.log:
             self.logger.log_population(self.population)
 
