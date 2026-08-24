@@ -37,13 +37,16 @@ class TestArchival(unittest.TestCase):
         es_start_archive = LLaMEA.warm_start(dirname)  # Warm start.
 
         archived_es = es_start_archive.__dict__
-        for key, value in es.__dict__.items():
-            if isinstance(
-                value, Logger | ExperimentLogger | Solution | None | Dummy_LLM | DefaultWeightUpdater
-            ):  # Objects when resurrected will not have same identifier.
-                pass
+        for key, value in archived_es.items():
+            if key == 'warm_started':
+                assert value == True        #Custom flag, mutated in `warm_start(cls, path)` function.
             else:
-                assert archived_es[key] == value, f'{key} did not match before and after archive.'
+                if isinstance(
+                    value, Logger | ExperimentLogger | Solution | None | Dummy_LLM | DefaultWeightUpdater
+                ):  # Objects when resurrected will not have same identifier.
+                    pass
+                else:
+                    assert archived_es[key] == value, f'{key} did not match before and after archive.'
 
     def test_archival_diagnostics(self):
         es = LLaMEA(evaluationFunction,
