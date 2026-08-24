@@ -187,7 +187,16 @@ def _add_builtins_into(allowed_list: list[str]):
     Returns:
         `None` (Uses reference semantics to add `__builtins__` to `allowed_list`).
     """
-    allowed_list += ["math", "random", "statistics", "itertools", "operator", "heapq"]
+    allowed_list += [
+        "math",
+        "random",
+        "statistics",
+        "itertools",
+        "operator",
+        "heapq",
+        "copy",
+        "collections",
+    ]
 
 
 def prepare_namespace(

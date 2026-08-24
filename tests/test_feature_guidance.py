@@ -134,7 +134,7 @@ def test_feature_guidance_message_used_in_prompt():
     optimizer.population = [sol]
     optimizer.feature_guidance_message = "Increase testing metric"
 
-    prompt = optimizer.construct_prompt(sol)
+    prompt = optimizer.construct_prompt([sol])
     assert isinstance(prompt, list)
     assert any("Increase testing metric" in item["content"] for item in prompt)
 

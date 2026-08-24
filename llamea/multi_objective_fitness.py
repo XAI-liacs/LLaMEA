@@ -41,25 +41,25 @@ class Fitness:
 
     def __lt__(self, other: "Fitness") -> bool:
         if not isinstance(other, Fitness):
-            return NotImplemented
+            return False
         be, sb = self._dominates(other)
         return be and sb
 
     def __gt__(self, other: "Fitness") -> bool:
         if not isinstance(other, Fitness):
-            return NotImplemented
+            return False
         be, sb = other._dominates(self)
         return be and sb
 
     def __le__(self, other: "Fitness") -> bool:
         if not isinstance(other, Fitness):
-            return NotImplemented
+            return False
         be, sb = self._dominates(other)
         return be or sb
 
     def __ge__(self, other: "Fitness") -> bool:
         if not isinstance(other, Fitness):
-            return NotImplemented
+            return False
         be, sb = other._dominates(self)
         return be or sb
 

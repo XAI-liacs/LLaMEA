@@ -114,11 +114,12 @@ def test_to_json():
 
 def test_mutation():
     # Test mutation prompt assignment
+    from llamea import Operator
     individual = Solution()
-    mutation_prompt = "Refine the strategy of the solution."
-    individual.set_operator(mutation_prompt)
+    mutation_prompt = Operator("Refine the strategy of the solution.")
+    individual.set_operator((mutation_prompt, *[]))
 
-    assert individual.operator == mutation_prompt
+    individual.operator == 'Operator: Refine the strategy of the solution., with parents: '
 
 
 def test_default_values():
