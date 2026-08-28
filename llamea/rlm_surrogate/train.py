@@ -43,6 +43,15 @@ def train(
 ) -> dict:
     import torch
 
+    if torch.cuda.is_available():
+        print(f"Training on GPU: {torch.cuda.get_device_name(0)}")
+    else:
+        print(
+            "WARNING: torch.cuda.is_available() is False -- training will run "
+            "on CPU. If you're on a GPU machine, check `nvidia-smi` and your "
+            "torch/CUDA install (see README.md)."
+        )
+
     train_examples = read_examples_jsonl(train_path)
     if not train_examples:
         raise ValueError(f"No training examples found at {train_path}")

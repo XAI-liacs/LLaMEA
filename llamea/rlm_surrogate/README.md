@@ -35,6 +35,9 @@ data quirks worth knowing about before you start:
      https://huggingface.co/google/t5gemma-s-s-prefixlm
   2. Authenticate on the GPU machine: `huggingface-cli login`, or set
      `HF_TOKEN` in the environment.
+     
+     
+`export HF_TOKEN=""`
 - **Python 3.11+ and [`uv`](https://docs.astral.sh/uv/).**
 
 ## 2. Install
@@ -79,7 +82,7 @@ The pipeline supports two layouts (`data_pipeline.py --layout`):
 
 ```bash
 uv run python -m llamea.rlm_surrogate.data_pipeline \
-    --data-dir /data/BLADE-results \
+    --data-dir blade-results \
     --output-dir data/ \
     --layout per_problem_subdir
 ```
@@ -124,11 +127,11 @@ score ranges.
 
 ```bash
 uv run python -m llamea.rlm_surrogate.data_pipeline \
-    --data-dir /data/BLADE-results \
+    --data-dir blade-results \
     --output-dir data_instances/ \
     --layout per_problem_subdir \
     --target aucs_per_instance \
-    --lhs-points 20
+    --lhs-points 100
 ```
 
 Requires `ioh` (already in the `rlm-surrogate` group as of this README).
@@ -173,9 +176,10 @@ Two starting points, both in `configs/`:
 ### 6a. Train from scratch on the full pooled data
 
 ```bash
+export CUDA_VISIBLE_DEVICES="0"
 uv run python -m llamea.rlm_surrogate.train \
     --config llamea/rlm_surrogate/configs/default.yaml \
-    --train data/train.jsonl --val data/val.jsonl \
+    --train data_instances/train.jsonl --val data_instances/val.jsonl \
     --output-dir checkpoints/base
 ```
 

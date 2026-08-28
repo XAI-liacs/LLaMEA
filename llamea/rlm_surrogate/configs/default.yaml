@@ -6,7 +6,7 @@ encoder_type: t5gemma
 t5gemma_model_name: google/t5gemma-s-s-prefixlm
 freeze_encoder: true
 num_decoder_layers: 2
-max_input_len: 2048
+max_input_len: 4096
 max_num_objs: 1
 
 optimizer: adafactor
@@ -16,7 +16,7 @@ warmup_steps: 200
 total_steps: null
 
 max_epochs: 100
-batch_size: null
+batch_size: 32
 patience: 5
 seed: 0
 
