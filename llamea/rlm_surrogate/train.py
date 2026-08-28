@@ -69,22 +69,36 @@ def train(
 
     effective_batch_size = config.batch_size or len(train_examples)
     updates_per_epoch = math.ceil(len(train_examples) / effective_batch_size)
+    if config.max_steps_per_epoch:
+        updates_per_epoch = min(updates_per_epoch, config.max_steps_per_epoch)
     total_steps = config.total_steps or config.max_epochs * updates_per_epoch
     optimizer_factory = build_optimizer_factory(config, total_steps=total_steps)
 
-    reg_lm.fine_tune(
-        _to_core_examples(train_examples),
-        validation_examples=_to_core_examples(val_examples) if val_examples else None,
-        seed=config.seed,
+    # `RegressLM.fine_tune()` builds a `PyTorchFineTuner` internally but its
+    # kwarg allowlist doesn't forward `max_steps_per_epoch` even though the
+    # underlying class supports it -- construct the fine-tuner directly so
+    # large datasets get validation/early-stopping/console feedback every
+    # `max_steps_per_epoch` updates instead of only after a full pass over
+    # `train_examples`.
+    from regress_lm.pytorch import fine_tuning as pytorch_fine_tuning
+
+    fine_tuner = pytorch_fine_tuning.PyTorchFineTuner(
+        reg_lm.model,
         optimizer_factory=optimizer_factory,
         max_epochs=config.max_epochs,
         batch_size=config.batch_size,
         batch_size_per_device=config.batch_size_per_device,
         patience=config.patience,
+        max_steps_per_epoch=config.max_steps_per_epoch,
         use_lora=config.use_lora,
         lora_r=config.lora_r,
         lora_alpha=config.lora_alpha,
         lora_dropout=config.lora_dropout,
+    )
+    fine_tuner.fine_tune(
+        _to_core_examples(train_examples),
+        validation_examples=_to_core_examples(val_examples) if val_examples else None,
+        seed=config.seed,
     )
 
     output_dir = Path(output_dir)
@@ -118,6 +132,14 @@ def _build_arg_parser() -> argparse.ArgumentParser:
     )
     p.add_argument("--pretrained-checkpoint", default=None)
     p.add_argument("--max-epochs", type=int, default=None)
+    p.add_argument(
+        "--max-steps-per-epoch",
+        type=int,
+        default=None,
+        help="Cap each epoch at this many optimizer updates instead of a "
+        "full pass over --train. Recommended for large datasets so "
+        "validation/early-stopping/console feedback happens more often.",
+    )
     p.add_argument("--lr", type=float, default=None)
     p.add_argument("--seed", type=int, default=None)
     return p
@@ -130,6 +152,7 @@ def main(argv: list[str] | None = None) -> None:
         encoder_type=args.encoder_type,
         pretrained_checkpoint=args.pretrained_checkpoint,
         max_epochs=args.max_epochs,
+        max_steps_per_epoch=args.max_steps_per_epoch,
         lr=args.lr,
         seed=args.seed,
     )

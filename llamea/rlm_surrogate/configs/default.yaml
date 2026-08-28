@@ -15,9 +15,24 @@ weight_decay: 0.0
 warmup_steps: 200
 total_steps: null
 
-max_epochs: 100
+max_epochs: 60
 batch_size: 32
-patience: 5
+# Sized for a single ~16GB GPU (e.g. a T4) at max_input_len=4096: the full
+# effective batch_size is still 32, but each forward/backward only holds 4
+# examples in memory at once, with the rest made up by gradient accumulation
+# (8 micro-steps) -- same training statistics, much safer peak memory. Raise
+# this if you have headroom to spare (check `nvidia-smi` during a run).
+batch_size_per_device: 4
+# Caps each "epoch" at 500 optimizer updates instead of a full pass over a
+# large train.jsonl (a full pass over tens of thousands of examples can take
+# a long time between any validation/early-stopping/console feedback, since
+# nothing prints mid-epoch). With this set, `max_epochs` counts these
+# 500-step windows, not full dataset passes.
+max_steps_per_epoch: 500
+# Loosened from the paper's tighter default since patience now counts
+# 500-step windows instead of full-dataset epochs -- 5 windows would stop
+# too eagerly on a large dataset.
+patience: 8
 seed: 0
 
 num_samples_point_pred: 64

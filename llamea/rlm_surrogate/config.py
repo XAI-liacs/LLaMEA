@@ -54,6 +54,12 @@ class RLMSurrogateConfig:
     max_epochs: int = 100
     batch_size: int | None = None
     batch_size_per_device: int | None = None
+    # Caps each "epoch" at this many optimizer updates instead of a full pass
+    # over `train_examples` -- for large datasets, a full pass can take too
+    # long between validation/early-stopping checks and console feedback
+    # (nothing prints until an epoch completes). None = one epoch = one full
+    # pass, the regress-lm default.
+    max_steps_per_epoch: int | None = None
     patience: int | None = 5
     use_lora: bool = False
     lora_r: int = 8
