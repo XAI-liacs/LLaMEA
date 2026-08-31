@@ -63,6 +63,16 @@ def train(
 
     reg_lm = build_model(config)
 
+    # Neither `PyTorchFineTuner` nor `RegressLM.from_t5gemma_encoder()` ever
+    # moves the model onto the GPU themselves (that logic only exists in
+    # regress-lm's separate, unused `Trainer` class) -- without this, the
+    # model silently trains on CPU even when CUDA is available. Must happen
+    # before `optimizer_factory` builds the optimizer below: an optimizer
+    # built against CPU-resident parameters keeps stale references after a
+    # later `.to()` move.
+    if torch.cuda.is_available():
+        reg_lm.model.to("cuda")
+
     if config.pretrained_checkpoint:
         state = torch.load(config.pretrained_checkpoint, map_location="cpu")
         reg_lm.model.load_state_dict(state)
