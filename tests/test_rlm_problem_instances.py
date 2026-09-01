@@ -181,6 +181,60 @@ def test_resolve_instances_for_record_returns_none_when_unresolvable(tmp_path):
     assert resolve_instances_for_record(record, {}) is None
 
 
+# --- Tier A: static meta-features. No `ioh` needed (pandas only, for the
+# MA-BBOB weights.csv lookup). ---
+
+
+def test_compute_meta_feature_text_bbob():
+    from llamea.rlm_surrogate.problem_instances import compute_meta_feature_text
+
+    instance = ProblemInstance(kind="bbob", dim=10, fid_or_idx=1, iid=1)
+    text = compute_meta_feature_text(instance)
+    assert "family: BBOB" in text
+    assert "dim: 10" in text
+    assert "Sphere" in text
+    assert "separable=True" in text
+
+
+def test_compute_meta_feature_text_ma_bbob_reads_real_weights_csv():
+    from llamea.rlm_surrogate.problem_instances import compute_meta_feature_text
+
+    instance = ProblemInstance(kind="ma_bbob", dim=5, fid_or_idx=0)
+    text = compute_meta_feature_text(instance)
+    assert "family: MA-BBOB" in text
+    assert "dim: 5" in text
+    assert "MA-BBOB combination:" in text
+    assert "+" in text  # at least two weighted components, per row 0 of weights.csv
+
+
+def test_describe_ma_bbob_composition_matches_real_weights_csv_row0():
+    from llamea.rlm_surrogate.problem_instances import describe_ma_bbob_composition
+
+    # benchmarks/ma_bbob/weights.csv row 0: f14 weight ~0.501, f23 weight
+    # ~0.499, all other columns 0 -- verified by hand reading the CSV.
+    text = describe_ma_bbob_composition(0)
+    assert "f14" in text
+    assert "f23" in text
+    assert "50." in text  # both components round to ~50.0%/50.1%/49.9%
+
+
+def test_compute_problem_feature_text_meta_mode_needs_no_ioh():
+    from llamea.rlm_surrogate.problem_instances import compute_problem_feature_text
+
+    instance = ProblemInstance(kind="bbob", dim=2, fid_or_idx=1, iid=1)
+    text = compute_problem_feature_text(instance, mode="meta")
+    assert "family: BBOB" in text
+    assert "LHS" not in text
+
+
+def test_compute_problem_feature_text_unknown_mode_raises():
+    from llamea.rlm_surrogate.problem_instances import compute_problem_feature_text
+
+    instance = ProblemInstance(kind="bbob", dim=2, fid_or_idx=1, iid=1)
+    with pytest.raises(ValueError):
+        compute_problem_feature_text(instance, mode="bogus")
+
+
 # --- Tests that need the real `ioh` extra (uv sync --group rlm-surrogate) ---
 
 ioh = pytest.importorskip("ioh")
@@ -230,3 +284,74 @@ def test_fingerprint_shares_probe_locations_across_instances_same_dim():
     coords_f1 = [row.split(")->")[0] for row in text_f1.split(": ", 1)[1].split("; ")]
     coords_f2 = [row.split(")->")[0] for row in text_f2.split(": ", 1)[1].split("; ")]
     assert coords_f1 == coords_f2
+
+
+# --- Tier B: computed LHS summary stats (same sample, different rendering). ---
+
+
+def test_lhs_summary_stats_shape_and_fields():
+    from llamea.rlm_surrogate.problem_instances import (
+        lhs_summary_stats,
+        reconstruct_problem,
+    )
+
+    instance = ProblemInstance(kind="bbob", dim=2, fid_or_idx=1, iid=1)
+    problem = reconstruct_problem(instance)
+    text = lhs_summary_stats(problem, dim=2, n_points=20, seed=0)
+    assert text.startswith("STATS[20pts,dim=2]:")
+    for field in (
+        "y_mean",
+        "y_std",
+        "y_skew",
+        "y_kurtosis",
+        "cv",
+        "quad_r2",
+        "cond_est",
+    ):
+        assert f"{field}=" in text
+
+
+def test_lhs_summary_stats_deterministic_for_same_seed():
+    from llamea.rlm_surrogate.problem_instances import compute_problem_feature_text
+
+    instance = ProblemInstance(kind="bbob", dim=2, fid_or_idx=3, iid=1)
+    a = compute_problem_feature_text(instance, n_points=20, seed=42, mode="lhs_stats")
+    b = compute_problem_feature_text(instance, n_points=20, seed=42, mode="lhs_stats")
+    assert a == b
+
+
+def test_compute_problem_feature_text_meta_plus_lhs_concatenates():
+    from llamea.rlm_surrogate.problem_instances import compute_problem_feature_text
+
+    instance = ProblemInstance(kind="bbob", dim=2, fid_or_idx=1, iid=1)
+    text = compute_problem_feature_text(instance, n_points=3, seed=0, mode="meta+lhs")
+    assert "family: BBOB" in text
+    assert "LHS[3pts,dim=2]:" in text
+
+
+def test_compute_problem_feature_text_meta_plus_lhs_stats_concatenates():
+    from llamea.rlm_surrogate.problem_instances import compute_problem_feature_text
+
+    instance = ProblemInstance(kind="ma_bbob", dim=2, fid_or_idx=1)
+    text = compute_problem_feature_text(
+        instance, n_points=20, seed=0, mode="meta+lhs_stats"
+    )
+    assert "family: MA-BBOB" in text
+    assert "STATS[20pts,dim=2]:" in text
+
+
+def test_lhs_summary_stats_quadratic_recovers_sphere_conditioning():
+    """Sphere (f1) is an isotropic quadratic bowl -- the diagonal-quadratic
+    meta-model should fit it almost perfectly (high R^2) with roughly equal
+    per-axis coefficients (cond_est close to 1)."""
+    from llamea.rlm_surrogate.problem_instances import (
+        lhs_summary_stats,
+        reconstruct_problem,
+    )
+
+    instance = ProblemInstance(kind="bbob", dim=3, fid_or_idx=1, iid=1)
+    problem = reconstruct_problem(instance)
+    text = lhs_summary_stats(problem, dim=3, n_points=30, seed=0)
+    fields = dict(part.strip().split("=") for part in text.split(": ", 1)[1].split(";"))
+    assert float(fields["quad_r2"]) > 0.99
+    assert float(fields["cond_est"]) < 2.0

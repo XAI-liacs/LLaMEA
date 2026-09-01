@@ -10,6 +10,7 @@ from llamea.rlm_surrogate.data_pipeline import (
     build_y,
     explode_aucs_with_problem_features,
     filter_errored,
+    leave_function_out_split,
     lineage_generation_split,
     make_examples,
     read_examples_jsonl,
@@ -314,3 +315,115 @@ def test_explode_aucs_with_problem_features_preserves_lineage_fields():
     assert all(
         e.fitness == 0.5 for e in examples
     )  # candidate-level fitness carried through
+
+
+def test_explode_aucs_with_problem_features_meta_mode_sets_instance_fields():
+    records = [
+        _blade_record(
+            "cand1", [0.1, 0.2], metadata_extra={"performance_data": _PERF_DATA_2D}
+        )
+    ]
+    examples, counts = explode_aucs_with_problem_features(records, feature_mode="meta")
+    assert counts["n_exploded"] == 2
+    assert all(e.instance_kind == "bbob" for e in examples)
+    assert {e.instance_fid_or_idx for e in examples} == {1}  # both entries are fid=1
+    assert all("family: BBOB" in e.x for e in examples)
+    assert all("LHS" not in e.x for e in examples)
+
+
+# --- leave_function_out_split ---
+
+
+def _exploded_example(id_, instance_kind, instance_fid_or_idx, generation=0):
+    return RLMExample(
+        id=id_,
+        run_id="r1",
+        generation=generation,
+        parent_ids=[],
+        x="x",
+        y=0.5,
+        fitness=0.5,
+        problem_id="BBOB" if instance_kind == "bbob" else "MA-BBOB",
+        candidate_id=id_,
+        instance_index=0,
+        instance_kind=instance_kind,
+        instance_fid_or_idx=instance_fid_or_idx,
+    )
+
+
+def test_leave_function_out_split_raises_on_non_exploded_examples():
+    examples = [
+        RLMExample(
+            id="a", run_id="r", generation=0, parent_ids=[], x="x", y=0.5, fitness=0.5
+        )
+    ]
+    with pytest.raises(ValueError):
+        leave_function_out_split(examples, holdout_fids=[1])
+
+
+def test_leave_function_out_split_holds_out_only_requested_fids():
+    examples = [
+        _exploded_example("bbob_f1_a", "bbob", 1),
+        _exploded_example("bbob_f1_b", "bbob", 1),
+        _exploded_example("bbob_f2", "bbob", 2),
+        _exploded_example("bbob_f3", "bbob", 3),
+    ]
+    result = leave_function_out_split(examples, holdout_fids=[2])
+    assert {e.id for e in result.test} == {"bbob_f2"}
+    train_val_ids = {e.id for e in result.train} | {e.id for e in result.val}
+    assert train_val_ids == {"bbob_f1_a", "bbob_f1_b", "bbob_f3"}
+    assert result.log["strategy"] == "leave_function_out"
+    assert result.log["holdout_fids"] == [2]
+
+
+def test_leave_function_out_split_never_places_ma_bbob_in_test():
+    examples = [
+        _exploded_example("bbob_f1", "bbob", 1),
+        _exploded_example("ma1", "ma_bbob", 0),
+        _exploded_example("ma2", "ma_bbob", 1),
+    ]
+    # Holding out fid 1 would normally catch bbob_f1, but ma_bbob rows (idx
+    # 0/1 in their own CSV-row namespace) must never leak into test just
+    # because their fid_or_idx happens to numerically match a holdout fid.
+    result = leave_function_out_split(examples, holdout_fids=[0, 1])
+    assert {e.id for e in result.test} == {"bbob_f1"}
+    assert {e.id for e in result.train + result.val} == {"ma1", "ma2"}
+
+
+def test_leave_function_out_split_no_examples_lost_or_duplicated():
+    examples = [
+        _exploded_example(f"bbob_f{fid}_{i}", "bbob", fid)
+        for fid in (1, 2, 3, 4)
+        for i in range(3)
+    ]
+    result = leave_function_out_split(examples, holdout_fids=[3, 4], val_fraction=0.2)
+    all_ids = [e.id for e in result.train + result.val + result.test]
+    assert len(all_ids) == len(examples)
+    assert len(set(all_ids)) == len(all_ids)
+    assert all(e.instance_fid_or_idx in (3, 4) for e in result.test)
+
+
+# --- max_records subsampling ---
+
+
+def test_run_pipeline_max_records_subsamples_deterministically(tmp_path):
+    out_a = tmp_path / "out_a"
+    out_b = tmp_path / "out_b"
+    summary_a = run_pipeline(
+        FIXTURES, out_a, max_records=10, split_config=SplitConfig(seed=0)
+    )
+    summary_b = run_pipeline(
+        FIXTURES, out_b, max_records=10, split_config=SplitConfig(seed=0)
+    )
+    assert summary_a["n_records_sampled"] == 10
+    assert summary_a["n_records_total"] == 98  # full fixture set, unaffected
+    assert summary_a["n_records_total"] > summary_a["n_records_sampled"]
+    # Same seed -> same subsample -> identical resulting example ids.
+    train_a = read_examples_jsonl(out_a / "train.jsonl")
+    train_b = read_examples_jsonl(out_b / "train.jsonl")
+    assert [e.id for e in train_a] == [e.id for e in train_b]
+
+
+def test_run_pipeline_max_records_noop_when_larger_than_dataset(tmp_path):
+    summary = run_pipeline(FIXTURES, tmp_path / "out", max_records=10_000)
+    assert summary["n_records_sampled"] == summary["n_records_total"] == 98

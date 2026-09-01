@@ -212,14 +212,18 @@ def reconstruct_problem(instance: ProblemInstance) -> Any:
     raise ValueError(f"Unknown ProblemInstance.kind: {instance.kind!r}")
 
 
-def lhs_fingerprint(problem: Any, dim: int, n_points: int = 20, seed: int = 0) -> str:
+def _lhs_sample(
+    problem: Any, dim: int, n_points: int, seed: int
+) -> tuple[np.ndarray, np.ndarray]:
     """Draws an ``n_points``-sample Latin Hypercube design over ``problem``'s
-    domain, evaluates it, and formats it as compact text.
+    domain and evaluates it, returning ``(xs, ys)``.
 
     Uses the same ``seed`` (hence identical probe coordinates) across every
-    instance of a given ``dim``, so fingerprint differences reflect the
-    function's shape, not where it was sampled -- makes fingerprints more
-    directly comparable across landscapes."""
+    instance of a given ``dim``, so downstream features differ because of
+    the function's shape, not where it was sampled -- makes them more
+    directly comparable across landscapes. Shared by ``lhs_fingerprint``
+    (Tier 1: raw text) and ``lhs_summary_stats`` (Tier B: computed stats)
+    so both spend the same evaluation budget on the same points."""
     from scipy.stats import qmc
 
     sampler = qmc.LatinHypercube(d=dim, seed=seed)
@@ -227,21 +231,162 @@ def lhs_fingerprint(problem: Any, dim: int, n_points: int = 20, seed: int = 0) -
     lb = np.asarray(problem.bounds.lb, dtype=float)
     ub = np.asarray(problem.bounds.ub, dtype=float)
     xs = qmc.scale(unit, lb, ub)
+    ys = np.array([float(problem(x)) for x in xs])
+    return xs, ys
 
+
+def lhs_fingerprint(problem: Any, dim: int, n_points: int = 20, seed: int = 0) -> str:
+    """Draws an ``n_points``-sample Latin Hypercube design over ``problem``'s
+    domain, evaluates it, and formats it as compact raw ``(x)->f(x)`` text."""
+    xs, ys = _lhs_sample(problem, dim, n_points, seed)
     rows = []
-    for x in xs:
-        fx = float(problem(x))
+    for x, fx in zip(xs, ys):
         coords = ",".join(f"{v:.4g}" for v in x)
         rows.append(f"({coords})->{fx:.4g}")
     return f"LHS[{n_points}pts,dim={dim}]: " + "; ".join(rows)
 
 
+def lhs_summary_stats(problem: Any, dim: int, n_points: int = 20, seed: int = 0) -> str:
+    """Tier B: computes a handful of cheap landscape-summary statistics from
+    the *same* LHS sample ``lhs_fingerprint`` would draw, instead of dumping
+    the raw ``(x)->f(x)`` pairs as text -- same evaluation budget, more
+    directly usable signal (the model doesn't have to infer distributional
+    shape from raw numbers itself).
+
+    Statistics: y-distribution mean/std/skewness/kurtosis and coefficient of
+    variation, plus a cheap diagonal-quadratic meta-model (``y ~ c0 + b*x +
+    sum(a_i * x_i^2)``) fit via least squares -- its R^2 is a nonlinearity/
+    multimodality proxy, and the ratio of its largest to smallest |a_i| is a
+    rough conditioning-number estimate. This is a lightweight, ELA-inspired
+    approximation, not a substitute for a proper ELA feature set (e.g.
+    ``pflacco``) -- meaningful mainly when ``n_points`` comfortably exceeds
+    ``2*dim + 1`` (the diagonal model's parameter count); below that the
+    least-squares fit is under-determined and the quad/cond numbers are
+    noisier."""
+    from scipy import stats as scipy_stats
+
+    xs, ys = _lhs_sample(problem, dim, n_points, seed)
+
+    y_mean = float(np.mean(ys))
+    y_std = float(np.std(ys))
+    y_skew = float(scipy_stats.skew(ys)) if n_points >= 3 else float("nan")
+    y_kurtosis = float(scipy_stats.kurtosis(ys)) if n_points >= 4 else float("nan")
+    cv = y_std / abs(y_mean) if abs(y_mean) > 1e-12 else float("nan")
+
+    design = np.column_stack([np.ones(n_points), xs, xs**2])
+    coeffs, _, _, _ = np.linalg.lstsq(design, ys, rcond=None)
+    y_fit = design @ coeffs
+    ss_res = float(np.sum((ys - y_fit) ** 2))
+    ss_tot = float(np.sum((ys - y_mean) ** 2))
+    quad_r2 = 1.0 - ss_res / ss_tot if ss_tot > 1e-12 else float("nan")
+
+    quad_coeffs = np.abs(coeffs[1 + dim :])
+    quad_coeffs = quad_coeffs[quad_coeffs > 1e-12]
+    cond_est = (
+        float(quad_coeffs.max() / quad_coeffs.min())
+        if len(quad_coeffs) > 0
+        else float("nan")
+    )
+
+    return (
+        f"STATS[{n_points}pts,dim={dim}]: y_mean={y_mean:.4g}; y_std={y_std:.4g}; "
+        f"y_skew={y_skew:.4g}; y_kurtosis={y_kurtosis:.4g}; cv={cv:.4g}; "
+        f"quad_r2={quad_r2:.4g}; cond_est={cond_est:.4g}"
+    )
+
+
+def describe_ma_bbob_composition(idx: int, weight_threshold: float = 0.01) -> str:
+    """Tier A for MA-BBOB: MA-BBOB instances are affine combinations of a
+    handful of the 24 canonical BBOB functions (see
+    ``benchmarks/ma_bbob/weights.csv``, one row per instance, one column per
+    base function, mostly zero). Reads row ``idx``, keeps components whose
+    weight exceeds ``weight_threshold``, and describes each via
+    ``bbob_properties.describe_bbob_function`` -- so an MA-BBOB row gets the
+    same free, zero-extra-evaluation problem info a BBOB row does."""
+    from . import bbob_properties
+
+    weights, _, _ = _load_ma_bbob_tables()
+    row = weights.iloc[idx]
+    # Columns are 0-indexed by position (column "0" is the weight on BBOB
+    # f1, column "23" on f24) -- same convention `reconstruct_problem`
+    # relies on when passing this row straight through to
+    # `ioh.problem.ManyAffine(weights=...)`. Off-by-one here would silently
+    # mislabel every MA-BBOB composition.
+    components = sorted(
+        (
+            (int(col) + 1, float(w))
+            for col, w in row.items()
+            if abs(w) > weight_threshold
+        ),
+        key=lambda t: -t[1],
+    )
+    parts = [
+        f"{w * 100:.1f}% {bbob_properties.describe_bbob_function(fid)}"
+        for fid, w in components
+    ]
+    return "MA-BBOB combination: " + " + ".join(parts)
+
+
+def compute_meta_feature_text(instance: ProblemInstance) -> str:
+    """Tier A: static, free (no function evaluations, no ``ioh`` needed)
+    problem-meta-feature text -- dimensionality plus known BBOB function
+    properties (or, for MA-BBOB, its base-function composition). Callers
+    (``compute_problem_feature_text``, ``data_pipeline.py``) own the
+    surrounding "# Problem" header -- this returns body text only."""
+    if instance.kind == "bbob":
+        from . import bbob_properties
+
+        return (
+            f"family: BBOB; dim: {instance.dim}; "
+            f"{bbob_properties.describe_bbob_function(instance.fid_or_idx)}"
+        )
+    if instance.kind == "ma_bbob":
+        return (
+            f"family: MA-BBOB; dim: {instance.dim}; "
+            f"{describe_ma_bbob_composition(instance.fid_or_idx)}"
+        )
+    raise ValueError(f"Unknown ProblemInstance.kind: {instance.kind!r}")
+
+
+FeatureMode = Literal["lhs", "lhs_stats", "meta", "meta+lhs", "meta+lhs_stats"]
+
+
 def compute_problem_feature_text(
-    instance: ProblemInstance, *, n_points: int = 20, seed: int = 0
+    instance: ProblemInstance,
+    *,
+    n_points: int = 20,
+    seed: int = 0,
+    mode: FeatureMode = "lhs",
 ) -> str:
-    """Reconstructs ``instance`` and returns its LHS fingerprint text.
-    Raises on failure (unknown ``ioh``/data issues) -- callers should catch,
-    skip, and count/warn per the pipeline's "surface anomalies, never
-    silently guess" convention."""
-    problem = reconstruct_problem(instance)
-    return lhs_fingerprint(problem, instance.dim, n_points=n_points, seed=seed)
+    """Builds the "# Problem" text appended to a training example's ``x``.
+
+    ``mode`` selects which tier(s) to include:
+      - ``"lhs"`` (default, unchanged from the original shipped behavior):
+        raw Latin Hypercube ``(x)->f(x)`` sample text. Requires ``ioh``.
+      - ``"lhs_stats"``: Tier B computed summary statistics from the same
+        LHS sample, instead of the raw text. Requires ``ioh``.
+      - ``"meta"``: Tier A static properties only (dimensionality + known
+        BBOB/MA-BBOB structure). No function evaluations, no ``ioh`` needed.
+      - ``"meta+lhs"`` / ``"meta+lhs_stats"``: both, concatenated.
+
+    Raises on failure (unknown ``ioh``/data issues, or ``mode="meta"`` for a
+    function id/idx this module doesn't know) -- callers should catch, skip,
+    and count/warn per the pipeline's "surface anomalies, never silently
+    guess" convention.
+    """
+    parts = []
+    if mode.startswith("meta"):
+        parts.append(compute_meta_feature_text(instance))
+    if mode in ("lhs", "meta+lhs"):
+        problem = reconstruct_problem(instance)
+        parts.append(
+            lhs_fingerprint(problem, instance.dim, n_points=n_points, seed=seed)
+        )
+    elif mode in ("lhs_stats", "meta+lhs_stats"):
+        problem = reconstruct_problem(instance)
+        parts.append(
+            lhs_summary_stats(problem, instance.dim, n_points=n_points, seed=seed)
+        )
+    elif mode != "meta":
+        raise ValueError(f"Unknown feature mode: {mode!r}")
+    return "\n".join(parts)

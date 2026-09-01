@@ -55,6 +55,17 @@ class RLMExample:
     candidate_id: str = ""
     instance_index: int = -1
 
+    # Also set only when exploded (see above). `instance_kind` is
+    # `ProblemInstance.kind` ("bbob"/"ma_bbob"); `instance_fid_or_idx` is
+    # `ProblemInstance.fid_or_idx` -- a canonical BBOB function id (1..24)
+    # when `instance_kind == "bbob"`, or an MA-BBOB CSV row index (a
+    # different namespace, not a function id) when `instance_kind ==
+    # "ma_bbob"`. Lets splits/analyses key on the resolved instance without
+    # re-parsing it out of the problem-feature text in `x`. See
+    # `leave_function_out_split`.
+    instance_kind: str = ""
+    instance_fid_or_idx: int = -1
+
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
 
@@ -151,10 +162,17 @@ def explode_aucs_with_problem_features(
     include_configspace: bool = True,
     n_lhs_points: int = 20,
     lhs_seed: int = 0,
+    feature_mode: str = "lhs",
 ) -> tuple[list[RLMExample], dict[str, int]]:
     """Explodes each record's `metadata.aucs` into one `RLMExample` per
-    instance, `x` = code(+context) + that instance's LHS fingerprint,
+    instance, `x` = code(+context) + that instance's problem-feature text,
     `y` = `aucs[i]`.
+
+    `feature_mode` selects what that problem-feature text contains -- see
+    `problem_instances.compute_problem_feature_text` for the full menu
+    (`"lhs"` raw samples, `"lhs_stats"` computed summary stats, `"meta"`
+    static BBOB/MA-BBOB properties, or a `"meta+..."` combination). Default
+    `"lhs"` is unchanged from the original shipped behavior.
 
     Instance identity comes from real metadata, never a guess --
     `problem_instances.resolve_instances_for_record` tries
@@ -162,8 +180,8 @@ def explode_aucs_with_problem_features(
     `experimentlog.jsonl`. A record is skipped entirely (counted) when it
     has no `aucs`, when neither source resolves an instance list, or when
     the resolved list's length doesn't match `len(aucs)`. Per-instance
-    reconstruction failures (e.g. a bad row in the MA-BBOB tables) are also
-    skipped and counted individually.
+    reconstruction failures (e.g. a bad row in the MA-BBOB tables, or an
+    unknown fid for `"meta"` mode) are also skipped and counted individually.
 
     Returns `(examples, counts)` where `counts` has `n_no_aucs`,
     `n_no_instance_mapping`, `n_length_mismatch`, `n_instance_errors`,
@@ -206,8 +224,8 @@ def explode_aucs_with_problem_features(
             if not _is_finite(y):
                 continue
             try:
-                fingerprint = compute_problem_feature_text(
-                    instance, n_points=n_lhs_points, seed=lhs_seed
+                feature_text = compute_problem_feature_text(
+                    instance, n_points=n_lhs_points, seed=lhs_seed, mode=feature_mode
                 )
             except Exception:
                 counts["n_instance_errors"] += 1
@@ -218,12 +236,14 @@ def explode_aucs_with_problem_features(
                     run_id=r.run_id,
                     generation=r.generation,
                     parent_ids=list(r.parent_ids),
-                    x=f"{base_x}\n\n# Problem\n{fingerprint}",
+                    x=f"{base_x}\n\n# Problem\n{feature_text}",
                     y=float(y),
                     fitness=r.fitness,
                     problem_id=r.problem_id,
                     candidate_id=r.id,
                     instance_index=i,
+                    instance_kind=instance.kind,
+                    instance_fid_or_idx=instance.fid_or_idx,
                 )
             )
             counts["n_exploded"] += 1
@@ -239,6 +259,7 @@ def _build_examples(
     target: TargetKind,
     n_lhs_points: int,
     lhs_seed: int,
+    feature_mode: str = "lhs",
 ) -> tuple[list[RLMExample], dict[str, Any]]:
     """Dispatches to `make_examples` or (for `target="aucs_per_instance"`)
     `explode_aucs_with_problem_features`. Returns `(examples, extra_stats)`
@@ -250,6 +271,7 @@ def _build_examples(
             include_configspace=include_configspace,
             n_lhs_points=n_lhs_points,
             lhs_seed=lhs_seed,
+            feature_mode=feature_mode,
         )
         return examples, {"instance_explosion": counts}
 
@@ -371,6 +393,63 @@ def lineage_generation_split(
     return SplitResult(train=train, val=val, test=test, log=log)
 
 
+def leave_function_out_split(
+    examples: list[RLMExample],
+    holdout_fids: list[int],
+    *,
+    val_fraction: float = 0.15,
+    seed: int = 0,
+) -> SplitResult:
+    """Splits so entire BBOB function ids are held out for test -- unlike
+    `lineage_generation_split`, this tests whether the model generalizes to
+    a landscape it never saw *any* instance of during training, which is
+    the actual question problem-feature ablations need answered (a within-
+    run/lineage split can't distinguish "learned to use problem features"
+    from "memorized this function's score range").
+
+    Requires exploded examples (`target="aucs_per_instance"`, so
+    `instance_kind`/`instance_fid_or_idx` are populated) -- raises
+    `ValueError` otherwise, since there's nothing to hold out by function on
+    plain fitness/aucs examples.
+
+    Only applies to `instance_kind == "bbob"` rows, where `fid_or_idx` is an
+    unambiguous canonical function id (1..24). MA-BBOB rows are affine
+    combinations of several base functions (see `describe_ma_bbob_composition`
+    in `problem_instances.py`) -- "holding out a function" doesn't have a
+    clean meaning for a mixture, so all MA-BBOB rows are kept in train/val
+    and never placed in test for this split mode.
+    """
+    if not any(e.instance_kind for e in examples):
+        raise ValueError(
+            "leave_function_out_split requires exploded examples "
+            "(target='aucs_per_instance') -- instance_kind is empty on all "
+            "given examples."
+        )
+    holdout = set(holdout_fids)
+
+    test = [
+        e
+        for e in examples
+        if e.instance_kind == "bbob" and e.instance_fid_or_idx in holdout
+    ]
+    remaining = [
+        e
+        for e in examples
+        if not (e.instance_kind == "bbob" and e.instance_fid_or_idx in holdout)
+    ]
+    train, val, val_cutoffs = _generation_holdout(remaining, val_fraction)
+
+    log: dict[str, Any] = {
+        "strategy": "leave_function_out",
+        "holdout_fids": sorted(holdout),
+        "val_generation_cutoffs": val_cutoffs,
+        "n_train": len(train),
+        "n_val": len(val),
+        "n_test": len(test),
+    }
+    return SplitResult(train=train, val=val, test=test, log=log)
+
+
 # --------------------------------------------------------------------------
 # Stats / IO.
 # --------------------------------------------------------------------------
@@ -407,9 +486,20 @@ def run_pipeline(
     pattern: str = "*.jsonl",
     n_lhs_points: int = 20,
     lhs_seed: int = 0,
+    feature_mode: str = "lhs",
+    holdout_fids: list[int] | None = None,
+    max_records: int | None = None,
 ) -> dict[str, Any]:
     """Runs the full Step 1 pipeline and writes train/val/test + stats to
-    ``output_dir``. Returns the summary dict that also gets written out."""
+    ``output_dir``. Returns the summary dict that also gets written out.
+
+    ``max_records``, if given, randomly subsamples (seeded by
+    ``split_config.seed``) down to that many records right after loading --
+    for a fast ablation/sanity pass over a large dataset, not for the real
+    run. ``holdout_fids``, if given (only meaningful with
+    ``target="aucs_per_instance"``), switches the split to
+    ``leave_function_out_split`` instead of ``lineage_generation_split``.
+    """
     data_dir = Path(data_dir)
     output_dir = Path(output_dir)
     files = sorted(data_dir.glob(pattern))
@@ -418,17 +508,21 @@ def run_pipeline(
 
     per_file_stats = []
     all_records: list[BladeRecord] = []
-    all_kept: list[BladeRecord] = []
     for f in files:
         run_id = derive_run_id(f)
         records = list(iter_blade_records(f))
-        kept, n_dropped = filter_errored(records)
         report = validate_records(records, label=run_id)
         per_file_stats.append(report.to_dict())
         all_records.extend(records)
-        all_kept.extend(kept)
 
     overall_report = validate_records(all_records, label="__overall__")
+
+    sample_records = all_records
+    if max_records is not None and len(all_records) > max_records:
+        sample_records = random.Random((split_config or SplitConfig()).seed).sample(
+            all_records, max_records
+        )
+    all_kept, _ = filter_errored(sample_records)
 
     examples, extra_stats = _build_examples(
         all_kept,
@@ -437,6 +531,7 @@ def run_pipeline(
         target=target,
         n_lhs_points=n_lhs_points,
         lhs_seed=lhs_seed,
+        feature_mode=feature_mode,
     )
     if "instance_explosion" in extra_stats:
         counts = extra_stats["instance_explosion"]
@@ -448,7 +543,15 @@ def run_pipeline(
     else:
         n_skipped_missing_target = len(all_kept) - len(examples)
 
-    split = lineage_generation_split(examples, split_config)
+    if holdout_fids:
+        split = leave_function_out_split(
+            examples,
+            holdout_fids,
+            val_fraction=(split_config or SplitConfig()).val_fraction,
+            seed=(split_config or SplitConfig()).seed,
+        )
+    else:
+        split = lineage_generation_split(examples, split_config)
 
     write_examples_jsonl(split.train, output_dir / "train.jsonl")
     write_examples_jsonl(split.val, output_dir / "val.jsonl")
@@ -460,11 +563,13 @@ def run_pipeline(
         "target": target,
         "include_description": include_description,
         "include_configspace": include_configspace,
+        "max_records": max_records,
         "n_records_total": len(all_records),
-        "n_errored_total": len(all_records) - len(all_kept),
+        "n_records_sampled": len(sample_records),
+        "n_errored_total": len(sample_records) - len(all_kept),
         "error_fraction_total": (
-            (len(all_records) - len(all_kept)) / len(all_records)
-            if all_records
+            (len(sample_records) - len(all_kept)) / len(sample_records)
+            if sample_records
             else 0.0
         ),
         "n_skipped_missing_target": n_skipped_missing_target,
@@ -569,12 +674,21 @@ def run_pipeline_multi_problem(
     problem_map: dict[str, str] | None = None,
     n_lhs_points: int = 20,
     lhs_seed: int = 0,
+    feature_mode: str = "lhs",
+    holdout_fids: list[int] | None = None,
+    max_records: int | None = None,
 ) -> dict[str, Any]:
     """Like ``run_pipeline``, but for the nested per-experiment-folder
     layout, with the train/val/test split run independently per
     ``problem_id`` and then merged -- so whole-run test-holdout and
     generation-based val-holdout are each stratified by problem instead of
-    one problem's runs dominating the held-out set."""
+    one problem's runs dominating the held-out set.
+
+    ``max_records``/``holdout_fids``: see ``run_pipeline``. When
+    ``holdout_fids`` is given, the per-problem split loop is skipped in
+    favor of one ``leave_function_out_split`` call over all problems'
+    examples together (it already handles BBOB vs MA-BBOB rows correctly).
+    """
     root_dir = Path(root_dir)
     output_dir = Path(output_dir)
 
@@ -599,7 +713,13 @@ def run_pipeline_multi_problem(
 
     overall_report = validate_records(all_records, label="__overall__")
 
-    kept, n_dropped = filter_errored(all_records)
+    sample_records = all_records
+    if max_records is not None and len(all_records) > max_records:
+        sample_records = random.Random((split_config or SplitConfig()).seed).sample(
+            all_records, max_records
+        )
+
+    kept, n_dropped = filter_errored(sample_records)
     examples, extra_stats = _build_examples(
         kept,
         include_description=include_description,
@@ -607,6 +727,7 @@ def run_pipeline_multi_problem(
         target=target,
         n_lhs_points=n_lhs_points,
         lhs_seed=lhs_seed,
+        feature_mode=feature_mode,
     )
     if "instance_explosion" in extra_stats:
         counts = extra_stats["instance_explosion"]
@@ -622,16 +743,24 @@ def run_pipeline_multi_problem(
     for e in examples:
         by_problem.setdefault(e.problem_id, []).append(e)
 
-    train: list[RLMExample] = []
-    val: list[RLMExample] = []
-    test: list[RLMExample] = []
-    split_log_by_problem: dict[str, Any] = {}
-    for problem_id, problem_examples in sorted(by_problem.items()):
-        result = lineage_generation_split(problem_examples, split_config)
-        train.extend(result.train)
-        val.extend(result.val)
-        test.extend(result.test)
-        split_log_by_problem[problem_id] = result.log
+    if holdout_fids:
+        result = leave_function_out_split(
+            examples,
+            holdout_fids,
+            val_fraction=(split_config or SplitConfig()).val_fraction,
+            seed=(split_config or SplitConfig()).seed,
+        )
+        train, val, test = result.train, result.val, result.test
+        split_log_by_problem = {"__all_problems__": result.log}
+    else:
+        train, val, test = [], [], []
+        split_log_by_problem = {}
+        for problem_id, problem_examples in sorted(by_problem.items()):
+            result = lineage_generation_split(problem_examples, split_config)
+            train.extend(result.train)
+            val.extend(result.val)
+            test.extend(result.test)
+            split_log_by_problem[problem_id] = result.log
 
     write_examples_jsonl(train, output_dir / "train.jsonl")
     write_examples_jsonl(val, output_dir / "val.jsonl")
@@ -656,9 +785,13 @@ def run_pipeline_multi_problem(
         "target": target,
         "include_description": include_description,
         "include_configspace": include_configspace,
+        "max_records": max_records,
         "n_records_total": len(all_records),
+        "n_records_sampled": len(sample_records),
         "n_errored_total": n_dropped,
-        "error_fraction_total": (n_dropped / len(all_records)) if all_records else 0.0,
+        "error_fraction_total": (
+            (n_dropped / len(sample_records)) if sample_records else 0.0
+        ),
         "n_skipped_missing_target": n_skipped_missing_target,
         "n_examples_total": len(examples),
         "per_file": per_file_stats,
@@ -767,6 +900,38 @@ def _build_arg_parser() -> argparse.ArgumentParser:
         "across instances of the same dimensionality so fingerprints share "
         "probe locations and stay comparable.",
     )
+    p.add_argument(
+        "--feature-mode",
+        choices=["lhs", "lhs_stats", "meta", "meta+lhs", "meta+lhs_stats"],
+        default="lhs",
+        help="(aucs_per_instance only) What problem-feature text to append: "
+        "'lhs' (default, unchanged): raw Latin Hypercube samples. "
+        "'lhs_stats': computed summary statistics from the same LHS sample "
+        "instead of raw text. 'meta': static BBOB/MA-BBOB properties only "
+        "(no function evaluations, no `ioh` needed). 'meta+lhs'/"
+        "'meta+lhs_stats': both combined. See problem_instances.py.",
+    )
+    p.add_argument(
+        "--holdout-fids",
+        type=int,
+        nargs="+",
+        default=None,
+        help="(aucs_per_instance only) Canonical BBOB function ids (1..24) "
+        "to hold out entirely for test -- switches from the default "
+        "lineage/generation split to leave_function_out_split, so test "
+        "contains only instances of these functions and train/val contain "
+        "none. For measuring cross-problem generalization, not for the "
+        "default run.",
+    )
+    p.add_argument(
+        "--max-records",
+        type=int,
+        default=None,
+        help="Randomly subsample down to this many records (seeded by "
+        "--seed) right after loading, before filtering/exploding. For a "
+        "fast ablation/sanity pass over a large dataset -- omit for the "
+        "real run.",
+    )
     p.add_argument("--test-run-fraction", type=float, default=0.2)
     p.add_argument("--min-runs-for-file-holdout", type=int, default=3)
     p.add_argument("--val-fraction", type=float, default=0.15)
@@ -802,6 +967,9 @@ def main(argv: list[str] | None = None) -> None:
             exclude_dir_substrings=exclude_dir_substrings,
             n_lhs_points=args.n_lhs_points,
             lhs_seed=args.lhs_seed,
+            feature_mode=args.feature_mode,
+            holdout_fids=args.holdout_fids,
+            max_records=args.max_records,
         )
         print(
             f"Ingested {summary['n_records_total']} records for problems "
@@ -824,6 +992,9 @@ def main(argv: list[str] | None = None) -> None:
             pattern=args.pattern,
             n_lhs_points=args.n_lhs_points,
             lhs_seed=args.lhs_seed,
+            feature_mode=args.feature_mode,
+            holdout_fids=args.holdout_fids,
+            max_records=args.max_records,
         )
         print(
             f"Ingested {summary['n_records_total']} records from {summary['n_files']} "

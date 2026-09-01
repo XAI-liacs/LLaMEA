@@ -245,3 +245,83 @@ def test_run_pipeline_multi_problem_aucs_per_instance_resolves_both_sources(
         "ma-1",
         "ma-2",
     }
+
+
+@pytest.fixture()
+def nested_root_two_bbob_functions(tmp_path):
+    """A BBOB experiment whose candidates each cover two distinct function
+    ids (f1 and f2), plus an MA_BBOB experiment via the experimentlog
+    fallback -- enough spread to meaningfully test
+    ``holdout_fids``/``feature_mode`` together through the real
+    ``per_problem_subdir`` pipeline."""
+    root = tmp_path / "BLADE-results"
+
+    bbob_run = root / "BBOB_exp1" / "run-a"
+    _write_jsonl(
+        bbob_run / "log.jsonl",
+        [
+            _record_with_performance_data(f"bbob-{i}", [0.5, 0.6], [(1, 1), (2, 1)])
+            for i in range(4)
+        ],
+    )
+
+    ma_run_dir = root / "MA_BBOB_exp1" / "run-LLaMEA-MA_BBOB-1"
+    _write_jsonl(
+        ma_run_dir / "log.jsonl",
+        [_record(f"ma-{i}", 0.4 + 0.01 * i) for i in range(3)],
+    )
+    _write_jsonl(
+        root / "MA_BBOB_exp1" / "experimentlog.jsonl",
+        [
+            {
+                "log_dir": "run-LLaMEA-MA_BBOB-1",
+                "problem": {
+                    "name": "MA_BBOB",
+                    "dims": [2],
+                    "training_instances": "range(0, 2)",
+                },
+            }
+        ],
+    )
+    return root
+
+
+def test_run_pipeline_multi_problem_holdout_fids_and_meta_feature_mode(
+    nested_root_two_bbob_functions, tmp_path
+):
+    out_dir = tmp_path / "out"
+    summary = run_pipeline_multi_problem(
+        nested_root_two_bbob_functions,
+        out_dir,
+        target="aucs_per_instance",
+        n_lhs_points=2,
+        feature_mode="meta+lhs",
+        holdout_fids=[2],
+    )
+
+    assert summary["split"]["strategy"] == "leave_function_out"
+
+    from llamea.rlm_surrogate.data_pipeline import read_examples_jsonl
+
+    test_examples = read_examples_jsonl(out_dir / "test.jsonl")
+    train_examples = read_examples_jsonl(out_dir / "train.jsonl")
+    val_examples = read_examples_jsonl(out_dir / "val.jsonl")
+
+    # Only fid-2 BBOB rows in test; no fid-1 or MA-BBOB rows leaked in.
+    assert test_examples
+    assert all(
+        e.instance_kind == "bbob" and e.instance_fid_or_idx == 2 for e in test_examples
+    )
+    train_val = train_examples + val_examples
+    assert all(
+        not (e.instance_kind == "bbob" and e.instance_fid_or_idx == 2)
+        for e in train_val
+    )
+    # MA-BBOB rows never appear in test for this split mode.
+    assert all(e.instance_kind != "ma_bbob" for e in test_examples)
+    assert any(e.instance_kind == "ma_bbob" for e in train_val)
+
+    # feature_mode="meta+lhs" -> both the static properties and raw LHS text
+    # are present on every exploded example.
+    all_examples = train_val + test_examples
+    assert all("family:" in e.x and "LHS[2pts" in e.x for e in all_examples)

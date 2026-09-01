@@ -169,6 +169,94 @@ together first (`aggregate_instance_predictions`); an added
 un-aggregated per-instance Spearman -- the direct signal of whether the
 model distinguishes landscapes at all.
 
+## 5b. Which problem features to use: `--feature-mode`
+
+A Latin Hypercube sample only tells the model about local numeric behavior
+at a handful of random points -- it doesn't hand over any of the *known*
+structure of the landscape. `--feature-mode` controls what gets appended to
+`x` (default `lhs`, unchanged from the original behavior):
+
+| Mode | Contents | Needs `ioh`? | Extra function evals? |
+|---|---|---|---|
+| `lhs` (default) | raw `(x)->f(x)` LHS sample text | yes | yes |
+| `lhs_stats` | computed summary stats from the *same* LHS sample (mean/std/skew/kurtosis/cv, a diagonal-quadratic meta-model R² and conditioning-number estimate) instead of the raw text | yes | yes (same budget as `lhs`) |
+| `meta` | static, free BBOB/MA-BBOB properties: dimensionality, and (for BBOB) the known COCO function group/separability/unimodality/conditioning, or (for MA-BBOB) its exact base-function composition read from `benchmarks/ma_bbob/weights.csv` | **no** | **no** |
+| `meta+lhs` / `meta+lhs_stats` | both, concatenated | yes | yes |
+
+`meta` is free (no `ioh`, no extra evaluations) and works for MA-BBOB too --
+MA-BBOB instances are affine combinations of a couple of the 24 canonical
+BBOB functions (see `problem_instances.describe_ma_bbob_composition`), so an
+MA-BBOB row gets exactly as much free structural info as a BBOB row.
+
+**The static BBOB property table (`bbob_properties.py`) is a first draft**,
+transcribed from the COCO/BBOB documentation from memory -- verify it
+against the official function definitions before trusting it for anything
+you'd cite; a subtly wrong tag there would feed misleading "ground truth"
+into training data. The 5-group split itself is the standard, safe-to-trust
+part.
+
+```bash
+uv run python -m llamea.rlm_surrogate.data_pipeline \
+    --data-dir blade-results --output-dir data_instances/ \
+    --layout per_problem_subdir --target aucs_per_instance \
+    --feature-mode meta+lhs_stats
+```
+
+## 5c. Measuring whether problem features actually help: leave-function-out
+
+The default split (`lineage_generation_split`) never holds out an entire
+BBOB function id, so it can't distinguish "the model learned to use problem
+features to generalize" from "the model memorized this function's score
+range from other instances of it in train." `--holdout-fids` switches to
+`leave_function_out_split`: entire function ids go to test, none of their
+instances appear in train/val.
+
+```bash
+uv run python -m llamea.rlm_surrogate.data_pipeline \
+    --data-dir blade-results --output-dir data_holdout/ \
+    --layout per_problem_subdir --target aucs_per_instance \
+    --feature-mode meta+lhs --holdout-fids 21 22
+```
+
+MA-BBOB rows are never placed in test by this split -- "holding out a
+function" doesn't have a clean meaning for an affine mixture of several
+base functions, so they stay in train/val unconditionally. Once you have a
+checkpoint trained on `data_holdout/train.jsonl`, run `evaluate.py` against
+`data_holdout/test.jsonl` as usual -- its Spearman/Kendall numbers now
+measure cross-problem generalization, not within-problem ranking.
+
+## 5d. Ablating feature modes: `run_ablation.py`
+
+`run_ablation.py` trains + evaluates a few feature-mode variants back to
+back on a *subsampled* dataset with a *short* training budget, so you can
+rank them before spending the full compute budget on the winner. It uses
+the leave-function-out split from 5c for evaluation.
+
+```bash
+uv run python -m llamea.rlm_surrogate.run_ablation \
+    --data-dir blade-results \
+    --output-dir results/ablation \
+    --holdout-fids 21 22 \
+    --max-records 6000
+```
+
+Default: 3 runs (one seed each) comparing `lhs` (current default) vs.
+`meta+lhs` (Tier A static properties added) vs. `meta+lhs_stats` (Tier A +
+Tier B computed stats replacing raw LHS text) -- pass `--variants` to
+change the set, `--seeds 0 1 2` to repeat each for statistical confidence
+once the harness is confirmed working. Writes
+`results/ablation/ablation_summary.json` plus a per-run
+`<variant>__seed<N>/ablation_result.json`. `--max-epochs`/
+`--max-steps-per-epoch`/`--patience` control the short ranking budget
+(defaults: 10 / 200 / 4) -- deliberately small for a fast comparison, not
+for convergence; rerun the winning variant with `data_pipeline.py`'s and
+`train.py`'s normal (larger) budgets for the real result.
+
+This requires real `BLADE-results` data, `ioh`, and (for the `t5gemma`
+base config) a GPU + HF access, same as the rest of this runbook -- it's a
+driver script, not something exercised by the (CPU-only, synthetic-fixture)
+test suite.
+
 ## 6. Step 2 -- training
 
 Two starting points, both in `configs/`:
