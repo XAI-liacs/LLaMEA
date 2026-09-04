@@ -324,9 +324,9 @@ time budget -- start fresh with 5a on the GPU box instead.
 
 ```bash
 uv run python -m llamea.rlm_surrogate.evaluate \
-    --checkpoint-dir checkpoints/base \
-    --train data/train.jsonl \
-    --test data/test.jsonl \
+    --checkpoint-dir checkpoints/base-try1 \
+    --train data_instances/train.jsonl \
+    --test data_instances/test.jsonl \
     --output-dir results/eval_base
 ```
 
