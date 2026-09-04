@@ -160,18 +160,34 @@ def median_point_predictions(
     xs: Sequence[str],
     num_samples: int | None = None,
     config: RLMSurrogateConfig | None = None,
+    batch_size: int = 32,
 ) -> np.ndarray:
-    """Returns an (n, max_num_objs) array of median-of-N sampled predictions."""
+    """Returns an (n, max_num_objs) array of median-of-N sampled predictions.
+
+    ``reg_lm.sample`` decodes its *entire* input in one call, as a single
+    ``len(xs) * num_samples``-sequence batch (see
+    ``regress_lm.pytorch.model.PyTorchModel.decode``) -- with no chunking of
+    our own, a large eval set (easily thousands of rows once
+    `target="aucs_per_instance"` has exploded it, e.g. via a big
+    `--max-records`) turns into an enormous single decode: it can run for
+    hours or outright OOM (confirmed: a real run attempted a >300GB CPU
+    allocation this way). `batch_size` chunks `xs` so each call to
+    `reg_lm.sample` only ever expands to `batch_size * num_samples`
+    sequences, independent of how large the full eval set is. Keep this
+    conservative on modest GPUs; raise it if you have headroom.
+    """
     from regress_lm import core
 
     if num_samples is None:
         num_samples = config.num_samples_point_pred if config else 64
-    inputs = [core.ExampleInput(x=x) for x in xs]
-    samples = reg_lm.sample(inputs, num_samples=num_samples)
     medians = []
-    for s in samples:
-        arr = np.asarray(s, dtype=float)
-        medians.append(np.median(arr, axis=0))
+    for start in range(0, len(xs), batch_size):
+        chunk = xs[start : start + batch_size]
+        inputs = [core.ExampleInput(x=x) for x in chunk]
+        samples = reg_lm.sample(inputs, num_samples=num_samples)
+        for s in samples:
+            arr = np.asarray(s, dtype=float)
+            medians.append(np.median(arr, axis=0))
     return np.array(medians)
 
 

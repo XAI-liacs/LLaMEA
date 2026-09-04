@@ -77,6 +77,7 @@ def run_one_variant(
     max_steps_per_epoch: int,
     patience: int,
     include_baselines: bool,
+    predict_batch_size: int,
 ) -> dict[str, Any]:
     from . import evaluate as evaluate_module
     from . import train as train_module
@@ -122,6 +123,7 @@ def run_one_variant(
         data_out / "test.jsonl",
         include_baselines=include_baselines,
         seed=seed,
+        predict_batch_size=predict_batch_size,
     )
     t_eval = time.time() - t0
 
@@ -162,6 +164,7 @@ def run_ablation(
     max_steps_per_epoch: int = 200,
     patience: int = 4,
     include_baselines: bool = False,
+    predict_batch_size: int = 32,
 ) -> list[dict[str, Any]]:
     """Runs every ``(variant, seed)`` combination and writes a summary
     table to ``output_dir/ablation_summary.json``. Returns the list of
@@ -186,6 +189,7 @@ def run_ablation(
                 max_steps_per_epoch=max_steps_per_epoch,
                 patience=patience,
                 include_baselines=include_baselines,
+                predict_batch_size=predict_batch_size,
             )
             results.append(result)
             print(
@@ -251,7 +255,12 @@ def _build_arg_parser() -> argparse.ArgumentParser:
         type=int,
         default=6000,
         help="Subsample size for the fast ablation pass -- not the full "
-        "dataset. Raise once you're ready for a less noisy comparison.",
+        "dataset. Raising this raises the *exploded* eval/test set size "
+        "roughly proportionally (each record becomes several instance "
+        "rows), which raises prediction cost roughly proportionally too "
+        "(see --predict-batch-size) -- keep this modest (low thousands) "
+        "for a fast comparison; do a full run separately once you've "
+        "picked a winning variant.",
     )
     p.add_argument("--lhs-points", type=int, default=20, dest="n_lhs_points")
     p.add_argument(
@@ -271,6 +280,15 @@ def _build_arg_parser() -> argparse.ArgumentParser:
         help="Also compute the feature/random baselines per run (slower, "
         "not needed just to rank variants against each other).",
     )
+    p.add_argument(
+        "--predict-batch-size",
+        type=int,
+        default=32,
+        help="Chunk size for RLM sampling-based prediction during "
+        "evaluation -- bounds memory/time independent of eval-set size "
+        "(each chunk expands to predict_batch_size * "
+        "num_samples_point_pred sequences). Lower it if you OOM.",
+    )
     return p
 
 
@@ -289,6 +307,7 @@ def main(argv: list[str] | None = None) -> None:
         max_steps_per_epoch=args.max_steps_per_epoch,
         patience=args.patience,
         include_baselines=args.include_baselines,
+        predict_batch_size=args.predict_batch_size,
     )
     print("\n=== Ablation summary ===")
     for r in sorted(results, key=lambda r: -r["spearman_rho"]):
