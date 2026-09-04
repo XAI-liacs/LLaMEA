@@ -252,6 +252,22 @@ once the harness is confirmed working. Writes
 for convergence; rerun the winning variant with `data_pipeline.py`'s and
 `train.py`'s normal (larger) budgets for the real result.
 
+**Keep `--max-records` modest (low thousands).** Evaluation samples the
+model `num_samples_point_pred` times (64 by default) per row of the
+*exploded* eval/test set, and that set's size scales roughly with
+`--max-records`. `predict_with_rlm`/`median_point_predictions` chunk this
+work (`--predict-batch-size`, default 32) so it can't blow up regardless
+of eval-set size -- but a large `--max-records` still means proportionally
+more chunks, i.e. proportionally more wall-clock time, in what's supposed
+to be the *fast* ranking pass. This was confirmed the hard way: a real run
+with `--max-records 20000` (well past the recommended default) took the
+evaluation step from minutes to well over 16 hours, and a separate direct
+`evaluate.py` invocation against the full (non-subsampled) dataset hit a
+`RuntimeError: ... can't allocate memory: you tried to allocate
+363562270720 bytes` from the unchunked prediction path this fix replaced.
+If you're evaluating a large test set directly with `evaluate.py` (not
+through this ablation script), pass `--predict-batch-size` there too.
+
 This requires real `BLADE-results` data, `ioh`, and (for the `t5gemma`
 base config) a GPU + HF access, same as the rest of this runbook -- it's a
 driver script, not something exercised by the (CPU-only, synthetic-fixture)

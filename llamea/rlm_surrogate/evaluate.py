@@ -260,11 +260,16 @@ def load_trained_rlm(checkpoint_dir: str | Path):
     return reg_lm, config
 
 
-def predict_with_rlm(reg_lm, config, examples: Sequence[RLMExample]) -> np.ndarray:
+def predict_with_rlm(
+    reg_lm, config, examples: Sequence[RLMExample], *, predict_batch_size: int = 32
+) -> np.ndarray:
     from .model import median_point_predictions, scalar_point_predictions
 
     medians = median_point_predictions(
-        reg_lm, [e.x for e in examples], num_samples=config.num_samples_point_pred
+        reg_lm,
+        [e.x for e in examples],
+        num_samples=config.num_samples_point_pred,
+        batch_size=predict_batch_size,
     )
     return scalar_point_predictions(medians)
 
@@ -330,13 +335,16 @@ def run_full_evaluation(
     *,
     include_baselines: bool = True,
     seed: int = 0,
+    predict_batch_size: int = 32,
 ) -> dict[str, Any]:
     train_examples = read_examples_jsonl(train_path)
     eval_examples = read_examples_jsonl(eval_path)
     is_exploded = any(e.candidate_id for e in eval_examples)
 
     reg_lm, config = load_trained_rlm(checkpoint_dir)
-    rlm_pred_raw = predict_with_rlm(reg_lm, config, eval_examples)
+    rlm_pred_raw = predict_with_rlm(
+        reg_lm, config, eval_examples, predict_batch_size=predict_batch_size
+    )
     eval_examples_agg, rlm_pred = aggregate_instance_predictions(
         eval_examples, rlm_pred_raw
     )
@@ -411,6 +419,16 @@ def _build_arg_parser() -> argparse.ArgumentParser:
     p.add_argument("--output-dir", required=True)
     p.add_argument("--no-baselines", dest="include_baselines", action="store_false")
     p.add_argument("--seed", type=int, default=0)
+    p.add_argument(
+        "--predict-batch-size",
+        type=int,
+        default=32,
+        help="Chunk size for RLM sampling-based prediction -- each call to "
+        "the model's sampler expands to `predict_batch_size * "
+        "num_samples_point_pred` sequences, so this bounds memory/time "
+        "independent of how large --test is. Lower it if you OOM, raise it "
+        "if you have GPU headroom to spare.",
+    )
     p.set_defaults(include_baselines=True)
     return p
 
@@ -423,6 +441,7 @@ def main(argv: list[str] | None = None) -> None:
         args.test,
         include_baselines=args.include_baselines,
         seed=args.seed,
+        predict_batch_size=args.predict_batch_size,
     )
     output_dir = Path(args.output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
