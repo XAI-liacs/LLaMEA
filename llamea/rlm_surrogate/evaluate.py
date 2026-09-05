@@ -254,6 +254,12 @@ def load_trained_rlm(checkpoint_dir: str | Path):
     checkpoint_dir = Path(checkpoint_dir)
     config = RLMSurrogateConfig.from_yaml(checkpoint_dir / "config.yaml")
     reg_lm = build_model(config)
+    # Same gap as train.py had (see its history): nothing in build_model()/
+    # PyTorchFineTuner ever moves the model onto the GPU by itself -- do it
+    # explicitly, before loading weights, so evaluation actually runs on
+    # CUDA when available instead of silently falling back to CPU.
+    if torch.cuda.is_available():
+        reg_lm.model.to("cuda")
     state = torch.load(checkpoint_dir / "model.pt", map_location="cpu")
     reg_lm.model.load_state_dict(state)
     reg_lm.model.eval()
