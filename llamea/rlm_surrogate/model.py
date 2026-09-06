@@ -160,7 +160,7 @@ def median_point_predictions(
     xs: Sequence[str],
     num_samples: int | None = None,
     config: RLMSurrogateConfig | None = None,
-    batch_size: int = 32,
+    batch_size: int = 4,
 ) -> np.ndarray:
     """Returns an (n, max_num_objs) array of median-of-N sampled predictions.
 
@@ -173,8 +173,15 @@ def median_point_predictions(
     hours or outright OOM (confirmed: a real run attempted a >300GB CPU
     allocation this way). `batch_size` chunks `xs` so each call to
     `reg_lm.sample` only ever expands to `batch_size * num_samples`
-    sequences, independent of how large the full eval set is. Keep this
-    conservative on modest GPUs; raise it if you have headroom.
+    sequences, independent of how large the full eval set is.
+
+    Even chunked, this can still OOM on a modest GPU: at `max_input_len:
+    4096`, `batch_size=32` with the paper's default `num_samples=64`
+    expands to 2048 sequences, each carrying a 4096-length encoder memory
+    -- confirmed on real hardware needing ~16GB just for that expansion,
+    on a 14.56GB GPU. The default here is deliberately conservative; raise
+    it only if you've confirmed the headroom (watch `nvidia-smi` during a
+    run), and expect to need a smaller value at a larger `max_input_len`.
     """
     from regress_lm import core
 

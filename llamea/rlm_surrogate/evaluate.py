@@ -267,7 +267,7 @@ def load_trained_rlm(checkpoint_dir: str | Path):
 
 
 def predict_with_rlm(
-    reg_lm, config, examples: Sequence[RLMExample], *, predict_batch_size: int = 32
+    reg_lm, config, examples: Sequence[RLMExample], *, predict_batch_size: int = 4
 ) -> np.ndarray:
     from .model import median_point_predictions, scalar_point_predictions
 
@@ -341,7 +341,7 @@ def run_full_evaluation(
     *,
     include_baselines: bool = True,
     seed: int = 0,
-    predict_batch_size: int = 32,
+    predict_batch_size: int = 4,
 ) -> dict[str, Any]:
     train_examples = read_examples_jsonl(train_path)
     eval_examples = read_examples_jsonl(eval_path)
@@ -428,12 +428,15 @@ def _build_arg_parser() -> argparse.ArgumentParser:
     p.add_argument(
         "--predict-batch-size",
         type=int,
-        default=32,
+        default=4,
         help="Chunk size for RLM sampling-based prediction -- each call to "
         "the model's sampler expands to `predict_batch_size * "
         "num_samples_point_pred` sequences, so this bounds memory/time "
-        "independent of how large --test is. Lower it if you OOM, raise it "
-        "if you have GPU headroom to spare.",
+        "independent of how large --test is. Default is deliberately "
+        "conservative (confirmed on real hardware: batch_size=32 at "
+        "max_input_len=4096 needed ~16GB just for one internal tensor, "
+        "OOMing a 14.56GB GPU). Raise it only after confirming headroom "
+        "(watch nvidia-smi during a run); lower it further if you still OOM.",
     )
     p.set_defaults(include_baselines=True)
     return p

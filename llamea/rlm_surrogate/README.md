@@ -256,17 +256,24 @@ for convergence; rerun the winning variant with `data_pipeline.py`'s and
 model `num_samples_point_pred` times (64 by default) per row of the
 *exploded* eval/test set, and that set's size scales roughly with
 `--max-records`. `predict_with_rlm`/`median_point_predictions` chunk this
-work (`--predict-batch-size`, default 32) so it can't blow up regardless
-of eval-set size -- but a large `--max-records` still means proportionally
+work (`--predict-batch-size`, default 4) so it can't blow up regardless of
+eval-set size -- but a large `--max-records` still means proportionally
 more chunks, i.e. proportionally more wall-clock time, in what's supposed
-to be the *fast* ranking pass. This was confirmed the hard way: a real run
-with `--max-records 20000` (well past the recommended default) took the
-evaluation step from minutes to well over 16 hours, and a separate direct
-`evaluate.py` invocation against the full (non-subsampled) dataset hit a
-`RuntimeError: ... can't allocate memory: you tried to allocate
-363562270720 bytes` from the unchunked prediction path this fix replaced.
-If you're evaluating a large test set directly with `evaluate.py` (not
-through this ablation script), pass `--predict-batch-size` there too.
+to be the *fast* ranking pass. This was confirmed the hard way twice: a
+real run with `--max-records 20000` (well past the recommended default)
+took the evaluation step from minutes to well over 16 hours; a separate
+direct `evaluate.py` invocation against the full (non-subsampled) dataset
+hit `RuntimeError: ... can't allocate memory: you tried to allocate
+363562270720 bytes` from the unchunked prediction path this fix replaced;
+and even *after* chunking, `--predict-batch-size 32` at `max_input_len:
+4096` still needed ~16GB just for one internal tensor (`batch_size *
+num_samples_point_pred` = 2048 expanded sequences, each carrying a
+4096-length encoder memory), OOMing a 14.56GB GPU -- hence the
+conservative default of 4. If you're evaluating a large test set directly
+with `evaluate.py` (not through this ablation script), the same
+`--predict-batch-size` flag applies there too; raise it only after
+watching `nvidia-smi` confirm you have headroom, and expect to need a
+smaller value at a larger `max_input_len`.
 
 This requires real `BLADE-results` data, `ioh`, and (for the `t5gemma`
 base config) a GPU + HF access, same as the rest of this runbook -- it's a

@@ -164,7 +164,7 @@ def run_ablation(
     max_steps_per_epoch: int = 200,
     patience: int = 4,
     include_baselines: bool = False,
-    predict_batch_size: int = 32,
+    predict_batch_size: int = 4,
 ) -> list[dict[str, Any]]:
     """Runs every ``(variant, seed)`` combination and writes a summary
     table to ``output_dir/ablation_summary.json``. Returns the list of
@@ -283,11 +283,14 @@ def _build_arg_parser() -> argparse.ArgumentParser:
     p.add_argument(
         "--predict-batch-size",
         type=int,
-        default=32,
+        default=4,
         help="Chunk size for RLM sampling-based prediction during "
         "evaluation -- bounds memory/time independent of eval-set size "
         "(each chunk expands to predict_batch_size * "
-        "num_samples_point_pred sequences). Lower it if you OOM.",
+        "num_samples_point_pred sequences). Default is deliberately "
+        "conservative (confirmed on real hardware: 32 at max_input_len=4096 "
+        "needed ~16GB just for one internal tensor). Raise it only after "
+        "confirming GPU headroom; lower it further if you still OOM.",
     )
     return p
 
