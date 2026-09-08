@@ -22,7 +22,7 @@ batch_size: 32
 # examples in memory at once, with the rest made up by gradient accumulation
 # (8 micro-steps) -- same training statistics, much safer peak memory. Raise
 # this if you have headroom to spare (check `nvidia-smi` during a run).
-batch_size_per_device: 4
+batch_size_per_device: 2
 # Caps each "epoch" at 500 optimizer updates instead of a full pass over a
 # large train.jsonl (a full pass over tens of thousands of examples can take
 # a long time between any validation/early-stopping/console feedback, since

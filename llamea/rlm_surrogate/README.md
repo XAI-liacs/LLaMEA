@@ -364,9 +364,9 @@ skip the feature/random baselines if you only want the RLM numbers.
 
 ```bash
 uv run python -m llamea.rlm_surrogate.report \
-    --stats data/stats.json \
-    --eval-results results/eval_base/eval_results.json \
-    --config checkpoints/base/config.yaml \
+    --stats data_instances/stats.json \
+    --eval-results results/eval_base_1/eval_results.json \
+    --config checkpoints/base-try1/config.yaml \
     --output-dir results
 ```
 
