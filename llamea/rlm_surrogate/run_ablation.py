@@ -44,6 +44,35 @@ from .data_pipeline import SplitConfig, run_pipeline_multi_problem
 DEFAULT_VARIANTS = ["lhs", "meta+lhs", "meta+lhs_stats"]
 
 
+def _release_gpu_memory() -> None:
+    """Runs between train/eval stages and between variants.
+
+    Neither ``train.py`` nor ``evaluate.py`` explicitly frees their
+    model/optimizer state -- ``run_one_variant`` builds a fresh RLM for
+    training and another for evaluation, and ``run_ablation`` calls it
+    repeatedly in the same process, so a previous stage's/variant's
+    memory can still be resident (and fragmented, per a real confirmed
+    OOM: "10.79 GiB memory in use" of which only 6.66 GiB was actually
+    allocated to live tensors, the rest reserved-but-unused by PyTorch's
+    caching allocator) when the next one starts to allocate. `gc.collect()`
+    clears out-of-scope Python references so CUDA tensors are actually
+    freed, then `torch.cuda.empty_cache()` returns the now-unused cached
+    blocks to the driver so the next allocation isn't fighting
+    fragmentation from a memory pool with capacity to spare overall but
+    no single free block large enough.
+    """
+    import gc
+
+    gc.collect()
+    try:
+        import torch
+
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
+    except ImportError:
+        pass
+
+
 def _short_config(
     base_config_path: str | Path,
     *,
@@ -115,6 +144,13 @@ def run_one_variant(
         checkpoint_dir,
     )
     t_train = time.time() - t0
+
+    # train_module.train() builds its own RLM (model + optimizer state) that
+    # goes out of scope here; without an explicit collect+empty_cache, that
+    # GPU memory can still be resident/fragmented when evaluate_module below
+    # loads a second RLM for evaluation (confirmed real OOM: see
+    # `_release_gpu_memory`'s docstring).
+    _release_gpu_memory()
 
     t0 = time.time()
     eval_report = evaluate_module.run_full_evaluation(
@@ -192,6 +228,11 @@ def run_ablation(
                 predict_batch_size=predict_batch_size,
             )
             results.append(result)
+            # Same rationale as the train/eval cleanup inside
+            # run_one_variant: without this, one variant's leftover GPU
+            # memory can still be resident (and fragmented) when the next
+            # variant/seed starts training a fresh RLM.
+            _release_gpu_memory()
             print(
                 f"  -> spearman={result['spearman_rho']:.3f} "
                 f"kendall={result['kendall_tau']:.3f} "
