@@ -192,7 +192,7 @@ def test_compute_meta_feature_text_bbob():
     text = compute_meta_feature_text(instance)
     assert "family: BBOB" in text
     assert "dim: 10" in text
-    assert "Sphere" in text
+    assert "Sphere" not in text  # fid/name deliberately omitted, see bbob_properties.py
     assert "separable=True" in text
 
 
@@ -208,13 +208,16 @@ def test_compute_meta_feature_text_ma_bbob_reads_real_weights_csv():
 
 
 def test_describe_ma_bbob_composition_matches_real_weights_csv_row0():
+    from llamea.rlm_surrogate.bbob_properties import describe_bbob_function
     from llamea.rlm_surrogate.problem_instances import describe_ma_bbob_composition
 
     # benchmarks/ma_bbob/weights.csv row 0: f14 weight ~0.501, f23 weight
-    # ~0.499, all other columns 0 -- verified by hand reading the CSV.
+    # ~0.499, all other columns 0 -- verified by hand reading the CSV. fid
+    # labels are deliberately omitted from the text (see bbob_properties.py),
+    # so assert on the two components' rendered properties instead.
     text = describe_ma_bbob_composition(0)
-    assert "f14" in text
-    assert "f23" in text
+    assert describe_bbob_function(14) in text
+    assert describe_bbob_function(23) in text
     assert "50." in text  # both components round to ~50.0%/50.1%/49.9%
 
 

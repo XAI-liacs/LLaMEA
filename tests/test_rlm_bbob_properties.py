@@ -9,7 +9,7 @@ def test_all_24_functions_present():
 
 def test_describe_sphere_separable_unimodal():
     text = describe_bbob_function(1)
-    assert "Sphere" in text
+    assert "Sphere" not in text
     assert "separable=True" in text
     assert "unimodal" in text
     assert "group 1" in text
@@ -17,10 +17,20 @@ def test_describe_sphere_separable_unimodal():
 
 def test_describe_lunacek_multimodal_weak_structure():
     text = describe_bbob_function(24)
-    assert "Lunacek" in text
+    assert "Lunacek" not in text
     assert "separable=False" in text
     assert "multi-modal" in text
     assert "group 5" in text
+
+
+def test_describe_bbob_function_omits_fid_and_name():
+    """Deliberate: a real-world black-box problem doesn't come labeled with
+    a BBOB function id or name, so this feature text must stick to
+    structural properties a generalizable descriptor could actually know."""
+    for fid, info in BBOB_FUNCTIONS.items():
+        text = describe_bbob_function(fid)
+        assert info.name not in text
+        assert f"f{fid} " not in text
 
 
 def test_describe_unknown_fid_raises():

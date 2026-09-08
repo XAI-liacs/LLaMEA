@@ -90,10 +90,16 @@ BBOB_FUNCTIONS: dict[int, BBOBFunctionInfo] = {
 def describe_bbob_function(fid: int) -> str:
     """Renders ``fid``'s known properties as a compact text fragment.
     Raises ``KeyError`` for an fid outside 1..24 -- callers should treat
-    that as "can't describe," not silently skip."""
+    that as "can't describe," not silently skip.
+
+    Deliberately omits ``fid`` and ``name``: a real-world black-box problem
+    doesn't come labeled with a BBOB function id or name, so including them
+    here would make the feature unrealistic to generalize from -- only the
+    structural properties below are meant to be knowable in general.
+    """
     info = BBOB_FUNCTIONS[fid]
     modality = "unimodal" if info.unimodal else "multi-modal"
-    return ( #f{info.fid} {info.name} 
+    return (
         f"(group {info.group}: {GROUP_NAMES[info.group]}; "
         f"separable={info.separable}; {modality}; conditioning={info.conditioning})"
     )
