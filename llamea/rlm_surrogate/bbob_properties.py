@@ -93,7 +93,7 @@ def describe_bbob_function(fid: int) -> str:
     that as "can't describe," not silently skip."""
     info = BBOB_FUNCTIONS[fid]
     modality = "unimodal" if info.unimodal else "multi-modal"
-    return (
-        f"f{info.fid} {info.name} (group {info.group}: {GROUP_NAMES[info.group]}; "
+    return ( #f{info.fid} {info.name} 
+        f"(group {info.group}: {GROUP_NAMES[info.group]}; "
         f"separable={info.separable}; {modality}; conditioning={info.conditioning})"
     )
