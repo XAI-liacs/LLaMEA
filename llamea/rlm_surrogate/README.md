@@ -83,7 +83,7 @@ The pipeline supports two layouts (`data_pipeline.py --layout`):
 ```bash
 uv run python -m llamea.rlm_surrogate.data_pipeline \
     --data-dir blade-results \
-    --output-dir data/ \
+    --output-dir /data/neocortex/rlm/data/ \
     --layout per_problem_subdir
 ```
 
@@ -128,7 +128,7 @@ score ranges.
 ```bash
 uv run python -m llamea.rlm_surrogate.data_pipeline \
     --data-dir blade-results \
-    --output-dir data_instances/ \
+    --output-dir /data/neocortex/rlm/data_instances/ \
     --layout per_problem_subdir \
     --target aucs_per_instance \
     --lhs-points 100
@@ -197,7 +197,7 @@ part.
 
 ```bash
 uv run python -m llamea.rlm_surrogate.data_pipeline \
-    --data-dir blade-results --output-dir data_instances/ \
+    --data-dir blade-results --output-dir /data/neocortex/rlm/data_instances/ \
     --layout per_problem_subdir --target aucs_per_instance \
     --feature-mode meta+lhs_stats
 ```
@@ -213,7 +213,7 @@ instances appear in train/val.
 
 ```bash
 uv run python -m llamea.rlm_surrogate.data_pipeline \
-    --data-dir blade-results --output-dir data_holdout/ \
+    --data-dir blade-results --output-dir /data/neocortex/rlm/data_holdout/ \
     --layout per_problem_subdir --target aucs_per_instance \
     --feature-mode meta+lhs --holdout-fids 21 22
 ```
@@ -235,7 +235,7 @@ the leave-function-out split from 5c for evaluation.
 ```bash
 uv run python -m llamea.rlm_surrogate.run_ablation \
     --data-dir blade-results \
-    --output-dir results/ablation \
+    --output-dir /data/neocortex/rlm/results/ablation \
     --holdout-fids 21 22 \
     --max-records 6000
 ```
@@ -290,8 +290,8 @@ Two starting points, both in `configs/`:
 export CUDA_VISIBLE_DEVICES="0"
 uv run python -m llamea.rlm_surrogate.train \
     --config llamea/rlm_surrogate/configs/default.yaml \
-    --train data_instances/train.jsonl --val data_instances/val.jsonl \
-    --output-dir checkpoints/base
+    --train /data/neocortex/rlm/data_instances/train.jsonl --val /data/neocortex/rlm/data_instances/val.jsonl \
+    --output-dir /data/neocortex/rlm/checkpoints/base
 ```
 
 `configs/default.yaml` uses `encoder_type: t5gemma`, `freeze_encoder: true`
@@ -348,9 +348,9 @@ time budget -- start fresh with 5a on the GPU box instead.
 ```bash
 uv run python -m llamea.rlm_surrogate.evaluate \
     --checkpoint-dir checkpoints/base-try1 \
-    --train data_instances/train.jsonl \
-    --test data_instances/test.jsonl \
-    --output-dir results/eval_base
+    --train /data/neocortex/rlm/data_instances/train.jsonl \
+    --test /data/neocortex/rlm/data_instances/test.jsonl \
+    --output-dir /data/neocortex/rlm/results/eval_base
 ```
 
 Needs `--train` too (used to fit the hand-featured baseline regressor, for
@@ -364,9 +364,9 @@ skip the feature/random baselines if you only want the RLM numbers.
 
 ```bash
 uv run python -m llamea.rlm_surrogate.report \
-    --stats data_instances/stats.json \
-    --eval-results results/eval_base_1/eval_results.json \
-    --config checkpoints/base-try1/config.yaml \
+    --stats /data/neocortex/rlm/data_instances/stats.json \
+    --eval-results /data/neocortex/rlm/results/eval_base_1/eval_results.json \
+    --config /data/neocortex/rlm/checkpoints/base-try1/config.yaml \
     --output-dir results
 ```
 
