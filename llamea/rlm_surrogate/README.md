@@ -228,29 +228,50 @@ measure cross-problem generalization, not within-problem ranking.
 ## 5d. Ablating feature modes: `run_ablation.py`
 
 `run_ablation.py` trains + evaluates a few feature-mode variants back to
-back on a *subsampled* dataset with a *short* training budget, so you can
-rank them before spending the full compute budget on the winner. It uses
-the leave-function-out split from 5c for evaluation.
+back on a *subsampled* dataset, so you can rank them before spending the
+full compute budget on the winner. It uses the leave-function-out split
+from 5c for evaluation.
 
 ```bash
 uv run python -m llamea.rlm_surrogate.run_ablation \
     --data-dir blade-results \
     --output-dir /data/neocortex/rlm/results/ablation \
-    --holdout-fids 21 22 \
-    --max-records 6000
+    --max-records 10000
 ```
 
-Default: 3 runs (one seed each) comparing `lhs` (current default) vs.
-`meta+lhs` (Tier A static properties added) vs. `meta+lhs_stats` (Tier A +
-Tier B computed stats replacing raw LHS text) -- pass `--variants` to
-change the set, `--seeds 0 1 2` to repeat each for statistical confidence
-once the harness is confirmed working. Writes
-`results/ablation/ablation_summary.json` plus a per-run
-`<variant>__seed<N>/ablation_result.json`. `--max-epochs`/
-`--max-steps-per-epoch`/`--patience` control the short ranking budget
-(defaults: 10 / 200 / 4) -- deliberately small for a fast comparison, not
-for convergence; rerun the winning variant with `data_pipeline.py`'s and
-`train.py`'s normal (larger) budgets for the real result.
+Default: the full `variant x seed x holdout_fids` matrix -- 3 variants
+(`lhs` current default, `meta+lhs` Tier A static properties added,
+`meta+lhs_stats` Tier A + Tier B computed stats replacing raw LHS text) x 5
+seeds (`0`-`4`) x 3 holdout-fid pairs spanning different COCO/BBOB groups
+(`[21,22]`, `[3,8]`, `[13,19]`, see the module docstring) = 45 runs. This
+replaced an earlier single-seed/single-holdout version after a real run
+showed two variants land within 0.003 Spearman of each other -- far too
+close to call from one run; the seed and holdout axes exist so a variant's
+apparent edge can be checked against run-to-run noise and against more than
+one held-out region before trusting it.
+
+Pass `--variants` to change the variant set, `--seeds 0 1 2` to override
+the seed list, and `--holdout-fids 21 22 --holdout-fids 3 8` (repeat the
+flag once per set) to override the holdout sets. Writes
+`results/ablation/ablation_summary.json` -- including a `by_variant` block
+with each variant's mean/std Spearman and Kendall across every run, so you
+can see whether a gap survives that variance -- plus a per-run
+`<variant>__seed<N>__holdout<fids>/ablation_result.json`. `--max-epochs`/
+`--max-steps-per-epoch`/`--patience` control the training budget (defaults:
+20 / 300 / 6 -- raised from the original fast-ranking pass's 10 / 200 / 4
+for a more realistic effort, still well short of the production config's
+60 / 500 / 8 since it multiplies by every other axis); rerun the winning
+variant with `data_pipeline.py`'s and `train.py`'s normal (larger) budgets
+for the real result.
+
+**Wall-clock warning**: the default 45-run matrix at the raised training
+budget will take a long time serially -- the earlier short-budget version
+already took ~12h/run at 10/200. Don't run the full default matrix
+serially unless you have days to spare; shard it instead by launching
+several CLI invocations with disjoint `--seeds`/`--variants`/
+`--holdout-fids` subsets (one per GPU/machine you have), or pass smaller
+`--seeds`/`--holdout-fids` lists and a smaller `--max-epochs`/
+`--max-steps-per-epoch` for a quicker pass.
 
 **Keep `--max-records` modest (low thousands).** Evaluation samples the
 model `num_samples_point_pred` times (64 by default) per row of the
