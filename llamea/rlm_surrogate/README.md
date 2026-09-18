@@ -301,6 +301,32 @@ base config) a GPU + HF access, same as the rest of this runbook -- it's a
 driver script, not something exercised by the (CPU-only, synthetic-fixture)
 test suite.
 
+## 5e. Ablating LHS sample density: `run_ablation_lhs_points.py`
+
+A separate, parallel ablation from 5d: holds the feature *mode* fixed
+(default `lhs`, the raw-sample text) and instead varies `n_lhs_points` --
+how many Latin Hypercube points are sampled per problem instance. Reuses
+5d's `DEFAULT_SEEDS`/`DEFAULT_HOLDOUT_SETS` (imported, not duplicated) so
+the two ablations run under identical conditions and are directly
+comparable.
+
+```bash
+uv run python -m llamea.rlm_surrogate.run_ablation_lhs_points \
+    --data-dir blade-results \
+    --output-dir results/ablation_lhs_points \
+    --max-records 10000
+```
+
+Default: 3 point-count variants (`5`/`20`/`50` -- sparse, the current
+shipped default, and denser) x 5 seeds x 3 holdout-fid sets = 45 runs, the
+same matrix shape and wall-clock caveats as 5d (see that section's warning
+about sharding rather than running the default matrix serially). Pass
+`--lhs-points 10 30` to override the point-count variants, or
+`--feature-mode lhs_stats` to instead ask whether sample density matters
+for the computed-statistics representation. Writes
+`results/ablation_lhs_points/ablation_summary.json` with the same
+`by_variant` mean/std rollup as 5d.
+
 ## 6. Step 2 -- training
 
 Two starting points, both in `configs/`:
