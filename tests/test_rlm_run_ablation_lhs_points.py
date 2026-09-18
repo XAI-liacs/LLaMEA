@@ -15,10 +15,10 @@ from llamea.rlm_surrogate.run_ablation_lhs_points import (
 )
 
 
-def test_default_lhs_points_has_three_variants_bracketing_the_shipped_default():
+def test_default_lhs_points_has_three_variants_above_the_shipped_default():
     assert len(DEFAULT_LHS_POINTS) == 3
-    assert 20 in DEFAULT_LHS_POINTS  # current shipped default, for comparability
-    assert min(DEFAULT_LHS_POINTS) < 20 < max(DEFAULT_LHS_POINTS)
+    assert DEFAULT_LHS_POINTS == sorted(DEFAULT_LHS_POINTS)
+    assert min(DEFAULT_LHS_POINTS) > 20  # current shipped default
 
 
 def test_cli_defaults_reuse_run_ablation_seeds_and_holdout_sets():

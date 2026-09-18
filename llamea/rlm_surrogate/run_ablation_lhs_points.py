@@ -20,9 +20,9 @@ with ``n_lhs_points`` playing the role of "variant": for the same reason
 two variants within 0.003 Spearman of each other), rank LHS-density options
 across several seeds and several held-out regions rather than one run each.
 
-Default: 3 point-count variants (``5``/``20``/``50`` -- sparse, the current
-shipped default, and denser) x 5 seeds x 3 holdout-fid sets = 45 runs, same
-order of magnitude as ``run_ablation.py``'s default matrix.
+Default: 3 point-count variants (``50``/``100``/``200``) x 5 seeds x 3
+holdout-fid sets = 45 runs, same order of magnitude as ``run_ablation.py``'s
+default matrix.
 
 **Wall-clock warning**: same caveat as ``run_ablation.py`` -- the default
 45-run matrix at a realistic training budget takes a long time serially.
@@ -58,9 +58,7 @@ from .run_ablation import (
     _summarize_by_variant,
 )
 
-# Sparse, the current shipped default, and denser -- brackets the current
-# default from both sides rather than only probing "more points."
-DEFAULT_LHS_POINTS = [5, 20, 50]
+DEFAULT_LHS_POINTS = [50, 100, 200]
 
 DEFAULT_FEATURE_MODE = "lhs"
 
@@ -256,7 +254,10 @@ def _build_arg_parser() -> argparse.ArgumentParser:
         default=DEFAULT_LHS_POINTS,
         dest="lhs_points_variants",
         help=f"LHS sample-count variants to compare. Default: "
-        f"{DEFAULT_LHS_POINTS} (sparse, current shipped default, denser).",
+        f"{DEFAULT_LHS_POINTS} -- well above the current shipped default "
+        "of 20, to test whether a denser (and proportionally more "
+        "expensive, since evaluation cost scales with n_lhs_points) sample "
+        "improves generalization.",
     )
     p.add_argument(
         "--feature-mode",

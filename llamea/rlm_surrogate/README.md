@@ -317,11 +317,14 @@ uv run python -m llamea.rlm_surrogate.run_ablation_lhs_points \
     --max-records 10000
 ```
 
-Default: 3 point-count variants (`5`/`20`/`50` -- sparse, the current
-shipped default, and denser) x 5 seeds x 3 holdout-fid sets = 45 runs, the
-same matrix shape and wall-clock caveats as 5d (see that section's warning
-about sharding rather than running the default matrix serially). Pass
-`--lhs-points 10 30` to override the point-count variants, or
+Default: 3 point-count variants (`50`/`100`/`200` -- all above the current
+shipped default of 20, to test whether a denser sample improves
+generalization) x 5 seeds x 3 holdout-fid sets = 45 runs, the same matrix
+shape and wall-clock caveats as 5d (see that section's warning about
+sharding rather than running the default matrix serially; a denser LHS
+sample also means more per-instance evaluation cost during the data
+pipeline stage, on top of that). Pass `--lhs-points 10 30` to override the
+point-count variants, or
 `--feature-mode lhs_stats` to instead ask whether sample density matters
 for the computed-statistics representation. Writes
 `results/ablation_lhs_points/ablation_summary.json` with the same
