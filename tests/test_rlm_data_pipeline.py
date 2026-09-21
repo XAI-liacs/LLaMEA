@@ -175,6 +175,35 @@ def test_run_pipeline_raises_on_empty_dir(tmp_path):
         run_pipeline(empty_dir, tmp_path / "out")
 
 
+def test_run_pipeline_disambiguates_generic_log_filenames_across_dirs(tmp_path):
+    """Regression: `--pattern '*/log.jsonl'` against multiple experiment
+    directories (this repo's own ExperimentLogger always writes
+    `log.jsonl` regardless of which run produced it) must not collapse
+    every run into the same run_id -- that would silently disable
+    lineage_generation_split's whole-run holdout and mix distinct
+    sessions together in within-run metrics."""
+    data_dir = tmp_path / "data"
+    (data_dir / "expA").mkdir(parents=True)
+    (data_dir / "expB").mkdir(parents=True)
+    (data_dir / "expA" / "log.jsonl").write_text(
+        (FIXTURES / "run_alpha.jsonl").read_text()
+    )
+    (data_dir / "expB" / "log.jsonl").write_text(
+        (FIXTURES / "run_beta.jsonl").read_text()
+    )
+
+    summary = run_pipeline(data_dir, tmp_path / "out", pattern="*/log.jsonl")
+    assert summary["n_files"] == 2
+
+    all_examples = (
+        read_examples_jsonl(tmp_path / "out" / "train.jsonl")
+        + read_examples_jsonl(tmp_path / "out" / "val.jsonl")
+        + read_examples_jsonl(tmp_path / "out" / "test.jsonl")
+    )
+    run_ids = {e.run_id for e in all_examples}
+    assert run_ids == {"expA/log", "expB/log"}
+
+
 # --- explode_aucs_with_problem_features (needs the `ioh` extra) ---
 
 ioh = pytest.importorskip("ioh")

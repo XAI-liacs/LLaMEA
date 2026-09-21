@@ -70,7 +70,13 @@ rsync -avz /local/path/to/BLADE-results/ gpu-box:/data/BLADE-results/
 The pipeline supports two layouts (`data_pipeline.py --layout`):
 
 - `flat`: `--data-dir` directly contains `.jsonl` run files (one file per
-  run). This is what the unit tests/fixtures use.
+  run). This is what the unit tests/fixtures use. Its `--pattern` can also
+  reach into subdirectories (e.g. `*/log.jsonl`) to pool multiple
+  experiment folders that each use this repo's own `ExperimentLogger`
+  filename convention (always `log.jsonl`, regardless of run) -- `run_id`
+  is derived from the path *relative to* `--data-dir` (not just the bare
+  filename) specifically so that doesn't collapse every folder into one
+  run_id.
 - `per_problem_subdir`: `--data-dir` contains
   `<experiment_folder>/run-*/log.jsonl` -- **this is what the real
   `BLADE-results` export uses**, and is the one you want. `problem_id` is

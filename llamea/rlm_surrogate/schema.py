@@ -120,9 +120,29 @@ def _coerce_configspace(value: Any) -> str:
     return json.dumps(value)
 
 
-def derive_run_id(file_path: str | Path) -> str:
-    """Derives a run id from a log filename (no explicit run-id field exists)."""
-    return Path(file_path).stem
+def derive_run_id(file_path: str | Path, base_dir: str | Path | None = None) -> str:
+    """Derives a run id from a log file's path (no explicit run-id field
+    exists).
+
+    Defaults to the bare filename stem. Pass ``base_dir`` (the directory a
+    glob pattern was run against) to instead use the path *relative* to it
+    with the suffix dropped -- necessary when ingesting multiple experiment
+    directories via a pattern like ``*/log.jsonl``: this repo's own
+    ``ExperimentLogger`` always names the file ``log.jsonl`` regardless of
+    which run produced it, so the bare stem (``"log"``) would collapse
+    every run into the same run_id, silently disabling
+    ``lineage_generation_split``'s whole-run holdout and mixing distinct
+    sessions together in within-run metrics. Falls back to the bare stem
+    if ``base_dir`` is omitted or ``file_path`` isn't actually under it.
+    """
+    path = Path(file_path)
+    if base_dir is not None:
+        try:
+            rel = path.relative_to(Path(base_dir))
+        except ValueError:
+            return path.stem
+        return rel.with_suffix("").as_posix()
+    return path.stem
 
 
 def iter_blade_records(
@@ -164,7 +184,9 @@ def load_directory(data_dir: str | Path, pattern: str = "*.jsonl") -> list[Blade
     files = sorted(data_dir.glob(pattern))
     records: list[BladeRecord] = []
     for f in files:
-        records.extend(iter_blade_records(f))
+        records.extend(
+            iter_blade_records(f, run_id=derive_run_id(f, base_dir=data_dir))
+        )
     return records
 
 

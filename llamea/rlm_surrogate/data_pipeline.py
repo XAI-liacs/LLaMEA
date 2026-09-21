@@ -509,8 +509,8 @@ def run_pipeline(
     per_file_stats = []
     all_records: list[BladeRecord] = []
     for f in files:
-        run_id = derive_run_id(f)
-        records = list(iter_blade_records(f))
+        run_id = derive_run_id(f, base_dir=data_dir)
+        records = list(iter_blade_records(f, run_id=run_id))
         report = validate_records(records, label=run_id)
         per_file_stats.append(report.to_dict())
         all_records.extend(records)
