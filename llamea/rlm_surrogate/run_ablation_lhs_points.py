@@ -7,7 +7,8 @@ problem instance change how well the RLM surrogate generalizes?
 
 This is a deliberately separate, parallel script -- it does not modify
 ``run_ablation.py``, only imports a few small, already-tested utilities from
-it (`_release_gpu_memory`, `_short_config`, `_summarize_by_variant`, and the
+it (`_release_gpu_memory`, `_short_config`, `_summarize_by_variant`,
+`_run_dir_for`, `_load_cached_result`, `_write_json_atomic`, and the
 `DEFAULT_SEEDS`/`DEFAULT_HOLDOUT_SETS` constants) so the two ablations run
 under identical seed and holdout conditions and are directly comparable,
 without duplicating that logic.
@@ -30,6 +31,14 @@ Shard it (disjoint ``--seeds``/``--lhs-points``/``--holdout-fids`` per
 GPU/machine) or pass smaller lists / a smaller ``--max-epochs``/
 ``--max-steps-per-epoch`` for a quicker pass.
 
+**Restartable by default**, same mechanism and caveat as
+``run_ablation.py``: re-running the same command skips any
+``(n_lhs_points, seed, holdout_fids)`` combination whose run directory
+already has a complete, valid ``ablation_result.json``, and only redoes
+what's missing or was left incomplete -- it does not resume a single run
+mid-training from a checkpoint. Pass ``--force-rerun`` to ignore cached
+results and redo everything.
+
 Requires the ``ioh`` extra, real ``BLADE-results`` data in the
 ``per_problem_subdir`` layout, and a GPU for the T5Gemma config -- this is a
 driver, not something exercised in the (CPU-only, synthetic-fixture) test
@@ -44,7 +53,6 @@ CLI:
 from __future__ import annotations
 
 import argparse
-import json
 import time
 from pathlib import Path
 from typing import Any
@@ -53,9 +61,12 @@ from .data_pipeline import SplitConfig, run_pipeline_multi_problem
 from .run_ablation import (
     DEFAULT_HOLDOUT_SETS,
     DEFAULT_SEEDS,
+    _load_cached_result,
     _release_gpu_memory,
+    _run_dir_for,
     _short_config,
     _summarize_by_variant,
+    _write_json_atomic,
 )
 
 DEFAULT_LHS_POINTS = [50, 100, 200]
@@ -82,8 +93,7 @@ def run_one_lhs_points_variant(
     from . import evaluate as evaluate_module
     from . import train as train_module
 
-    holdout_tag = "-".join(str(f) for f in holdout_fids)
-    run_dir = output_dir / f"lhs{n_lhs_points}__seed{seed}__holdout{holdout_tag}"
+    run_dir = _run_dir_for(output_dir, f"lhs{n_lhs_points}", seed, holdout_fids)
     data_out = run_dir / "data"
     checkpoint_dir = run_dir / "checkpoint"
 
@@ -155,8 +165,7 @@ def run_one_lhs_points_variant(
         },
         "run_dir": str(run_dir),
     }
-    with open(run_dir / "ablation_result.json", "w") as fh:
-        json.dump(result, fh, indent=2, default=str)
+    _write_json_atomic(run_dir / "ablation_result.json", result)
     return result
 
 
@@ -175,12 +184,20 @@ def run_lhs_points_ablation(
     patience: int = 6,
     include_baselines: bool = False,
     predict_batch_size: int = 4,
+    resume: bool = True,
 ) -> list[dict[str, Any]]:
     """Runs every ``(n_lhs_points, seed, holdout_fids)`` combination and
     writes a summary table (including a ``by_variant`` mean/std rollup, see
     ``run_ablation._summarize_by_variant``) to
     ``output_dir/ablation_summary.json``. Returns the list of per-run result
-    dicts (also what gets written)."""
+    dicts (also what gets written).
+
+    ``resume`` (default ``True``): before running a combination, check
+    whether its run directory already has a complete, valid
+    ``ablation_result.json`` (see ``run_ablation._load_cached_result``) and,
+    if so, reuse it instead of retraining. Pass ``False`` to ignore any
+    cached results and redo everything.
+    """
     output_dir = Path(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
 
@@ -188,14 +205,28 @@ def run_lhs_points_ablation(
     for n_lhs_points in lhs_points_variants:
         for seed in seeds:
             for holdout_fids in holdout_sets:
+                holdout_fids = list(holdout_fids)
+                run_dir = _run_dir_for(
+                    output_dir, f"lhs{n_lhs_points}", seed, holdout_fids
+                )
+                if resume:
+                    cached = _load_cached_result(run_dir)
+                    if cached is not None:
+                        print(
+                            f"=== n_lhs_points={n_lhs_points} seed={seed} "
+                            f"holdout_fids={holdout_fids} -- SKIPPED (already "
+                            f"completed, found {run_dir / 'ablation_result.json'}) ==="
+                        )
+                        results.append(cached)
+                        continue
                 print(
                     f"=== n_lhs_points={n_lhs_points} seed={seed} "
-                    f"holdout_fids={list(holdout_fids)} ==="
+                    f"holdout_fids={holdout_fids} ==="
                 )
                 result = run_one_lhs_points_variant(
                     n_lhs_points=n_lhs_points,
                     seed=seed,
-                    holdout_fids=list(holdout_fids),
+                    holdout_fids=holdout_fids,
                     data_dir=data_dir,
                     output_dir=output_dir,
                     feature_mode=feature_mode,
@@ -220,21 +251,18 @@ def run_lhs_points_ablation(
                     f"({sum(result['wall_clock_seconds'].values()):.0f}s)"
                 )
 
-    with open(output_dir / "ablation_summary.json", "w") as fh:
-        json.dump(
-            {
-                "lhs_points_variants": list(lhs_points_variants),
-                "feature_mode": feature_mode,
-                "holdout_sets": [list(h) for h in holdout_sets],
-                "max_records": max_records,
-                "seeds": list(seeds),
-                "by_variant": _summarize_by_variant(results),
-                "results": results,
-            },
-            fh,
-            indent=2,
-            default=str,
-        )
+    _write_json_atomic(
+        output_dir / "ablation_summary.json",
+        {
+            "lhs_points_variants": list(lhs_points_variants),
+            "feature_mode": feature_mode,
+            "holdout_sets": [list(h) for h in holdout_sets],
+            "max_records": max_records,
+            "seeds": list(seeds),
+            "by_variant": _summarize_by_variant(results),
+            "results": results,
+        },
+    )
     return results
 
 
@@ -322,6 +350,15 @@ def _build_arg_parser() -> argparse.ArgumentParser:
         "evaluation -- see run_ablation.py's identical flag for the "
         "real-OOM background behind the conservative default.",
     )
+    p.add_argument(
+        "--force-rerun",
+        action="store_true",
+        help="Ignore any existing ablation_result.json files and redo every "
+        "(n_lhs_points, seed, holdout_fids) combination from scratch, "
+        "instead of the default resume behavior (skip combinations that "
+        "already have a complete result). Use this after a code change "
+        "that would invalidate previously cached numbers.",
+    )
     return p
 
 
@@ -344,6 +381,7 @@ def main(argv: list[str] | None = None) -> None:
         patience=args.patience,
         include_baselines=args.include_baselines,
         predict_batch_size=args.predict_batch_size,
+        resume=not args.force_rerun,
     )
     print("\n=== Ablation summary (individual runs) ===")
     for r in sorted(results, key=lambda r: -r["spearman_rho"]):

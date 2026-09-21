@@ -273,6 +273,14 @@ several CLI invocations with disjoint `--seeds`/`--variants`/
 `--seeds`/`--holdout-fids` lists and a smaller `--max-epochs`/
 `--max-steps-per-epoch` for a quicker pass.
 
+**Restartable by default.** Re-running the exact same command skips any
+`(variant, seed, holdout_fids)` combination whose run directory already
+has a complete `ablation_result.json`, and only runs what's missing or was
+left incomplete (Ctrl-C, OOM, preemption, a crash) -- this does not resume
+a single run mid-training, it only skips runs that already finished. Pass
+`--force-rerun` to ignore cached results and redo everything (e.g. after a
+code change that would invalidate old numbers).
+
 **Keep `--max-records` modest (low thousands).** Evaluation samples the
 model `num_samples_point_pred` times (64 by default) per row of the
 *exploded* eval/test set, and that set's size scales roughly with
@@ -306,9 +314,11 @@ test suite.
 A separate, parallel ablation from 5d: holds the feature *mode* fixed
 (default `lhs`, the raw-sample text) and instead varies `n_lhs_points` --
 how many Latin Hypercube points are sampled per problem instance. Reuses
-5d's `DEFAULT_SEEDS`/`DEFAULT_HOLDOUT_SETS` (imported, not duplicated) so
-the two ablations run under identical conditions and are directly
-comparable.
+5d's `DEFAULT_SEEDS`/`DEFAULT_HOLDOUT_SETS` and restartability helpers
+(imported, not duplicated) so the two ablations run under identical
+conditions, are directly comparable, and are both resumable the same way
+(see 5d's "Restartable by default" note -- `--force-rerun` works
+identically here).
 
 ```bash
 uv run python -m llamea.rlm_surrogate.run_ablation_lhs_points \

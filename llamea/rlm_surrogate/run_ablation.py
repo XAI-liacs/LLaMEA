@@ -37,6 +37,19 @@ instead: launch several CLI invocations with disjoint ``--seeds``/
 or explicitly pass smaller ``--seeds``/``--holdout-fids`` lists and fewer
 ``--max-epochs``/``--max-steps-per-epoch`` for a quicker pass.
 
+**Restartable by default.** Before running a ``(variant, seed,
+holdout_fids)`` combination, ``run_ablation`` checks whether that run's
+directory already has a complete, valid ``ablation_result.json`` and, if
+so, skips straight to reusing it instead of retraining. This makes it safe
+to re-run the exact same command after an interruption (Ctrl-C, OOM,
+preemption, a crashed process) -- already-finished runs are loaded from
+disk instead of redone, and only what's missing or was left incomplete
+actually runs. This does *not* resume a single run mid-training from a
+checkpoint -- a run without a saved ``ablation_result.json`` (never
+started, or interrupted partway through) is simply redone from scratch.
+Pass ``--force-rerun`` to ignore any cached results and redo everything
+(e.g. after a code change that would invalidate old numbers).
+
 Requires the ``ioh`` extra, real ``BLADE-results`` data in the
 ``per_problem_subdir`` layout, and a GPU for the T5Gemma config -- this is a
 driver, not something exercised in the (CPU-only, synthetic-fixture) test
@@ -52,6 +65,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import statistics
 import time
 from pathlib import Path
@@ -77,6 +91,59 @@ DEFAULT_SEEDS = [0, 1, 2, 3, 4]
 #   [13, 19] : group 3 high-conditioning unimodal (Sharp Ridge) + group 4
 #              moderate multi-modal (Griewank-Rosenbrock).
 DEFAULT_HOLDOUT_SETS: list[list[int]] = [[21, 22], [3, 8], [13, 19]]
+
+
+def _run_dir_for(
+    output_dir: Path, label: str, seed: int, holdout_fids: list[int]
+) -> Path:
+    """Single source of truth for a run's directory name -- shared by the
+    function that writes there (``run_one_variant``) and the resume check
+    in ``run_ablation`` (which needs the same path *before* deciding
+    whether to call ``run_one_variant`` at all). ``label`` is the
+    variant/config identifier (e.g. ``"meta_lhs"`` here, ``"lhs50"`` in
+    ``run_ablation_lhs_points.py``, which reuses this helper)."""
+    holdout_tag = "-".join(str(f) for f in holdout_fids)
+    return output_dir / f"{label}__seed{seed}__holdout{holdout_tag}"
+
+
+def _write_json_atomic(path: Path, data: Any) -> None:
+    """Writes JSON to a temp file then renames it into place, so a process
+    killed mid-write (Ctrl-C, OOM-killer, preemption) never leaves a
+    truncated/corrupt file at ``path`` -- which the resume check below
+    would otherwise either crash on or (worse) silently treat as a
+    complete result and skip re-running."""
+    tmp_path = path.with_suffix(path.suffix + ".tmp")
+    with open(tmp_path, "w") as fh:
+        json.dump(data, fh, indent=2, default=str)
+    os.replace(tmp_path, path)
+
+
+# Keys a genuinely completed run_one_variant/run_one_lhs_points_variant
+# result must have -- guards against treating a result file from an old,
+# differently-shaped schema (or a hand-edited/truncated one) as valid.
+_REQUIRED_RESULT_KEYS = {"spearman_rho", "kendall_tau", "n_test", "wall_clock_seconds"}
+
+
+def _load_cached_result(run_dir: Path) -> dict[str, Any] | None:
+    """Returns the previously-saved result for ``run_dir`` if it looks like
+    a complete, valid run, else ``None`` -- covering "never started",
+    "crashed/killed partway through" (no result file saved yet), and "the
+    result file is present but corrupt or from an incompatible old
+    schema" the same way: treat it as not done, and let the caller redo it
+    from scratch. This is what makes both ablation scripts restartable --
+    note it never resumes a single run mid-training from a checkpoint, it
+    only skips runs that already finished."""
+    result_path = run_dir / "ablation_result.json"
+    if not result_path.exists():
+        return None
+    try:
+        with open(result_path) as fh:
+            result = json.load(fh)
+    except (json.JSONDecodeError, OSError):
+        return None
+    if not isinstance(result, dict) or not _REQUIRED_RESULT_KEYS.issubset(result):
+        return None
+    return result
 
 
 def _release_gpu_memory() -> None:
@@ -146,10 +213,7 @@ def run_one_variant(
     from . import evaluate as evaluate_module
     from . import train as train_module
 
-    holdout_tag = "-".join(str(f) for f in holdout_fids)
-    run_dir = (
-        output_dir / f"{variant.replace('+', '_')}__seed{seed}__holdout{holdout_tag}"
-    )
+    run_dir = _run_dir_for(output_dir, variant.replace("+", "_"), seed, holdout_fids)
     data_out = run_dir / "data"
     checkpoint_dir = run_dir / "checkpoint"
 
@@ -220,8 +284,7 @@ def run_one_variant(
         },
         "run_dir": str(run_dir),
     }
-    with open(run_dir / "ablation_result.json", "w") as fh:
-        json.dump(result, fh, indent=2, default=str)
+    _write_json_atomic(run_dir / "ablation_result.json", result)
     return result
 
 
@@ -264,11 +327,20 @@ def run_ablation(
     patience: int = 6,
     include_baselines: bool = False,
     predict_batch_size: int = 4,
+    resume: bool = True,
 ) -> list[dict[str, Any]]:
     """Runs every ``(variant, seed, holdout_fids)`` combination and writes a
     summary table (including a ``by_variant`` mean/std rollup, see
     ``_summarize_by_variant``) to ``output_dir/ablation_summary.json``.
-    Returns the list of per-run result dicts (also what gets written)."""
+    Returns the list of per-run result dicts (also what gets written).
+
+    ``resume`` (default ``True``): before running a combination, check
+    whether its run directory already has a complete, valid
+    ``ablation_result.json`` (see ``_load_cached_result``) and, if so,
+    reuse it instead of retraining -- makes rerunning the same command
+    after an interruption pick up only what's missing. Pass ``False`` to
+    ignore any cached results and redo everything.
+    """
     output_dir = Path(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
 
@@ -276,16 +348,30 @@ def run_ablation(
     for variant in variants:
         for seed in seeds:
             for holdout_fids in holdout_sets:
+                holdout_fids = list(holdout_fids)
+                run_dir = _run_dir_for(
+                    output_dir, variant.replace("+", "_"), seed, holdout_fids
+                )
+                if resume:
+                    cached = _load_cached_result(run_dir)
+                    if cached is not None:
+                        print(
+                            f"=== variant={variant!r} seed={seed} "
+                            f"holdout_fids={holdout_fids} -- SKIPPED (already "
+                            f"completed, found {run_dir / 'ablation_result.json'}) ==="
+                        )
+                        results.append(cached)
+                        continue
                 print(
                     f"=== variant={variant!r} seed={seed} "
-                    f"holdout_fids={list(holdout_fids)} ==="
+                    f"holdout_fids={holdout_fids} ==="
                 )
                 result = run_one_variant(
                     variant=variant,
                     seed=seed,
                     data_dir=data_dir,
                     output_dir=output_dir,
-                    holdout_fids=list(holdout_fids),
+                    holdout_fids=holdout_fids,
                     max_records=max_records,
                     n_lhs_points=n_lhs_points,
                     base_config_path=base_config_path,
@@ -309,20 +395,17 @@ def run_ablation(
                     f"({sum(result['wall_clock_seconds'].values()):.0f}s)"
                 )
 
-    with open(output_dir / "ablation_summary.json", "w") as fh:
-        json.dump(
-            {
-                "holdout_sets": [list(h) for h in holdout_sets],
-                "max_records": max_records,
-                "variants": variants,
-                "seeds": list(seeds),
-                "by_variant": _summarize_by_variant(results),
-                "results": results,
-            },
-            fh,
-            indent=2,
-            default=str,
-        )
+    _write_json_atomic(
+        output_dir / "ablation_summary.json",
+        {
+            "holdout_sets": [list(h) for h in holdout_sets],
+            "max_records": max_records,
+            "variants": variants,
+            "seeds": list(seeds),
+            "by_variant": _summarize_by_variant(results),
+            "results": results,
+        },
+    )
     return results
 
 
@@ -418,6 +501,15 @@ def _build_arg_parser() -> argparse.ArgumentParser:
         "needed ~16GB just for one internal tensor). Raise it only after "
         "confirming GPU headroom; lower it further if you still OOM.",
     )
+    p.add_argument(
+        "--force-rerun",
+        action="store_true",
+        help="Ignore any existing ablation_result.json files and redo every "
+        "(variant, seed, holdout_fids) combination from scratch, instead "
+        "of the default resume behavior (skip combinations that already "
+        "have a complete result). Use this after a code change that would "
+        "invalidate previously cached numbers.",
+    )
     return p
 
 
@@ -440,6 +532,7 @@ def main(argv: list[str] | None = None) -> None:
         patience=args.patience,
         include_baselines=args.include_baselines,
         predict_batch_size=args.predict_batch_size,
+        resume=not args.force_rerun,
     )
     print("\n=== Ablation summary (individual runs) ===")
     for r in sorted(results, key=lambda r: -r["spearman_rho"]):
