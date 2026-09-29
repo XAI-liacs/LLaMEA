@@ -273,11 +273,27 @@ for the real result.
 **Wall-clock warning**: the default 45-run matrix at the raised training
 budget will take a long time serially -- the earlier short-budget version
 already took ~12h/run at 10/200. Don't run the full default matrix
-serially unless you have days to spare; shard it instead by launching
-several CLI invocations with disjoint `--seeds`/`--variants`/
-`--holdout-fids` subsets (one per GPU/machine you have), or pass smaller
+serially unless you have days to spare; either shard it manually by
+launching several CLI invocations with disjoint `--seeds`/`--variants`/
+`--holdout-fids` subsets (one per GPU/machine you have), pass smaller
 `--seeds`/`--holdout-fids` lists and a smaller `--max-epochs`/
-`--max-steps-per-epoch` for a quicker pass.
+`--max-steps-per-epoch` for a quicker pass, or -- if you have multiple
+GPUs on one machine -- use `--gpus` below instead of sharding by hand.
+
+**Parallel across multiple GPUs.** Pass `--gpus 0 1 2 3 4 5 6 7 8 9` (GPU
+ids, see `nvidia-smi -L`) to spin up one persistent worker process per
+GPU, each pinned via `CUDA_VISIBLE_DEVICES` and pulling the next pending
+combination off a shared queue as soon as it finishes its current one --
+dynamic work-stealing, so a GPU that draws a faster combination doesn't
+sit idle waiting for a static per-GPU split to catch up. With 10 GPUs the
+default 45-run matrix finishes in roughly a tenth of the serial wall-clock
+time (45 runs / 10 workers ~= 4-5 runs per GPU sequentially, rather than
+45 on one). Resume applies the same way here -- already-completed
+combinations are skipped before ever reaching a worker -- and a
+combination that crashes (e.g. a transient CUDA error) just gets logged
+and left for the next invocation to retry rather than taking its whole
+worker down. Omit `--gpus` for the original single-process sequential
+behavior.
 
 **Restartable by default.** Re-running the exact same command skips any
 `(variant, seed, holdout_fids)` combination whose run directory already
@@ -320,11 +336,12 @@ test suite.
 A separate, parallel ablation from 5d: holds the feature *mode* fixed
 (default `lhs`, the raw-sample text) and instead varies `n_lhs_points` --
 how many Latin Hypercube points are sampled per problem instance. Reuses
-5d's `DEFAULT_SEEDS`/`DEFAULT_HOLDOUT_SETS` and restartability helpers
-(imported, not duplicated) so the two ablations run under identical
-conditions, are directly comparable, and are both resumable the same way
-(see 5d's "Restartable by default" note -- `--force-rerun` works
-identically here).
+5d's `DEFAULT_SEEDS`/`DEFAULT_HOLDOUT_SETS` and restartability/parallel-
+dispatch helpers (imported, not duplicated) so the two ablations run under
+identical conditions, are directly comparable, and are both resumable and
+`--gpus`-parallelizable the same way (see 5d's "Restartable by default"
+and "Parallel across multiple GPUs" notes -- both flags work identically
+here).
 
 ```bash
 uv run python -m llamea.rlm_surrogate.run_ablation_lhs_points \

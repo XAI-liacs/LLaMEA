@@ -1,11 +1,13 @@
 """Coverage for run_ablation.py's harness logic -- CLI parsing, the
-variant x seed x holdout_fids matrix, the by-variant mean/std rollup, and
-restartability (resume-by-default via cached ablation_result.json files) --
-kept free of ``ioh``/GPU/real-data dependencies by mocking ``run_one_variant``
-entirely (the actual train+eval pipeline is exercised only via real runs, per
-the module's own docstring)."""
+variant x seed x holdout_fids matrix, the by-variant mean/std rollup,
+restartability (resume-by-default via cached ablation_result.json files),
+and GPU-parallel dispatch (--gpus) -- kept free of ``ioh``/GPU/real-data
+dependencies by mocking ``run_one_variant`` entirely (the actual train+eval
+pipeline is exercised only via real runs, per the module's own docstring)."""
 
 import json
+import os
+import queue as queue_module
 from pathlib import Path
 from unittest.mock import patch
 
@@ -13,12 +15,38 @@ from llamea.rlm_surrogate.run_ablation import (
     DEFAULT_HOLDOUT_SETS,
     DEFAULT_SEEDS,
     _build_arg_parser,
+    _execute_combos,
+    _gpu_worker,
     _load_cached_result,
     _run_dir_for,
     _summarize_by_variant,
     _write_json_atomic,
     run_ablation,
 )
+
+
+def _fake_run_one_for_gpu_dispatch_test(
+    *, variant, seed, holdout_fids, data_dir, output_dir, **_kwargs
+):
+    """Module-level (picklable under multiprocessing's spawn context) stand-in
+    for run_one_variant, used only to smoke-test _execute_combos's real
+    worker-process wiring -- records which GPU id it saw via
+    CUDA_VISIBLE_DEVICES so the test can confirm _gpu_worker actually pins
+    each worker before calling into this function."""
+    run_dir = _run_dir_for(output_dir, variant.replace("+", "_"), seed, holdout_fids)
+    run_dir.mkdir(parents=True, exist_ok=True)
+    result = {
+        "variant": variant,
+        "seed": seed,
+        "holdout_fids": list(holdout_fids),
+        "spearman_rho": 0.5,
+        "kendall_tau": 0.3,
+        "n_test": 10,
+        "gpu_id_seen": os.environ.get("CUDA_VISIBLE_DEVICES"),
+        "wall_clock_seconds": {"pipeline": 0.0, "train": 0.0, "eval": 0.0},
+    }
+    _write_json_atomic(run_dir / "ablation_result.json", result)
+    return result
 
 
 def test_default_holdout_sets_and_seeds_have_more_than_one_entry():
@@ -258,3 +286,94 @@ def test_run_ablation_force_rerun_ignores_cached_results(tmp_path):
 
     assert calls == [("lhs", 0, (21, 22))]
     assert results[0]["spearman_rho"] == 0.1
+
+
+def test_cli_gpus_defaults_to_none():
+    args = _build_arg_parser().parse_args(
+        ["--data-dir", "/data", "--output-dir", "/out"]
+    )
+    assert args.gpus is None
+
+
+def test_cli_gpus_parses_list_of_ids():
+    args = _build_arg_parser().parse_args(
+        ["--data-dir", "/data", "--output-dir", "/out", "--gpus", "0", "1", "2"]
+    )
+    assert args.gpus == [0, 1, 2]
+
+
+def test_gpu_worker_sets_cuda_visible_devices_and_drains_until_sentinel():
+    """_gpu_worker must pin CUDA_VISIBLE_DEVICES to its assigned id before
+    calling run_one_fn, and keep pulling combinations off the queue until
+    it sees the None sentinel."""
+    seen = []
+
+    def fake_run_one(**kwargs):
+        seen.append((os.environ.get("CUDA_VISIBLE_DEVICES"), kwargs["seed"]))
+        return {
+            "spearman_rho": 0.1,
+            "kendall_tau": 0.1,
+            "n_test": 1,
+            "wall_clock_seconds": {"pipeline": 0.0, "train": 0.0, "eval": 0.0},
+        }
+
+    q = queue_module.Queue()
+    q.put({"variant": "lhs", "seed": 0, "holdout_fids": [21, 22]})
+    q.put({"variant": "lhs", "seed": 1, "holdout_fids": [21, 22]})
+    q.put(None)
+
+    _gpu_worker(3, q, fake_run_one)
+
+    assert seen == [("3", 0), ("3", 1)]
+
+
+def test_gpu_worker_continues_after_one_combination_raises():
+    """A combination that raises (e.g. a transient CUDA error) must not
+    kill the worker -- it should log and move on to the rest of its share
+    of the queue."""
+    seen = []
+
+    def fake_run_one(**kwargs):
+        if kwargs["seed"] == 0:
+            raise RuntimeError("boom")
+        seen.append(kwargs["seed"])
+        return {
+            "spearman_rho": 0.1,
+            "kendall_tau": 0.1,
+            "n_test": 1,
+            "wall_clock_seconds": {"pipeline": 0.0, "train": 0.0, "eval": 0.0},
+        }
+
+    q = queue_module.Queue()
+    q.put({"variant": "lhs", "seed": 0, "holdout_fids": [21, 22]})
+    q.put({"variant": "lhs", "seed": 1, "holdout_fids": [21, 22]})
+    q.put(None)
+
+    _gpu_worker(0, q, fake_run_one)  # must not raise
+
+    assert seen == [1]
+
+
+def test_execute_combos_parallel_dispatches_via_real_worker_processes(tmp_path):
+    """End-to-end smoke test of the actual multiprocessing wiring (worker
+    pinning, queue draining, result collection) behind --gpus. The
+    per-combination training/eval logic itself is covered separately by the
+    mocked sequential-path tests above; this just confirms real worker
+    processes get spun up, each set CUDA_VISIBLE_DEVICES, and together
+    clear the whole queue."""
+    combos = [{"variant": "lhs", "seed": s, "holdout_fids": [21, 22]} for s in range(4)]
+    results = _execute_combos(
+        combos=combos,
+        run_one_fn=_fake_run_one_for_gpu_dispatch_test,
+        fixed_kwargs={"data_dir": "/data", "output_dir": tmp_path},
+        output_dir=tmp_path,
+        run_dir_label_fn=lambda c: c["variant"],
+        resume=True,
+        gpus=[0, 1],
+    )
+
+    assert len(results) == 4
+    assert {r["seed"] for r in results} == {0, 1, 2, 3}
+    gpu_ids_seen = {r["gpu_id_seen"] for r in results}
+    assert gpu_ids_seen  # at least one worker actually ran something
+    assert gpu_ids_seen.issubset({"0", "1"})

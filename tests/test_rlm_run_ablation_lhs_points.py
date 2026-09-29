@@ -217,3 +217,44 @@ def test_run_lhs_points_ablation_force_rerun_ignores_cached_results(tmp_path):
 
     assert calls == [(50, 0, (21, 22))]
     assert results[0]["spearman_rho"] == 0.1
+
+
+def test_cli_gpus_defaults_to_none():
+    args = _build_arg_parser().parse_args(
+        ["--data-dir", "/data", "--output-dir", "/out"]
+    )
+    assert args.gpus is None
+
+
+def test_cli_gpus_parses_list_of_ids():
+    args = _build_arg_parser().parse_args(
+        ["--data-dir", "/data", "--output-dir", "/out", "--gpus", "0", "1", "2"]
+    )
+    assert args.gpus == [0, 1, 2]
+
+
+def test_run_lhs_points_ablation_passes_gpus_through_to_execute_combos(tmp_path):
+    """The actual multiprocessing wiring (worker pinning, queue draining) is
+    shared code, already smoke-tested end-to-end in
+    test_rlm_run_ablation.py -- here it's enough to confirm gpus reaches
+    the shared _execute_combos call unchanged."""
+    captured = {}
+
+    def fake_execute_combos(**kwargs):
+        captured.update(kwargs)
+        return []
+
+    with patch(
+        "llamea.rlm_surrogate.run_ablation_lhs_points._execute_combos",
+        side_effect=fake_execute_combos,
+    ):
+        run_lhs_points_ablation(
+            data_dir="/data",
+            output_dir=tmp_path,
+            lhs_points_variants=[50],
+            seeds=[0],
+            holdout_sets=[[21, 22]],
+            gpus=[0, 1, 2],
+        )
+
+    assert captured["gpus"] == [0, 1, 2]

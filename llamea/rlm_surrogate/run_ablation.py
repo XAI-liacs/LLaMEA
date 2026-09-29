@@ -50,6 +50,21 @@ started, or interrupted partway through) is simply redone from scratch.
 Pass ``--force-rerun`` to ignore any cached results and redo everything
 (e.g. after a code change that would invalidate old numbers).
 
+**Parallel across multiple GPUs.** Pass ``--gpus 0 1 2 3 4 5 6 7 8 9`` to
+run pending combinations across that many persistent worker processes,
+each pinned to one GPU (via ``CUDA_VISIBLE_DEVICES``) and pulling the next
+pending ``(variant, seed, holdout_fids)`` off a shared queue as soon as it
+finishes its current one -- dynamic work-stealing, so a GPU that draws a
+run of faster/shorter combinations doesn't sit idle waiting for a static
+per-GPU split to catch up. Omit ``--gpus`` for the original sequential
+behavior in this one process. Resume (see above) applies the same way in
+both modes: already-completed combinations are skipped before anything is
+handed to a worker. A worker that raises (e.g. a transient CUDA error)
+logs the traceback and moves on to its next queued combination rather than
+taking the rest of that GPU's share down with it; anything left undone
+after the run (crashed, or interrupted) is reported at the end and picked
+up by simply re-running the same command.
+
 Requires the ``ioh`` extra, real ``BLADE-results`` data in the
 ``per_problem_subdir`` layout, and a GPU for the T5Gemma config -- this is a
 driver, not something exercised in the (CPU-only, synthetic-fixture) test
@@ -58,18 +73,20 @@ suite.
 CLI:
     uv run python -m llamea.rlm_surrogate.run_ablation \\
         --data-dir /data/BLADE-results --output-dir results/ablation \\
-        --max-records 10000
+        --max-records 10000 --gpus 0 1 2 3 4 5 6 7 8 9
 """
 
 from __future__ import annotations
 
 import argparse
 import json
+import multiprocessing
 import os
 import statistics
 import time
+import traceback
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 
 from .config import RLMSurrogateConfig
 from .data_pipeline import SplitConfig, run_pipeline_multi_problem
@@ -173,6 +190,176 @@ def _release_gpu_memory() -> None:
             torch.cuda.empty_cache()
     except ImportError:
         pass
+
+
+def _gpu_worker(
+    gpu_id: int, queue: "multiprocessing.Queue", run_one_fn: Callable
+) -> None:
+    """Runs in a spawned worker process pinned to one GPU: sets
+    ``CUDA_VISIBLE_DEVICES`` (before any CUDA/torch use in this process, so
+    it takes effect -- ``train.py``/``evaluate.py`` both just call
+    ``.to("cuda")``, which then resolves to whichever single device this
+    env var leaves visible), then repeatedly pulls one combination's full
+    kwargs off ``queue`` and calls ``run_one_fn(**kwargs)`` until it pulls
+    the ``None`` sentinel. A combination that raises is logged (with
+    traceback) and skipped rather than killing this worker -- one bad
+    combination shouldn't strand the rest of this GPU's share of the
+    queue unrun."""
+    os.environ["CUDA_VISIBLE_DEVICES"] = str(gpu_id)
+    while True:
+        kwargs = queue.get()
+        if kwargs is None:
+            return
+        label = kwargs.get("variant", kwargs.get("n_lhs_points"))
+        seed = kwargs.get("seed")
+        holdout_fids = kwargs.get("holdout_fids")
+        print(
+            f"[gpu{gpu_id}] === {label} seed={seed} holdout_fids={holdout_fids} ===",
+            flush=True,
+        )
+        try:
+            result = run_one_fn(**kwargs)
+        except Exception:
+            print(
+                f"[gpu{gpu_id}] !!! FAILED: {label} seed={seed} "
+                f"holdout_fids={holdout_fids} -- will be retried on the next "
+                "run of this command:",
+                flush=True,
+            )
+            traceback.print_exc()
+            continue
+        print(
+            f"[gpu{gpu_id}]  -> spearman={result['spearman_rho']:.3f} "
+            f"kendall={result['kendall_tau']:.3f} n_test={result['n_test']} "
+            f"({sum(result['wall_clock_seconds'].values()):.0f}s)",
+            flush=True,
+        )
+
+
+def _execute_combos(
+    *,
+    combos: list[dict[str, Any]],
+    run_one_fn: Callable[..., dict[str, Any]],
+    fixed_kwargs: dict[str, Any],
+    output_dir: Path,
+    run_dir_label_fn: Callable[[dict[str, Any]], str],
+    resume: bool,
+    gpus: list[int] | None,
+) -> list[dict[str, Any]]:
+    """Runs every combination in ``combos`` (each a dict of just the
+    axis-specific kwargs, e.g. ``{"variant": ..., "seed": ..., "holdout_fids":
+    ...}``) via ``run_one_fn(**fixed_kwargs, **combo)``, and returns the
+    collected results (cached + freshly run) in ``combos`` order where
+    available.
+
+    ``gpus=None`` (default): sequential, in this process, one combination at
+    a time -- identical to the original single-process loop.
+
+    ``gpus=[...]``: spins up one persistent worker process per GPU id via
+    ``_gpu_worker``, each pulling pending combinations off a shared
+    ``multiprocessing`` queue (dynamic work-stealing across GPUs, not a
+    static per-GPU split). ``Ctrl-C`` terminates all workers before
+    re-raising, rather than leaving orphaned GPU processes behind.
+
+    ``resume`` applies identically in both modes: a combination whose run
+    directory (``_run_dir_for(output_dir, run_dir_label_fn(combo), ...)``)
+    already has a complete, valid result is skipped before it would ever
+    reach a worker.
+    """
+    results = []
+    pending = []
+    for combo in combos:
+        run_dir = _run_dir_for(
+            output_dir, run_dir_label_fn(combo), combo["seed"], combo["holdout_fids"]
+        )
+        if resume:
+            cached = _load_cached_result(run_dir)
+            if cached is not None:
+                print(
+                    f"=== {run_dir_label_fn(combo)} seed={combo['seed']} "
+                    f"holdout_fids={combo['holdout_fids']} -- SKIPPED (already "
+                    f"completed, found {run_dir / 'ablation_result.json'}) ==="
+                )
+                results.append(cached)
+                continue
+        pending.append(combo)
+
+    if not pending:
+        return results
+
+    if not gpus:
+        for combo in pending:
+            print(
+                f"=== {run_dir_label_fn(combo)} seed={combo['seed']} "
+                f"holdout_fids={combo['holdout_fids']} ==="
+            )
+            result = run_one_fn(**fixed_kwargs, **combo)
+            results.append(result)
+            # Without this, one run's leftover GPU memory can still be
+            # resident (and fragmented) when the next combination starts
+            # training a fresh RLM (see _release_gpu_memory's docstring).
+            _release_gpu_memory()
+            print(
+                f"  -> spearman={result['spearman_rho']:.3f} "
+                f"kendall={result['kendall_tau']:.3f} "
+                f"n_test={result['n_test']} "
+                f"({sum(result['wall_clock_seconds'].values()):.0f}s)"
+            )
+        return results
+
+    print(
+        f"Dispatching {len(pending)} pending run(s) across {len(gpus)} "
+        f"GPU(s): {gpus} (skipped {len(combos) - len(pending)} already-"
+        "completed run(s))"
+    )
+    ctx = multiprocessing.get_context("spawn")
+    queue = ctx.Queue()
+    for combo in pending:
+        queue.put({**fixed_kwargs, **combo})
+    for _ in gpus:
+        queue.put(None)
+
+    workers = [
+        ctx.Process(target=_gpu_worker, args=(gpu_id, queue, run_one_fn))
+        for gpu_id in gpus
+    ]
+    for w in workers:
+        w.start()
+    try:
+        for w in workers:
+            w.join()
+    except KeyboardInterrupt:
+        print("Interrupted -- terminating GPU worker processes...", flush=True)
+        for w in workers:
+            w.terminate()
+        for w in workers:
+            w.join()
+        raise
+
+    missing = []
+    for combo in pending:
+        run_dir = _run_dir_for(
+            output_dir, run_dir_label_fn(combo), combo["seed"], combo["holdout_fids"]
+        )
+        cached = _load_cached_result(run_dir)
+        if cached is None:
+            missing.append(combo)
+        else:
+            results.append(cached)
+
+    if missing:
+        print(
+            f"WARNING: {len(missing)} run(s) did not produce a result "
+            "(crashed, killed, or still running elsewhere) -- re-run the "
+            "same command to retry them:"
+        )
+        for combo in missing:
+            print(
+                f"  {run_dir_label_fn(combo)} seed={combo['seed']} "
+                f"holdout_fids={combo['holdout_fids']}"
+            )
+
+    return results
 
 
 def _short_config(
@@ -328,6 +515,7 @@ def run_ablation(
     include_baselines: bool = False,
     predict_batch_size: int = 4,
     resume: bool = True,
+    gpus: list[int] | None = None,
 ) -> list[dict[str, Any]]:
     """Runs every ``(variant, seed, holdout_fids)`` combination and writes a
     summary table (including a ``by_variant`` mean/std rollup, see
@@ -340,60 +528,42 @@ def run_ablation(
     reuse it instead of retraining -- makes rerunning the same command
     after an interruption pick up only what's missing. Pass ``False`` to
     ignore any cached results and redo everything.
+
+    ``gpus`` (default ``None``): run sequentially in this process. Pass a
+    list of GPU ids (e.g. ``[0, 1, ..., 9]``) to instead dispatch pending
+    combinations across that many persistent, GPU-pinned worker processes
+    pulling from a shared queue -- see ``_execute_combos``.
     """
     output_dir = Path(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    results = []
-    for variant in variants:
-        for seed in seeds:
-            for holdout_fids in holdout_sets:
-                holdout_fids = list(holdout_fids)
-                run_dir = _run_dir_for(
-                    output_dir, variant.replace("+", "_"), seed, holdout_fids
-                )
-                if resume:
-                    cached = _load_cached_result(run_dir)
-                    if cached is not None:
-                        print(
-                            f"=== variant={variant!r} seed={seed} "
-                            f"holdout_fids={holdout_fids} -- SKIPPED (already "
-                            f"completed, found {run_dir / 'ablation_result.json'}) ==="
-                        )
-                        results.append(cached)
-                        continue
-                print(
-                    f"=== variant={variant!r} seed={seed} "
-                    f"holdout_fids={holdout_fids} ==="
-                )
-                result = run_one_variant(
-                    variant=variant,
-                    seed=seed,
-                    data_dir=data_dir,
-                    output_dir=output_dir,
-                    holdout_fids=holdout_fids,
-                    max_records=max_records,
-                    n_lhs_points=n_lhs_points,
-                    base_config_path=base_config_path,
-                    max_epochs=max_epochs,
-                    max_steps_per_epoch=max_steps_per_epoch,
-                    patience=patience,
-                    include_baselines=include_baselines,
-                    predict_batch_size=predict_batch_size,
-                )
-                results.append(result)
-                # Same rationale as the train/eval cleanup inside
-                # run_one_variant: without this, one run's leftover GPU
-                # memory can still be resident (and fragmented) when the
-                # next (variant, seed, holdout_fids) starts training a
-                # fresh RLM.
-                _release_gpu_memory()
-                print(
-                    f"  -> spearman={result['spearman_rho']:.3f} "
-                    f"kendall={result['kendall_tau']:.3f} "
-                    f"n_test={result['n_test']} "
-                    f"({sum(result['wall_clock_seconds'].values()):.0f}s)"
-                )
+    combos = [
+        {"variant": variant, "seed": seed, "holdout_fids": list(holdout_fids)}
+        for variant in variants
+        for seed in seeds
+        for holdout_fids in holdout_sets
+    ]
+    fixed_kwargs = dict(
+        data_dir=data_dir,
+        output_dir=output_dir,
+        max_records=max_records,
+        n_lhs_points=n_lhs_points,
+        base_config_path=base_config_path,
+        max_epochs=max_epochs,
+        max_steps_per_epoch=max_steps_per_epoch,
+        patience=patience,
+        include_baselines=include_baselines,
+        predict_batch_size=predict_batch_size,
+    )
+    results = _execute_combos(
+        combos=combos,
+        run_one_fn=run_one_variant,
+        fixed_kwargs=fixed_kwargs,
+        output_dir=output_dir,
+        run_dir_label_fn=lambda c: c["variant"].replace("+", "_"),
+        resume=resume,
+        gpus=gpus,
+    )
 
     _write_json_atomic(
         output_dir / "ablation_summary.json",
@@ -510,6 +680,19 @@ def _build_arg_parser() -> argparse.ArgumentParser:
         "have a complete result). Use this after a code change that would "
         "invalidate previously cached numbers.",
     )
+    p.add_argument(
+        "--gpus",
+        type=int,
+        nargs="+",
+        default=None,
+        help="GPU ids to run pending combinations across in parallel, e.g. "
+        "`--gpus 0 1 2 3 4 5 6 7 8 9` for 10 GPUs (see `nvidia-smi -L` for "
+        "ids on this machine). One persistent worker process per id, each "
+        "pinned via CUDA_VISIBLE_DEVICES, dynamically pulling the next "
+        "pending combination off a shared queue as it finishes its "
+        "current one. Omit for the original sequential (one GPU, one "
+        "process) behavior.",
+    )
     return p
 
 
@@ -533,6 +716,7 @@ def main(argv: list[str] | None = None) -> None:
         include_baselines=args.include_baselines,
         predict_batch_size=args.predict_batch_size,
         resume=not args.force_rerun,
+        gpus=args.gpus,
     )
     print("\n=== Ablation summary (individual runs) ===")
     for r in sorted(results, key=lambda r: -r["spearman_rho"]):

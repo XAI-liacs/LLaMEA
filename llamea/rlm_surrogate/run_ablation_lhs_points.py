@@ -8,10 +8,10 @@ problem instance change how well the RLM surrogate generalizes?
 This is a deliberately separate, parallel script -- it does not modify
 ``run_ablation.py``, only imports a few small, already-tested utilities from
 it (`_release_gpu_memory`, `_short_config`, `_summarize_by_variant`,
-`_run_dir_for`, `_load_cached_result`, `_write_json_atomic`, and the
-`DEFAULT_SEEDS`/`DEFAULT_HOLDOUT_SETS` constants) so the two ablations run
-under identical seed and holdout conditions and are directly comparable,
-without duplicating that logic.
+`_run_dir_for`, `_load_cached_result`, `_write_json_atomic`,
+`_execute_combos`, and the `DEFAULT_SEEDS`/`DEFAULT_HOLDOUT_SETS` constants)
+so the two ablations run under identical seed and holdout conditions and are
+directly comparable, without duplicating that logic.
 
 Uses the same leave-function-out test split
 (``data_pipeline.leave_function_out_split``) and the same
@@ -39,6 +39,12 @@ what's missing or was left incomplete -- it does not resume a single run
 mid-training from a checkpoint. Pass ``--force-rerun`` to ignore cached
 results and redo everything.
 
+**Parallel across multiple GPUs**, same mechanism as ``run_ablation.py``:
+pass ``--gpus 0 1 2 3 4 5 6 7 8 9`` to dispatch pending combinations across
+that many persistent, GPU-pinned worker processes pulling from a shared
+queue (dynamic work-stealing), instead of running sequentially in this one
+process.
+
 Requires the ``ioh`` extra, real ``BLADE-results`` data in the
 ``per_problem_subdir`` layout, and a GPU for the T5Gemma config -- this is a
 driver, not something exercised in the (CPU-only, synthetic-fixture) test
@@ -47,7 +53,7 @@ suite.
 CLI:
     uv run python -m llamea.rlm_surrogate.run_ablation_lhs_points \\
         --data-dir /data/BLADE-results --output-dir results/ablation_lhs_points \\
-        --max-records 10000
+        --max-records 10000 --gpus 0 1 2 3 4 5 6 7 8 9
 """
 
 from __future__ import annotations
@@ -61,7 +67,7 @@ from .data_pipeline import SplitConfig, run_pipeline_multi_problem
 from .run_ablation import (
     DEFAULT_HOLDOUT_SETS,
     DEFAULT_SEEDS,
-    _load_cached_result,
+    _execute_combos,
     _release_gpu_memory,
     _run_dir_for,
     _short_config,
@@ -185,6 +191,7 @@ def run_lhs_points_ablation(
     include_baselines: bool = False,
     predict_batch_size: int = 4,
     resume: bool = True,
+    gpus: list[int] | None = None,
 ) -> list[dict[str, Any]]:
     """Runs every ``(n_lhs_points, seed, holdout_fids)`` combination and
     writes a summary table (including a ``by_variant`` mean/std rollup, see
@@ -197,59 +204,42 @@ def run_lhs_points_ablation(
     ``ablation_result.json`` (see ``run_ablation._load_cached_result``) and,
     if so, reuse it instead of retraining. Pass ``False`` to ignore any
     cached results and redo everything.
+
+    ``gpus`` (default ``None``): run sequentially in this process. Pass a
+    list of GPU ids (e.g. ``[0, 1, ..., 9]``) to instead dispatch pending
+    combinations across that many persistent, GPU-pinned worker processes
+    pulling from a shared queue -- see ``run_ablation._execute_combos``.
     """
     output_dir = Path(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    results = []
-    for n_lhs_points in lhs_points_variants:
-        for seed in seeds:
-            for holdout_fids in holdout_sets:
-                holdout_fids = list(holdout_fids)
-                run_dir = _run_dir_for(
-                    output_dir, f"lhs{n_lhs_points}", seed, holdout_fids
-                )
-                if resume:
-                    cached = _load_cached_result(run_dir)
-                    if cached is not None:
-                        print(
-                            f"=== n_lhs_points={n_lhs_points} seed={seed} "
-                            f"holdout_fids={holdout_fids} -- SKIPPED (already "
-                            f"completed, found {run_dir / 'ablation_result.json'}) ==="
-                        )
-                        results.append(cached)
-                        continue
-                print(
-                    f"=== n_lhs_points={n_lhs_points} seed={seed} "
-                    f"holdout_fids={holdout_fids} ==="
-                )
-                result = run_one_lhs_points_variant(
-                    n_lhs_points=n_lhs_points,
-                    seed=seed,
-                    holdout_fids=holdout_fids,
-                    data_dir=data_dir,
-                    output_dir=output_dir,
-                    feature_mode=feature_mode,
-                    max_records=max_records,
-                    base_config_path=base_config_path,
-                    max_epochs=max_epochs,
-                    max_steps_per_epoch=max_steps_per_epoch,
-                    patience=patience,
-                    include_baselines=include_baselines,
-                    predict_batch_size=predict_batch_size,
-                )
-                results.append(result)
-                # Same rationale as run_ablation.py: without this, one run's
-                # leftover GPU memory can still be resident (and fragmented)
-                # when the next (n_lhs_points, seed, holdout_fids) starts
-                # training a fresh RLM.
-                _release_gpu_memory()
-                print(
-                    f"  -> spearman={result['spearman_rho']:.3f} "
-                    f"kendall={result['kendall_tau']:.3f} "
-                    f"n_test={result['n_test']} "
-                    f"({sum(result['wall_clock_seconds'].values()):.0f}s)"
-                )
+    combos = [
+        {"n_lhs_points": n_lhs_points, "seed": seed, "holdout_fids": list(holdout_fids)}
+        for n_lhs_points in lhs_points_variants
+        for seed in seeds
+        for holdout_fids in holdout_sets
+    ]
+    fixed_kwargs = dict(
+        data_dir=data_dir,
+        output_dir=output_dir,
+        feature_mode=feature_mode,
+        max_records=max_records,
+        base_config_path=base_config_path,
+        max_epochs=max_epochs,
+        max_steps_per_epoch=max_steps_per_epoch,
+        patience=patience,
+        include_baselines=include_baselines,
+        predict_batch_size=predict_batch_size,
+    )
+    results = _execute_combos(
+        combos=combos,
+        run_one_fn=run_one_lhs_points_variant,
+        fixed_kwargs=fixed_kwargs,
+        output_dir=output_dir,
+        run_dir_label_fn=lambda c: f"lhs{c['n_lhs_points']}",
+        resume=resume,
+        gpus=gpus,
+    )
 
     _write_json_atomic(
         output_dir / "ablation_summary.json",
@@ -359,6 +349,19 @@ def _build_arg_parser() -> argparse.ArgumentParser:
         "already have a complete result). Use this after a code change "
         "that would invalidate previously cached numbers.",
     )
+    p.add_argument(
+        "--gpus",
+        type=int,
+        nargs="+",
+        default=None,
+        help="GPU ids to run pending combinations across in parallel, e.g. "
+        "`--gpus 0 1 2 3 4 5 6 7 8 9` for 10 GPUs (see `nvidia-smi -L` for "
+        "ids on this machine). One persistent worker process per id, each "
+        "pinned via CUDA_VISIBLE_DEVICES, dynamically pulling the next "
+        "pending combination off a shared queue as it finishes its "
+        "current one. Omit for the original sequential (one GPU, one "
+        "process) behavior.",
+    )
     return p
 
 
@@ -382,6 +385,7 @@ def main(argv: list[str] | None = None) -> None:
         include_baselines=args.include_baselines,
         predict_batch_size=args.predict_batch_size,
         resume=not args.force_rerun,
+        gpus=args.gpus,
     )
     print("\n=== Ablation summary (individual runs) ===")
     for r in sorted(results, key=lambda r: -r["spearman_rho"]):
