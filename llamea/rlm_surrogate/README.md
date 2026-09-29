@@ -363,6 +363,26 @@ for the computed-statistics representation. Writes
 `results/ablation_lhs_points/ablation_summary.json` with the same
 `by_variant` mean/std rollup as 5d.
 
+## 5f. Exploring ablation results: `notebooks/explore_ablation_results.ipynb`
+
+A Jupyter notebook for poking at whatever 5d/5e results exist *right
+now*, including mid-run -- it reads directly from each run's
+`ablation_result.json` rather than waiting on `ablation_summary.json`
+(only written once a full matrix finishes), so it's safe to open while
+`--gpus` workers are still filling in the rest. Covers: a per-`(variant,
+holdout)` completion table (which combinations are still pending), a
+Spearman-rho box plot per variant with sample-size annotations, a
+variant-x-holdout heatmap (is an apparent edge real or one lucky held-out
+region), a wall-clock breakdown, aggregated-vs-raw instance-level
+correlation, a sortable results table, and a CSV export. Edit the
+`RESULTS_DIRS` paths in the second cell if your `--output-dir`s differ
+from `results/ablation`/`results/ablation_lhs_points`; re-run top to
+bottom anytime to pick up newly-finished runs.
+
+```bash
+uv run jupyter notebook llamea/rlm_surrogate/notebooks/explore_ablation_results.ipynb
+```
+
 ## 6. Step 2 -- training
 
 Two starting points, both in `configs/`:
