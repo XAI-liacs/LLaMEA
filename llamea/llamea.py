@@ -778,7 +778,7 @@ The selected solutions to update are:\n\n"""
         """
         Update the best individual in the new population
         """
-        if isinstance(self.best_so_far, Solution):
+        if not isinstance(self.best_so_far, ParetoArchive):
             if self.niching == "novelty" or self.minimization == False:
                 best_individual = max(self.population, key=lambda x: x.fitness)
 
@@ -1146,7 +1146,7 @@ The selected solutions to update are:\n\n"""
         parent_ids = []
         if operator.number_of_parents == 1:
             new_prompt = self.construct_prompt([individual_copy], operator)
-            parent_ids = [individual_copy.parent_ids]
+            parent_ids = individual_copy.parent_ids
         else:
             parents = self._select_parents(
                 count=(operator.number_of_parents or 2) - 1
@@ -1304,7 +1304,7 @@ The selected solutions to update are:\n\n"""
             self.logger.log_population(self.population)
 
         log_message = ""
-        if isinstance(self.best_so_far, Solution):
+        if not isinstance(self.best_so_far, ParetoArchive):
             log_message = (
                 f"Started evolutionary loop, best so far: {self.best_so_far.fitness}"
             )
