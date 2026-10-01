@@ -321,10 +321,13 @@ Give a novel Python class with an optimization landscape function and a short de
             all_features = []
             problem_features_50 = []
             for seed in range(5):
-                X = create_initial_sample(DIM,n=250*DIM, lower_bound = -5, upper_bound = 5, seed=seed)
+                X = create_initial_sample(DIM,n=250*DIM, lower_bound = -5, upper_bound = 5, seed=seed) # NOTE changed n=250* to 1000*
                 y = X.apply(problem, axis = 1)
+                # X_dela = create_initial_sample(DIM,n=50*DIM, lower_bound = -5, upper_bound = 5, seed=seed)
+                # y_dela = X_dela.apply(problem, axis = 1)
 
                 # Apply deep-ela
+                # fdc50 = model_50(X_dela, y_dela, include_costs=False)
                 fdc50 = model_50(X, y, include_costs=False)
                 fdc50 =  pd.DataFrame.from_dict(fdc50, orient='index')
                 fdc50 = fdc50.transpose()
@@ -393,10 +396,11 @@ Give a novel Python class with an optimization landscape function and a short de
                     else:
                         feature_key = feature
                     model = xgb.XGBClassifier(objective="binary:logistic")
-                    model.load_model(f"new_models/model_Groups_{feature_key}_50d+ela.json")
+                    # model.load_model(f"separated_models/model_Groups_{feature_key}_50d_1000_correct_{DIM}D.json")  # NOTE: Test
+                    model.load_model(f"new_models/model_Groups_{feature_key}_50d+ela.json")            
                     # Build one single-row dataframe with all required features
                     input_row = {
-                        **fdc50.iloc[0].to_dict(),
+                        **fdc50.iloc[0].to_dict(),                      
                         "dim": DIM,
                         **all_features_mean.to_dict(),
                     }
@@ -425,7 +429,7 @@ Give a novel Python class with an optimization landscape function and a short de
 
 # "not homogeneous", "not basins"
 
-budget = 300
+budget = 200
 DEBUG = False
 if __name__ == "__main__":
     # run multiple local llm runs
@@ -436,9 +440,9 @@ if __name__ == "__main__":
     # Use a Multi_LLM combining two local Ollama models and run all feature combinations
     llm1 = Ollama_LLM("devstral-small-2", request_timeout=3600)
     llm2 = Ollama_LLM("qwen3.5:27b", request_timeout=3600)
-    llm3 = OpenAI_LLM(api_key_openai, "gpt-5.4-nano-2026-03-17", temperature=1.0)
+    # llm3 = OpenAI_LLM(api_key_openai, "gpt-5.4-nano-2026-03-17", temperature=1.0)
 
-    llm = Multi_LLM([llm1, llm2, llm3])
+    llm = Multi_LLM([llm1, llm2]) #NOTE: local ensemble
 
     all_features = ["Separable", "GlobalLocal", "Multimodality", "Basins", "Homogeneous"]
     feature_combinations = []
@@ -454,8 +458,16 @@ if __name__ == "__main__":
             feature_combinations.append([nf, rf])
         feature_combinations.append([nf])
 
-    # rem_feat_combinations = [["Basins"],["NOT Basins"],["Multimodality", "Basins"], ["GlobalLocal", "Basins"]]
-    rem_feat_combinations = [["NOT Basins"]]
+    # rem_feat_combinations = [["Basins"],["Multimodality", "Basins"], ["GlobalLocal", "Basins"]]
+    rem_feat_combinations = [["Separable", "Basins"],
+                            ["Separable", "Homogeneous"],
+                            ["GlobalLocal", "Basins"],
+                            ["GlobalLocal", "Homogeneous"],
+                            ["Multimodality", "Basins"],
+                            ["Basins"],
+                            ["NOT Basins", "Separable"],
+                            ["NOT Basins", "GlobalLocal"],
+                            ["NOT Basins"]]
     
     for combi in rem_feat_combinations:
         niching="novelty"

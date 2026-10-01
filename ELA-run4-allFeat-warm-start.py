@@ -437,8 +437,8 @@ if __name__ == "__main__":
     # api_key_openai = os.getenv("OPENAI_API_KEY")
 
     # Use a Multi_LLM combining two local Ollama models and run all feature combinations
-    llm1 = Ollama_LLM("devstral-small-2")
-    llm2 = Ollama_LLM("qwen3.5:27b")
+    llm1 = Ollama_LLM("devstral-small-2", request_timeout=3600)
+    llm2 = Ollama_LLM("qwen3.5:27b", request_timeout=3600)
     # llm3 = OpenAI_LLM(api_key_openai, "gpt-5.4-nano-2026-03-17", temperature=1.0)
 
     llm = Multi_LLM([llm1, llm2])
@@ -499,6 +499,9 @@ if __name__ == "__main__":
                 if es is not None:
                     print(f"Resuming {experiment_name} from {archive_path}")
                     es.logger.dirname = archive_path
+                    for loaded_llm in es.llm.llms:
+                        if not hasattr(loaded_llm, "request_timeout"):
+                            loaded_llm.request_timeout = 3600
                     es.run()
                     continue
                 print(f"Warm start failed for {experiment_name}")

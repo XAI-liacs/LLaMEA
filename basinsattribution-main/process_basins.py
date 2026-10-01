@@ -9,7 +9,7 @@ import signal
 
 import sys
 
-ROW_TIMEOUT_SECONDS = 6000
+ROW_TIMEOUT_SECONDS = 3600
 
 
 def timeout_handler(signum, frame):
@@ -58,7 +58,7 @@ def load_completed_ids(output_file):
     return completed_ids
 
 def process_bbob(fid=1):
-    output_file = os.path.join("outputs", f"bbob.jsonl")
+    output_file = os.path.join("outputs", "local", f"bbob.jsonl")
     n = 10
     x1 = np.linspace(-5, 5, n)
     x2 = np.linspace(-5, 5, n)
@@ -107,7 +107,7 @@ def process_bbob(fid=1):
 
 def process_experiment(exp_dir, base_dir):
     datadir = os.path.join(base_dir, exp_dir)
-    output_file = os.path.join("outputs", f"{exp_dir}.jsonl")
+    output_file = os.path.join("outputs", "local", f"{exp_dir}.jsonl")
 
     with open(f"{datadir}/log.jsonl", "r") as f:
         data = [json.loads(line) for line in f if line.strip()]
@@ -188,9 +188,9 @@ if __name__ == "__main__":
 
     sys.setrecursionlimit(10000)
 
-    os.makedirs("outputs", exist_ok=True)
+    os.makedirs("outputs/local", exist_ok=True)
 
-    base_dir = "/local/bodasap/LLaMEA-ELA/exp_res_oai/"
+    base_dir = "/local/bodasap/exp_res_local/"
     # get a list of folders in base_dir that start with "exp"
     experiment_dirs = [f for f in os.listdir(base_dir) if f.startswith("exp")]
 
