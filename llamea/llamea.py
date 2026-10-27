@@ -1078,11 +1078,13 @@ The selected solutions to update are:\n\n"""
             fitness_vector = np.array([x.fitness.to_vector() for x in pool])
             nds = NonDominatedSorting()
             sorted_pool = []
-            fronts = nds.do(fitness_vector, only_non_dominated_front=False)
-            if not self.minimization:
-                fronts = reversed(fronts)
+            # NonDominatedSorting minimises, so negate the objectives for
+            # maximisation; reversed minimisation fronts are not the
+            # maximisation fronts.
+            sort_vector = fitness_vector if self.minimization else -fitness_vector
+            fronts = nds.do(sort_vector, only_non_dominated_front=False)
             for front in fronts:
-                if len(front) <= self.n_offspring - len(sorted_pool):
+                if len(front) <= self.n_parents - len(sorted_pool):
                     sorted_pool += list(map(lambda x: pool[x], front))
                 else:
                     final_front = list(map(lambda x: pool[x], front))
@@ -1097,7 +1099,7 @@ The selected solutions to update are:\n\n"""
                     )
 
                     sorted_front = [final_front[idx] for idx, _ in crowding_distance]
-                    sorted_pool += sorted_front[: self.n_offspring - len(sorted_pool)]
+                    sorted_pool += sorted_front[: self.n_parents - len(sorted_pool)]
                     break
             return sorted_pool
 

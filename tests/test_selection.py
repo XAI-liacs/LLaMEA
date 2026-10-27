@@ -70,3 +70,53 @@ def test_run():
         for front in output:
             better_in_all, better_in_at_least_one = dominates_minimisation(eval_a, front)
             assert not (better_in_all and better_in_at_least_one), f"Evaluated solution {eval_a.fitness} should not dominate Pareto front solution {front.fitness}."
+
+
+def _scored(name, a, b):
+    solution = Solution(code=f"# {name}", name=name)
+    solution.set_scores(Fitness({"a": a, "b": b}), "")
+    return solution
+
+
+def test_multi_objective_selection_maximisation_uses_maximisation_fronts():
+    # Maximisation fronts: {A, B}, {C}, {D}. The minimisation fronts are
+    # {B, D}, {C}, {A}, so reversing them would rank C (dominated by A)
+    # ahead of B.
+    for minimization, sign in [(False, 1.0), (True, -1.0)]:
+        llamea = LLaMEA(
+            evaluate,
+            Dummy_LLM(),
+            n_parents=2,
+            n_offspring=2,
+            multi_objective=True,
+            multi_objective_keys=["a", "b"],
+            minimization=minimization,
+            log=False,
+        )
+        pool = [
+            _scored(name, sign * a, sign * b)
+            for name, a, b in [
+                ("A", 2.0, 2.0),
+                ("B", 0.0, 3.0),
+                ("C", 1.0, 1.0),
+                ("D", 0.5, 0.5),
+            ]
+        ]
+        survivors = llamea.selection(parents=[], offspring=pool)
+        assert sorted(s.name for s in survivors) == ["A", "B"]
+
+
+def test_multi_objective_selection_keeps_n_parents():
+    llamea = LLaMEA(
+        evaluate,
+        Dummy_LLM(),
+        n_parents=2,
+        n_offspring=4,
+        multi_objective=True,
+        multi_objective_keys=["a", "b"],
+        minimization=True,
+        log=False,
+    )
+    parents = [_scored("p0", 1.0, 5.0), _scored("p1", 5.0, 1.0)]
+    offspring = [_scored(f"o{i}", 2.0 + i, 4.0 - i) for i in range(4)]
+    assert len(llamea.selection(parents, offspring)) == 2
