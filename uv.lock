@@ -3038,7 +3038,7 @@ rlm-surrogate = [
     { name = "pandas", specifier = ">=2.2.3,<3" },
     { name = "peft", specifier = ">=0.19.0" },
     { name = "pyyaml", specifier = ">=6.0,<7" },
-    { name = "regress-lm", git = "https://github.com/google-deepmind/regress-lm.git" },
+    { name = "regress-lm", git = "https://github.com/google-deepmind/regress-lm.git?rev=6c23ccb51ae9862d98af9faffc1286ca2149b12e" },
     { name = "torch", specifier = ">=2.6.0,<3" },
     { name = "transformers", specifier = ">=4.49.0,<=5" },
 ]
@@ -5465,7 +5465,7 @@ wheels = [
 [[package]]
 name = "regress-lm"
 version = "0.0.0"
-source = { git = "https://github.com/google-deepmind/regress-lm.git#76a386e13e4d3ef1254de06d9efaa4e05ae6d057" }
+source = { git = "https://github.com/google-deepmind/regress-lm.git?rev=6c23ccb51ae9862d98af9faffc1286ca2149b12e#6c23ccb51ae9862d98af9faffc1286ca2149b12e" }
 dependencies = [
     { name = "absl-py" },
     { name = "gcsfs" },

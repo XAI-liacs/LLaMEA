@@ -86,7 +86,14 @@ rlm-surrogate = [
 [tool.uv.sources]
 # The PyPI package "regress-lm" (0.0.1) is an unrelated empty placeholder
 # distribution, not the real DeepMind library. Install from source instead.
-regress-lm = { git = "https://github.com/google-deepmind/regress-lm.git" }
+# Pinned to a known-good commit: the trained RLM surrogate checkpoints
+# (model.pt state dicts) are tied to this version's model architecture --
+# an unpinned source silently picks up whatever is newest at `uv lock` time,
+# and a later, backward-incompatible regress-lm release breaks loading
+# existing checkpoints (e.g. mismatched state_dict keys) for training and
+# evaluation alike. Bump this deliberately, and re-save affected
+# checkpoints, rather than letting it float.
+regress-lm = { git = "https://github.com/google-deepmind/regress-lm.git", rev = "6c23ccb51ae9862d98af9faffc1286ca2149b12e" }
 
 [tool.uv]
 default-groups = [
