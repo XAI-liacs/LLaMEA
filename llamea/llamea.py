@@ -1124,11 +1124,15 @@ The selected solutions to update are:\n\n"""
                 if not math.isfinite(parent.fitness):
                     score += 1
                     continue
-            current_score = (-1) ** (
-                self.minimization ^ int(offspring.fitness < parent.fitness)
-            )
-            current_score *= int(offspring.fitness != parent.fitness)
-            score += current_score
+            # +1 if the offspring is better, -1 if the parent is, and 0 if neither is
+            # (equal, or mutually non-dominated for multi-objective fitness).
+            if self.minimization:
+                better = offspring.fitness < parent.fitness
+                worse = parent.fitness < offspring.fitness
+            else:
+                better = offspring.fitness > parent.fitness
+                worse = parent.fitness > offspring.fitness
+            score += int(better) - int(worse)
         return score
 
     def update_weight(

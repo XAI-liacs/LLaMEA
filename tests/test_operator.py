@@ -256,6 +256,54 @@ def test_operator_rewards_multi_objective_fitness_fitness_properly():
     assert score == 1
 
 
+
+@pytest.mark.parametrize("minimization", [True, False])
+def test_operator_rewards_multi_objective_is_symmetric(minimization):
+    """A dominating offspring scores +1, a dominated one -1 and a mutually
+    non-dominated one 0, whichever direction is optimised."""
+    o1 = Operator('Refine the program, by optimising the hyper-parameters', 'mutation', 0.5, 1)
+
+    llm = Dummy_LLM()
+
+    llamea = LLaMEA(f, llm, operators=[o1], multi_objective=True, multi_objective_keys=['a', 'b'], log=False, minimization=minimization)
+
+    def solution(a, b):
+        s = Solution()
+        fitness = Fitness({'a': a, 'b': b})
+        s.set_scores(fitness, f'Scored {fitness}')
+        return s
+
+    sign = 1 if minimization else -1
+    parent = solution(2, 2)
+    better = solution(2 - sign, 2 - sign)
+    worse = solution(2 + sign, 2 + sign)
+    non_dominated = solution(1, 3)
+
+    assert llamea._operator_rewards([parent], better) == 1
+    assert llamea._operator_rewards([parent], worse) == -1
+    assert llamea._operator_rewards([parent], non_dominated) == 0
+    assert llamea._operator_rewards([parent, better, worse], non_dominated) == 0
+
+
+@pytest.mark.parametrize("minimization", [True, False])
+def test_operator_rewards_scalar_fitness_both_directions(minimization):
+    o1 = Operator('Refine the program, by optimising the hyper-parameters', 'mutation', 0.5, 1)
+
+    llm = Dummy_LLM()
+
+    llamea = LLaMEA(f, llm, operators=[o1], log=False, minimization=minimization)
+
+    def solution(score):
+        s = Solution()
+        s.set_scores(score, f'Scored {score}')
+        return s
+
+    sign = 1 if minimization else -1
+    parent = solution(0.5)
+    assert llamea._operator_rewards([parent], solution(0.5 - sign * 0.1)) == 1
+    assert llamea._operator_rewards([parent], solution(0.5 + sign * 0.1)) == -1
+    assert llamea._operator_rewards([parent], solution(0.5)) == 0
+
 def test_default_operator_always_returns_1():
     o1 = Operator('Refine the program, by optimising the hyper-parameters', 'mutation', 0.5, 1)
     o2 = Operator('Refine the program, by optimising the methods', 'mutation', 0.5, 1)
