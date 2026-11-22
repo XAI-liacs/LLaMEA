@@ -1226,7 +1226,11 @@ The selected solutions to update are:\n\n"""
             count = self.n_offspring
         method = (self.parent_selection or "random").lower()
         if method == "random":
-            return np.random.choice(self.population, count, replace=True)
+            # Sample indices rather than the Solution objects themselves: passing
+            # the population to np.random.choice yields an object ndarray, and
+            # `ndarray + list` then broadcasts `+` over Solutions (crossover).
+            idx = np.random.choice(len(self.population), count, replace=True)
+            return [self.population[i] for i in idx]
         elif method == "roulette":
             return self._roulette_wheel_selection(count)
         elif method == "tournament":

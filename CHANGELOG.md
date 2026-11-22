@@ -1,5 +1,17 @@
 # Changelog
 
+## Unreleased
+
+### Fixes
+- **Crossover operators crashed with `parent_selection="random"`** (the
+  default). `LLaMEA._select_parents` returned a NumPy object array for random
+  selection, so `_select_parents(...) + [individual]` in `_evolve_solution`
+  made NumPy add `Solution` objects element-wise (`TypeError: unsupported
+  operand type(s) for +: 'Solution' and 'Solution'`). It now returns a plain
+  `list`, like roulette and tournament selection, with the same sampling with
+  replacement. Downstream workarounds that require `parent_selection:
+  tournament` for crossover are no longer needed.
+
 ## 1.4.2 (2026-10-23)
 
 ### Changed
