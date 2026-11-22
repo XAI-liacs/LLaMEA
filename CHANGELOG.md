@@ -15,6 +15,7 @@
 - The `examples` group pinned `scikit-learn==1.3.0` (GHSA-jw8x-6495-233v); it
   now requires `scikit-learn>=1.5.0,<2` and locks 1.9.1.
 - `polars` 1.44.0 was yanked upstream; locked 1.44.2 instead.
+- `certifi` 2026.10.19, `jupyterlab` 4.6.4, `pillow` 13.0.0 (#153).
 
 ### Fixes
 - **Crossover operators crashed with `parent_selection="random"`** (the
@@ -30,6 +31,15 @@
   is never logged, so lineage in `parent_ids` (and `operator`) pointed nowhere.
   Crossover offspring now record the original individual's id, as mutation
   offspring already did.
+- **Multi-objective selection was wrong when maximising** (#157, fixes #156).
+  The minimisation fronts from `NonDominatedSorting` were reversed, which does
+  not give the maximisation fronts, so a dominated solution could survive over
+  a dominating one. Objectives are now negated instead, as `ParetoArchive`
+  does. The new population also has `n_parents` members again, not
+  `n_offspring`.
+- **Multi-objective operator rewards** (#159, fixes #158). An offspring that
+  neither dominates nor is dominated by its parent scored -1 when minimising
+  and +1 when maximising; it now scores 0. Scalar fitness is unchanged.
 
 ## 1.4.2 (2026-10-23)
 
