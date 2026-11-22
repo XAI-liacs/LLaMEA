@@ -1,7 +1,8 @@
 import numpy as np
-from llamea.solution import Solution
-from llamea.multi_objective_fitness import Fitness
 from pymoo.util.nds.non_dominated_sorting import NonDominatedSorting
+
+from llamea.multi_objective_fitness import Fitness
+from llamea.solution import Solution
 
 
 class ParetoArchive:

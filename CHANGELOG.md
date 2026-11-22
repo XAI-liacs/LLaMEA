@@ -1,5 +1,46 @@
 # Changelog
 
+## 1.4.3 (2026-11-22)
+
+### Changed
+- **Minimum Python is now 3.11.5** (was 3.11). `soupsieve` releases that fix
+  its open advisories require 3.11.5, so the lockfile previously kept a
+  vulnerable 2.x for Python 3.11.0–3.11.4.
+
+### Security
+- **Dependency upgrades for known vulnerabilities** in the lockfile:
+  `black` 26.10.1, `filelock` 4.3.0, `jupyter-server` 2.21.1, `msgpack` 1.2.4,
+  `nbconvert` 7.17.2, `opentelemetry-api` 1.45.2, `pyasn1` 0.6.5,
+  `setuptools` 84.2.1, `soupsieve` 4.1.3, `tornado` 6.6.1.
+- The `examples` group pinned `scikit-learn==1.3.0` (GHSA-jw8x-6495-233v); it
+  now requires `scikit-learn>=1.5.0,<2` and locks 1.9.1.
+- `polars` 1.44.0 was yanked upstream; locked 1.44.2 instead.
+- `certifi` 2026.10.19, `jupyterlab` 4.6.4, `pillow` 13.0.0 (#153).
+
+### Fixes
+- **Crossover operators crashed with `parent_selection="random"`** (the
+  default). `LLaMEA._select_parents` returned a NumPy object array for random
+  selection, so `_select_parents(...) + [individual]` in `_evolve_solution`
+  made NumPy add `Solution` objects element-wise (`TypeError: unsupported
+  operand type(s) for +: 'Solution' and 'Solution'`). It now returns a plain
+  `list`, like roulette and tournament selection, with the same sampling with
+  replacement. Downstream workarounds that require `parent_selection:
+  tournament` for crossover are no longer needed.
+- **Crossover offspring recorded a non-existent parent id.** The selected
+  individual's id was taken from its internal copy, which gets a fresh id and
+  is never logged, so lineage in `parent_ids` (and `operator`) pointed nowhere.
+  Crossover offspring now record the original individual's id, as mutation
+  offspring already did.
+- **Multi-objective selection was wrong when maximising** (#157, fixes #156).
+  The minimisation fronts from `NonDominatedSorting` were reversed, which does
+  not give the maximisation fronts, so a dominated solution could survive over
+  a dominating one. Objectives are now negated instead, as `ParetoArchive`
+  does. The new population also has `n_parents` members again, not
+  `n_offspring`.
+- **Multi-objective operator rewards** (#159, fixes #158). An offspring that
+  neither dominates nor is dominated by its parent scored -1 when minimising
+  and +1 when maximising; it now scores 0. Scalar fitness is unchanged.
+
 ## 1.4.2 (2026-10-23)
 
 ### Changed

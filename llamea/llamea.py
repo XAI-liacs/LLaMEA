@@ -8,25 +8,24 @@ import contextlib
 import logging
 import math
 import os
+import pickle
 import random
 import re
-import traceback
 import textwrap
+import traceback
 import warnings
 from typing import Callable, Optional
-import pickle
+
 import jsonlines
-
-
 import numpy as np
 from joblib import Parallel, delayed
 
-from .llm import LLM
-from .operator import Operator
-from .multi_objective_fitness import Fitness
 from .ast_features import extract_ast_features
-from .weight_updaters import DefaultWeightUpdater
 from .feature_guidance import FeatureGuidance, compute_feature_guidance
+from .llm import LLM
+from .multi_objective_fitness import Fitness
+from .operator import Operator
+from .weight_updaters import DefaultWeightUpdater
 
 try:
     from ConfigSpace import ConfigurationSpace
@@ -34,8 +33,8 @@ except ModuleNotFoundError:  # pragma: no cover - optional dependency
     ConfigurationSpace = None
 
 from .loggers import ExperimentLogger
-from .solution import Solution
 from .pareto_archive import ParetoArchive
+from .solution import Solution
 from .utils import (
     NoCodeException,
     code_distance,
@@ -49,8 +48,8 @@ logging.basicConfig(
     datefmt="%Y-%m-%d %H:%M:%S",
 )
 
-from pymoo.util.nds.non_dominated_sorting import NonDominatedSorting
 from pymoo.operators.survival.rank_and_crowding.metrics import calc_crowding_distance
+from pymoo.util.nds.non_dominated_sorting import NonDominatedSorting
 
 
 class LLaMEA:
@@ -1169,7 +1168,9 @@ The selected solutions to update are:\n\n"""
                 count=(operator.number_of_parents or 2) - 1
             ) + [individual_copy]
             self.logevent(f"Parent count: {len(parents)}")
-            parent_ids = [parent.id for parent in parents]
+            # Record the original individual's id, not that of its fresh copy
+            # (which is never logged), mirroring the single-parent branch.
+            parent_ids = [parent.id for parent in parents[:-1]] + [individual.id]
             new_prompt = self.construct_prompt(parents, operator)
 
         evolved_individual = individual.empty_copy()
@@ -1226,7 +1227,11 @@ The selected solutions to update are:\n\n"""
             count = self.n_offspring
         method = (self.parent_selection or "random").lower()
         if method == "random":
-            return np.random.choice(self.population, count, replace=True)
+            # Sample indices rather than the Solution objects themselves: passing
+            # the population to np.random.choice yields an object ndarray, and
+            # `ndarray + list` then broadcasts `+` over Solutions (crossover).
+            idx = np.random.choice(len(self.population), count, replace=True)
+            return [self.population[i] for i in idx]
         elif method == "roulette":
             return self._roulette_wheel_selection(count)
         elif method == "tournament":
