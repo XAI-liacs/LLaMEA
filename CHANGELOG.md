@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 1.4.3 (2026-11-22)
 
 ### Changed
 - **Minimum Python is now 3.11.5** (was 3.11). `soupsieve` releases that fix
