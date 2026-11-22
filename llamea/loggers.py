@@ -1,14 +1,14 @@
+import math
 import os
-from datetime import datetime
 import warnings
-
+from datetime import datetime
 from typing import Any
+
 import jsonlines
 import numpy as np
-import math
 
-from llamea.solution import Solution
 from llamea.multi_objective_fitness import Fitness
+from llamea.solution import Solution
 
 try:
     from ConfigSpace.read_and_write import json as cs_json

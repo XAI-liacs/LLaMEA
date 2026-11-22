@@ -8,25 +8,24 @@ import contextlib
 import logging
 import math
 import os
+import pickle
 import random
 import re
-import traceback
 import textwrap
+import traceback
 import warnings
 from typing import Callable, Optional
-import pickle
+
 import jsonlines
-
-
 import numpy as np
 from joblib import Parallel, delayed
 
-from .llm import LLM
-from .operator import Operator
-from .multi_objective_fitness import Fitness
 from .ast_features import extract_ast_features
-from .weight_updaters import DefaultWeightUpdater
 from .feature_guidance import FeatureGuidance, compute_feature_guidance
+from .llm import LLM
+from .multi_objective_fitness import Fitness
+from .operator import Operator
+from .weight_updaters import DefaultWeightUpdater
 
 try:
     from ConfigSpace import ConfigurationSpace
@@ -34,8 +33,8 @@ except ModuleNotFoundError:  # pragma: no cover - optional dependency
     ConfigurationSpace = None
 
 from .loggers import ExperimentLogger
-from .solution import Solution
 from .pareto_archive import ParetoArchive
+from .solution import Solution
 from .utils import (
     NoCodeException,
     code_distance,
@@ -49,8 +48,8 @@ logging.basicConfig(
     datefmt="%Y-%m-%d %H:%M:%S",
 )
 
-from pymoo.util.nds.non_dominated_sorting import NonDominatedSorting
 from pymoo.operators.survival.rank_and_crowding.metrics import calc_crowding_distance
+from pymoo.util.nds.non_dominated_sorting import NonDominatedSorting
 
 
 class LLaMEA:
