@@ -1169,7 +1169,9 @@ The selected solutions to update are:\n\n"""
                 count=(operator.number_of_parents or 2) - 1
             ) + [individual_copy]
             self.logevent(f"Parent count: {len(parents)}")
-            parent_ids = [parent.id for parent in parents]
+            # Record the original individual's id, not that of its fresh copy
+            # (which is never logged), mirroring the single-parent branch.
+            parent_ids = [parent.id for parent in parents[:-1]] + [individual.id]
             new_prompt = self.construct_prompt(parents, operator)
 
         evolved_individual = individual.empty_copy()

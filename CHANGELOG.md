@@ -11,6 +11,11 @@
   `list`, like roulette and tournament selection, with the same sampling with
   replacement. Downstream workarounds that require `parent_selection:
   tournament` for crossover are no longer needed.
+- **Crossover offspring recorded a non-existent parent id.** The selected
+  individual's id was taken from its internal copy, which gets a fresh id and
+  is never logged, so lineage in `parent_ids` (and `operator`) pointed nowhere.
+  Crossover offspring now record the original individual's id, as mutation
+  offspring already did.
 
 ## 1.4.2 (2026-10-23)
 

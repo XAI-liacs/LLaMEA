@@ -119,6 +119,11 @@ def test_evolve_solution_with_crossover_prompts_two_parents(method, monkeypatch)
     assert prompt.count("# parent-") == 2
     assert len(offspring.parent_ids) == 2
     assert individual.code in prompt
+    # Lineage points at real, logged solutions: the original individual (not
+    # its throwaway copy) plus a member of the population.
+    population_ids = {p.id for p in llamea.population}
+    assert offspring.parent_ids[-1] == individual.id
+    assert all(pid in population_ids for pid in offspring.parent_ids)
     assert "An exception occurred" not in (offspring.feedback or "")
 
 
