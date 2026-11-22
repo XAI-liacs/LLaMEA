@@ -52,7 +52,7 @@ uv run pytest
 
 - **Formatter**: `black` (line length default, ~88 chars)
 - **Import order**: `isort` (stdlib → third-party → local)
-- **Python**: ≥ 3.11
+- **Python**: ≥ 3.11.5
 - **Multi-line prompt strings**: wrap with `textwrap.dedent()` to avoid sending
   accidental leading whitespace to the LLM, e.g.:
   ```python

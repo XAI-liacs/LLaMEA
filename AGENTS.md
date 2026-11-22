@@ -3,7 +3,7 @@
 Welcome, Codex and other AI agents! This file contains instructions for working with the LLaMEA repository.
 
 ## Setup
-- Use **Python 3.11+**.
+- Use **Python 3.11.5+**.
 - Install the [uv](https://github.com/astral-sh/uv) package manager if it is not already available.
 - Install dependencies via `uv sync`.
   - Add `--group dev` for development tools and `--group docs` for documentation tools as needed.

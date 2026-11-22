@@ -2,11 +2,16 @@
 
 ## Unreleased
 
+### Changed
+- **Minimum Python is now 3.11.5** (was 3.11). `soupsieve` releases that fix
+  its open advisories require 3.11.5, so the lockfile previously kept a
+  vulnerable 2.x for Python 3.11.0–3.11.4.
+
 ### Security
 - **Dependency upgrades for known vulnerabilities** in the lockfile:
   `black` 26.10.1, `filelock` 4.3.0, `jupyter-server` 2.21.1, `msgpack` 1.2.4,
   `nbconvert` 7.17.2, `opentelemetry-api` 1.45.2, `pyasn1` 0.6.5,
-  `setuptools` 84.2.1, `soupsieve` 4.1.3 (Python ≥ 3.11.5), `tornado` 6.6.1.
+  `setuptools` 84.2.1, `soupsieve` 4.1.3, `tornado` 6.6.1.
 - The `examples` group pinned `scikit-learn==1.3.0` (GHSA-jw8x-6495-233v); it
   now requires `scikit-learn>=1.5.0,<2` and locks 1.9.1.
 - `polars` 1.44.0 was yanked upstream; locked 1.44.2 instead.
