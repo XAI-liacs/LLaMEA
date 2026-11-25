@@ -40,6 +40,16 @@
   is the latest release; it has no cp313 wheel and its sdist cannot build,
   which made the `examples` group uninstallable on Python 3.13.
 
+- **`nevergrad`** added to the `examples` group (`>=1.0.12,<2`); the
+  mini-Bragg benchmark imports it. The unused `from nevergrad import
+  benchmark` in `run_minibrag.py` was removed, because it needs nevergrad's
+  heavy `benchmark` extra (OpenCV, TensorFlow, ...).
+- **`pyGDM2`** (plasmonic photonics problem) is deliberately not in the
+  `examples` group: it requires `numpy<=2.3`, which would hold back numpy for
+  the whole lockfile. `photonics_benchmark.py` now imports the plasmonic
+  problem lazily, so the other photonic problems load without pyGDM2; using it
+  without pyGDM2 raises an `ImportError` explaining how to install it.
+
 ### Fixes
 - **`Gemini_LLM.query` failed on multi-turn conversations.** Earlier messages
   were sent as plain-string parts, which google-genai rejects (1.x and 3.x),

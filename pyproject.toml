@@ -66,6 +66,7 @@ examples = [
     "iohinspector>=0.3.0,<0.4",
     "pymoosh>=4.0.1,<5",
     "pandas>=2.2.3,<4",
+    "nevergrad>=1.0.12,<2",
 ]
 llm-extras = [
     "torch>=2.6.0,<3",
