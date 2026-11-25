@@ -4,6 +4,7 @@ LLM modules to connect to different LLM providers. Also extracts code, name and 
 
 import copy
 import logging
+import os
 import pickle
 import random
 import re
@@ -279,6 +280,7 @@ class OpenAI_LLM(LLM):
         self.client = openai.OpenAI(**self._client_kwargs)
         logging.getLogger("openai").setLevel(logging.ERROR)
         logging.getLogger("httpx").setLevel(logging.ERROR)
+        logging.getLogger("httpx2").setLevel(logging.ERROR)
         self.temperature = temperature
 
     def query(self, session_messages, max_retries: int = 5, default_delay: int = 10):
@@ -382,9 +384,20 @@ class Gemini_LLM(LLM):
             "response_mime_type": "text/plain",
         }
         self.api_key = api_key
-        self.client = genai.Client(
-            api_key=api_key,
-        )
+        self.client = self._make_client(api_key)
+
+    @staticmethod
+    def _make_client(api_key):
+        """Create a ``genai.Client`` pinned to the ``v1beta`` Gemini API.
+
+        google-genai >= 3 defaults to the ``v1`` API, which lacks some models
+        (e.g. the ``*-latest`` aliases). Pinning ``v1beta`` keeps behaviour
+        identical across google-genai 1.x-3.x. Set ``GOOGLE_GENAI_API_VERSION``
+        to override.
+        """
+        if os.environ.get("GOOGLE_GENAI_API_VERSION"):
+            return genai.Client(api_key=api_key)
+        return genai.Client(api_key=api_key, http_options={"api_version": "v1beta"})
 
     def __getstate__(self):
         """Return the picklable part of the instance."""
@@ -396,9 +409,8 @@ class Gemini_LLM(LLM):
         """Restore from a pickled state."""
         self.__dict__.update(state)  # put back the simple stuff
 
-        self.client = genai.Client(
-            api_key=self.api_key
-        )  # expecting implicit pull for env var GOOGLE_API_KEY, too risky to pickle.
+        # expecting implicit pull for env var GOOGLE_API_KEY, too risky to pickle.
+        self.client = self._make_client(self.api_key)
 
     def __deepcopy__(self, memo):
         cls = self.__class__
@@ -408,7 +420,7 @@ class Gemini_LLM(LLM):
             if k == "client":
                 continue
             setattr(new, k, copy.deepcopy(v, memo))
-        new.client = genai.Client(api_key=new.api_key)
+        new.client = self._make_client(new.api_key)
         return new
 
     def query(
@@ -428,16 +440,31 @@ class Gemini_LLM(LLM):
 
         Returns:
             str: model's reply.
+
+        Roles may be "user", "assistant" (or "model") and "system". System
+        messages replace the default ``system_instruction``.
         """
+        # Gemini takes system prompts as ``system_instruction``, calls the
+        # assistant role "model", and expects parts as ``{"text": ...}``.
+        system = "\n".join(
+            m["content"] for m in session_messages if m["role"] == "system"
+        )
+        turns = [m for m in session_messages if m["role"] != "system"]
         history = [
-            {"role": m["role"], "parts": [m["content"]]} for m in session_messages[:-1]
+            {
+                "role": "model" if m["role"] in ("assistant", "model") else "user",
+                "parts": [{"text": m["content"]}],
+            }
+            for m in turns[:-1]
         ]
-        last = session_messages[-1]["content"]
+        last = turns[-1]["content"]
 
         attempt = 0
         while True:
             try:
                 config = self.generation_config.copy()
+                if system:
+                    config["system_instruction"] = system
                 config.update(**kwargs)
                 chat = self.client.chats.create(
                     model=self.model, history=history, config=config

@@ -137,6 +137,14 @@ make sure you have `uv` installed.
    ```bash
    uv sync --dev --group examples
    ```
+   The plasmonic nanostructure problem in
+   `benchmarks/tuto_global_optimization_photonics` additionally needs
+   [pyGDM2](https://pypi.org/project/pyGDM2/), which is not part of any group
+   because it requires `numpy<=2.3`. Install it separately if you need that
+   problem:
+   ```bash
+   uv pip install pyGDM2
+   ```
 
 ## 💻 Quick Start
 

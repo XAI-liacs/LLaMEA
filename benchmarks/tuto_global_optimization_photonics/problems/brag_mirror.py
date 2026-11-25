@@ -1,5 +1,7 @@
 import numpy as np
 import PyMoosh as pm
+# PyMoosh>=4 moved the impedance solver to alt_methods; it returns r, t, R, T.
+from PyMoosh.alt_methods import coefficient_I
 from .photonic_problem import photonic_problem
 
 
@@ -57,7 +59,7 @@ class brag_mirror(photonic_problem):
         x = np.clip(x, self.lb, self.ub)
         structure = self.setup_structure(x)
         # the actual PyMoosh reflectivity simulation
-        _, R = pm.coefficient_I(structure, self.target_wl, 0.0, 0)
+        _, _, R, _ = coefficient_I(structure, self.target_wl, 0.0, 0)
         cost = 1 - R
 
         return cost

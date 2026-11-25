@@ -3,7 +3,6 @@ import re
 import time
 
 import numpy as np
-from nevergrad import benchmark
 
 import ioh
 from benchmarks.minibrag.problem import cost_minibragg, objective_f, upper_lower_bound

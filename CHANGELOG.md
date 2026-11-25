@@ -1,5 +1,67 @@
 # Changelog
 
+## 1.5.0 (2026-11-25)
+
+### Changed
+- **Dependency ranges widened to the current major versions**:
+  `openai` <4 (locks 3.59.0), `google-genai` <4 (3.6.1), `xgboost` <4 (3.4.1;
+  3.2.0 on Python 3.11). Dev: `isort` <10, `pytest-cov` <8, `ipykernel` <8,
+  `ioh` <0.5. Docs: `sphinx` >=7.4.7,<10 (9.2.0; 9.0.4 on Python 3.11),
+  `myst-parser` <6, `furo` and `sphinx-autobuild` uncapped,
+  `sphinxext-opengraph` <0.14. Examples: `pandas` <4. LLM extras:
+  `transformers` <6. Lower bounds are unchanged, so existing installs keep
+  resolving.
+- Lockfile refreshed with `uv lock --upgrade` (e.g. `anthropic` 2.14.0,
+  `torch` 2.15.0, `transformers` 5.24.1, `pandas` 3.1.1). `fonttools` is held
+  at 4.68.0 because 4.69.0 ships only cp311 wheels.
+- `Gemini_LLM` now pins the Gemini `v1beta` API. google-genai 3 switched its
+  default to `v1`, which lacks some models (e.g. the `*-latest` aliases);
+  set `GOOGLE_GENAI_API_VERSION` to choose another version.
+- `OpenAI_LLM` also silences the `httpx2` logger, the HTTP client of openai 3.
+- **`iohinspector` 0.0.3 → 0.3.0** (`examples` group, now `>=0.3.0,<0.4`).
+  0.0.3 no longer worked with current polars (`plot_ecdf` crashed). The MA-BBOB
+  `GettingStarted.ipynb` now uses `iohinspector.plots.plot_ecdf(f_min=,
+  f_max=)` (was `plot.plot_ecdf(y_min=, y_max=)`) and `get_aocc(by=...)`
+  (was `group_cols=`). AOCC values shift by at most 2e-3 because 0.3.0
+  integrates from evaluation 1, which matches LLaMEA's own `correct_aoc` more
+  closely; rankings are unchanged. ECDF plots now honour `f_max=100` (0.0.3
+  silently used 1e8).
+
+- **`pymoosh` 3.2 → 4.0.1** (`examples` group, now `>=4.0.1,<5`). 3.2's
+  `photo()` calls `np.trapz`, which numpy 2.4 removed, so the photovoltaic
+  benchmark crashed on the locked numpy. The photonic benchmarks now import
+  `coefficient_I` from `PyMoosh.alt_methods` (it returns `r, t, R, T`) and
+  `photo` from `PyMoosh.photo`; `sophisticated_antireflection_design` aliases
+  `np.trapz` to `np.trapezoid` because PyMoosh 4.0.1 still calls it. On 200
+  fixed designs per problem, Bragg, mini-Bragg and photovoltaic costs match
+  3.2 to 2e-15 (relative) and ellipsometry to 4e-8 (PyMoosh 4 refined its
+  Gold model); rankings are identical.
+- **`modcma`** is now `>=1.2.0,<2` and only installed on Python < 3.13. 1.2.0
+  is the latest release; it has no cp313 wheel and its sdist cannot build,
+  which made the `examples` group uninstallable on Python 3.13.
+
+- **`nevergrad`** added to the `examples` group (`>=1.0.12,<2`); the
+  mini-Bragg benchmark imports it. The unused `from nevergrad import
+  benchmark` in `run_minibrag.py` was removed, because it needs nevergrad's
+  heavy `benchmark` extra (OpenCV, TensorFlow, ...).
+- **`pyGDM2`** (plasmonic photonics problem) is deliberately not in the
+  `examples` group: it requires `numpy<=2.3`, which would hold back numpy for
+  the whole lockfile. `photonics_benchmark.py` now imports the plasmonic
+  problem lazily, so the other photonic problems load without pyGDM2; using it
+  without pyGDM2 raises an `ImportError` explaining how to install it. The
+  installation docs now describe it as an optional, separately installed
+  dependency (`uv pip install pyGDM2`).
+
+### Fixes
+- **`Gemini_LLM.query` failed on multi-turn conversations.** Earlier messages
+  were sent as plain-string parts, which google-genai rejects (1.x and 3.x),
+  and the `assistant` role was not mapped to Gemini's `model`. History is now
+  built as `{"role": "user"|"model", "parts": [{"text": ...}]}`, and `system`
+  messages become the `system_instruction`. LLaMEA's own loop sends
+  single-message sessions and was unaffected.
+- The `apply_code_delta` docstring is now valid reStructuredText, so it no
+  longer produces Sphinx errors.
+
 ## 1.4.3 (2026-11-22)
 
 ### Changed

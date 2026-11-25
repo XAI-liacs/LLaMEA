@@ -4,8 +4,12 @@ import pickle
 import random
 from unittest.mock import MagicMock, patch
 
-import httpx
 import pytest
+
+try:  # openai>=3 uses httpx2; fall back to httpx for openai<3
+    import httpx2 as httpx
+except ImportError:  # pragma: no cover
+    import httpx
 
 import llamea.llm as llm_mod  # the module that defines query
 from llamea import (
@@ -325,6 +329,70 @@ def test_ollama_llm_init():
 def test_gemini_llm_init():
     llm = Gemini_LLM(api_key="some_key", model="gemini-2.0-flash")
     assert llm.model == "gemini-2.0-flash"
+
+
+def test_gemini_llm_pins_v1beta(monkeypatch):
+    """google-genai>=3 defaults to the v1 API; LLaMEA keeps v1beta."""
+    monkeypatch.delenv("GOOGLE_GENAI_API_VERSION", raising=False)
+    llm = Gemini_LLM(api_key="some_key")
+    assert llm.client._api_client._http_options.api_version == "v1beta"
+    clone = copy.deepcopy(llm)
+    assert clone.client._api_client._http_options.api_version == "v1beta"
+
+
+def test_gemini_llm_query_builds_gemini_history():
+    """Roles map to Gemini's user/model, parts are {"text": ...} and system
+    messages become the system_instruction."""
+    llm = Gemini_LLM(api_key="fake", model="gemini-test")
+    chat = MagicMock()
+    chat.send_message.return_value = type("R", (), {"text": "OK"})
+    llm.client = MagicMock()
+    llm.client.chats.create.return_value = chat
+
+    reply = llm.query(
+        [
+            {"role": "system", "content": "be brief"},
+            {"role": "user", "content": "a"},
+            {"role": "assistant", "content": "b"},
+            {"role": "user", "content": "c"},
+        ]
+    )
+
+    assert reply == "OK"
+    kwargs = llm.client.chats.create.call_args.kwargs
+    assert kwargs["history"] == [
+        {"role": "user", "parts": [{"text": "a"}]},
+        {"role": "model", "parts": [{"text": "b"}]},
+    ]
+    assert kwargs["config"]["system_instruction"] == "be brief"
+    chat.send_message.assert_called_once_with("c")
+
+
+def test_gemini_llm_query_history_validates_with_sdk():
+    """The history format must be accepted by google-genai itself."""
+    from google.genai import types
+
+    llm = Gemini_LLM(api_key="fake", model="gemini-test")
+    llm.client = MagicMock()
+    llm.client.chats.create.return_value.send_message.return_value = type(
+        "R", (), {"text": "OK"}
+    )
+    llm.query(
+        [
+            {"role": "user", "content": "a"},
+            {"role": "assistant", "content": "b"},
+            {"role": "user", "content": "c"},
+        ]
+    )
+    history = llm.client.chats.create.call_args.kwargs["history"]
+    for item in history:
+        types.Content.model_validate(item)
+
+
+def test_gemini_llm_respects_api_version_env(monkeypatch):
+    monkeypatch.setenv("GOOGLE_GENAI_API_VERSION", "v1")
+    llm = Gemini_LLM(api_key="some_key")
+    assert llm.client._api_client._http_options.api_version == "v1"
 
 
 def test_multi_llm_selects_random_model(monkeypatch):

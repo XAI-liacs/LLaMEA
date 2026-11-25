@@ -39,30 +39,31 @@ def _code_updater(code: str, lines_to_change: list[str], updated_lines: list[str
 
 def apply_code_delta(text: str, base_code: str) -> tuple[str, bool, float]:
     """
-    Assuming the LLM follows the intructions properly, following format of response is expected.
-    ```diff <- (diff may appear sometimes.)
-    # A series of following search replace pattern will appear.
-    <<<<<<< SEARCH
-    for i in range(m):
-        for j in range(p):
-            for k in range(n):
-                C[i, j] += A[i, k] * B[k, j]
-    =======
-    # Reorder loops for better memory access pattern
-    for i in range(m):
-        for k in range(n):
+    Apply the SEARCH/REPLACE blocks of an LLM response to ``base_code``.
+
+    The response is expected to contain one or more blocks of the following
+    form, optionally wrapped in a Markdown ``diff`` code fence::
+
+        <<<<<<< SEARCH
+        for i in range(m):
             for j in range(p):
-                C[i, j] += A[i, k] * B[k, j]
-    >>>>>>> REPLACE
-    ```
+                for k in range(n):
+                    C[i, j] += A[i, k] * B[k, j]
+        =======
+        # Reorder loops for better memory access pattern
+        for i in range(m):
+            for k in range(n):
+                for j in range(p):
+                    C[i, j] += A[i, k] * B[k, j]
+        >>>>>>> REPLACE
 
     Args:
-        text: LLM response.text.
+        text: LLM response text.
         base_code: Base code to be mutated.
+
     Returns:
-        Code: updated code, after applying diff.
-        bool: Success of diff mode implementation.
-        float: Ratio of new code similar to the original `base_code`.
+        tuple[str, bool, float]: the updated code, whether the diff was applied
+        successfully, and the similarity ratio of the new code to ``base_code``.
     """
     outLines = []
     inLines = []

@@ -2,6 +2,8 @@ import matplotlib.pyplot as plt
 import nevergrad as ng
 import numpy as np
 import PyMoosh as pm
+# PyMoosh>=4 moved the impedance solver to alt_methods; it returns r, t, R, T.
+from PyMoosh.alt_methods import coefficient_I
 
 
 def setup_structure(thick_list, mat_env, mat1, mat2):
@@ -52,7 +54,7 @@ def cost_minibragg(x, mat_env, mat1, mat2, eval_wl):
     structure = setup_structure(x, mat_env, mat1, mat2)
 
     # the actual PyMoosh reflectivity simulation
-    _, R = pm.coefficient_I(structure, eval_wl, 0.0, 0)
+    _, _, R, _ = coefficient_I(structure, eval_wl, 0.0, 0)
     cost = 1 - R
 
     return cost
