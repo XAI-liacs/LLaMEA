@@ -27,6 +27,19 @@
   closely; rankings are unchanged. ECDF plots now honour `f_max=100` (0.0.3
   silently used 1e8).
 
+- **`pymoosh` 3.2 → 4.0.1** (`examples` group, now `>=4.0.1,<5`). 3.2's
+  `photo()` calls `np.trapz`, which numpy 2.4 removed, so the photovoltaic
+  benchmark crashed on the locked numpy. The photonic benchmarks now import
+  `coefficient_I` from `PyMoosh.alt_methods` (it returns `r, t, R, T`) and
+  `photo` from `PyMoosh.photo`; `sophisticated_antireflection_design` aliases
+  `np.trapz` to `np.trapezoid` because PyMoosh 4.0.1 still calls it. On 200
+  fixed designs per problem, Bragg, mini-Bragg and photovoltaic costs match
+  3.2 to 2e-15 (relative) and ellipsometry to 4e-8 (PyMoosh 4 refined its
+  Gold model); rankings are identical.
+- **`modcma`** is now `>=1.2.0,<2` and only installed on Python < 3.13. 1.2.0
+  is the latest release; it has no cp313 wheel and its sdist cannot build,
+  which made the `examples` group uninstallable on Python 3.13.
+
 ### Fixes
 - **`Gemini_LLM.query` failed on multi-turn conversations.** Earlier messages
   were sent as plain-string parts, which google-genai rejects (1.x and 3.x),

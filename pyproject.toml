@@ -58,11 +58,13 @@ examples = [
     "flask>=3.0.3,<4",
     "flask-socketio>=5.3.6,<6",
     "smac>=2.2.0,<3",
-    "modcma>=1.0.8,<2",
+    # modcma 1.2.0 ships wheels only up to cp312 and its sdist omits Eigen's
+    # unsupported/ headers, so it cannot be installed on Python 3.13+.
+    "modcma>=1.2.0,<2; python_version < '3.13'",
     "lizard>=1.17.13,<2",
     "networkx>=3.4.2,<4",
     "iohinspector>=0.3.0,<0.4",
-    "pymoosh==3.2",
+    "pymoosh>=4.0.1,<5",
     "pandas>=2.2.3,<4",
 ]
 llm-extras = [
