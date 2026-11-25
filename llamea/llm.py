@@ -440,16 +440,31 @@ class Gemini_LLM(LLM):
 
         Returns:
             str: model's reply.
+
+        Roles may be "user", "assistant" (or "model") and "system". System
+        messages replace the default ``system_instruction``.
         """
+        # Gemini takes system prompts as ``system_instruction``, calls the
+        # assistant role "model", and expects parts as ``{"text": ...}``.
+        system = "\n".join(
+            m["content"] for m in session_messages if m["role"] == "system"
+        )
+        turns = [m for m in session_messages if m["role"] != "system"]
         history = [
-            {"role": m["role"], "parts": [m["content"]]} for m in session_messages[:-1]
+            {
+                "role": "model" if m["role"] in ("assistant", "model") else "user",
+                "parts": [{"text": m["content"]}],
+            }
+            for m in turns[:-1]
         ]
-        last = session_messages[-1]["content"]
+        last = turns[-1]["content"]
 
         attempt = 0
         while True:
             try:
                 config = self.generation_config.copy()
+                if system:
+                    config["system_instruction"] = system
                 config.update(**kwargs)
                 chat = self.client.chats.create(
                     model=self.model, history=history, config=config

@@ -19,6 +19,16 @@
   set `GOOGLE_GENAI_API_VERSION` to choose another version.
 - `OpenAI_LLM` also silences the `httpx2` logger, the HTTP client of openai 3.
 
+### Fixes
+- **`Gemini_LLM.query` failed on multi-turn conversations.** Earlier messages
+  were sent as plain-string parts, which google-genai rejects (1.x and 3.x),
+  and the `assistant` role was not mapped to Gemini's `model`. History is now
+  built as `{"role": "user"|"model", "parts": [{"text": ...}]}`, and `system`
+  messages become the `system_instruction`. LLaMEA's own loop sends
+  single-message sessions and was unaffected.
+- The `apply_code_delta` docstring is now valid reStructuredText, so it no
+  longer produces Sphinx errors.
+
 ## 1.4.3 (2026-11-22)
 
 ### Changed
