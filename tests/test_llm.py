@@ -4,8 +4,12 @@ import pickle
 import random
 from unittest.mock import MagicMock, patch
 
-import httpx
 import pytest
+
+try:  # openai>=3 uses httpx2; fall back to httpx for openai<3
+    import httpx2 as httpx
+except ImportError:  # pragma: no cover
+    import httpx
 
 import llamea.llm as llm_mod  # the module that defines query
 from llamea import (
@@ -325,6 +329,21 @@ def test_ollama_llm_init():
 def test_gemini_llm_init():
     llm = Gemini_LLM(api_key="some_key", model="gemini-2.0-flash")
     assert llm.model == "gemini-2.0-flash"
+
+
+def test_gemini_llm_pins_v1beta(monkeypatch):
+    """google-genai>=3 defaults to the v1 API; LLaMEA keeps v1beta."""
+    monkeypatch.delenv("GOOGLE_GENAI_API_VERSION", raising=False)
+    llm = Gemini_LLM(api_key="some_key")
+    assert llm.client._api_client._http_options.api_version == "v1beta"
+    clone = copy.deepcopy(llm)
+    assert clone.client._api_client._http_options.api_version == "v1beta"
+
+
+def test_gemini_llm_respects_api_version_env(monkeypatch):
+    monkeypatch.setenv("GOOGLE_GENAI_API_VERSION", "v1")
+    llm = Gemini_LLM(api_key="some_key")
+    assert llm.client._api_client._http_options.api_version == "v1"
 
 
 def test_multi_llm_selects_random_model(monkeypatch):

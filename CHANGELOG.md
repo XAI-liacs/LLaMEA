@@ -1,5 +1,24 @@
 # Changelog
 
+## Unreleased
+
+### Changed
+- **Dependency ranges widened to the current major versions**:
+  `openai` <4 (locks 3.59.0), `google-genai` <4 (3.6.1), `xgboost` <4 (3.4.1;
+  3.2.0 on Python 3.11). Dev: `isort` <10, `pytest-cov` <8, `ipykernel` <8,
+  `ioh` <0.5. Docs: `sphinx` >=7.4.7,<10 (9.2.0; 9.0.4 on Python 3.11),
+  `myst-parser` <6, `furo` and `sphinx-autobuild` uncapped,
+  `sphinxext-opengraph` <0.14. Examples: `pandas` <4. LLM extras:
+  `transformers` <6. Lower bounds are unchanged, so existing installs keep
+  resolving.
+- Lockfile refreshed with `uv lock --upgrade` (e.g. `anthropic` 2.14.0,
+  `torch` 2.15.0, `transformers` 5.24.1, `pandas` 3.1.1). `fonttools` is held
+  at 4.68.0 because 4.69.0 ships only cp311 wheels.
+- `Gemini_LLM` now pins the Gemini `v1beta` API. google-genai 3 switched its
+  default to `v1`, which lacks some models (e.g. the `*-latest` aliases);
+  set `GOOGLE_GENAI_API_VERSION` to choose another version.
+- `OpenAI_LLM` also silences the `httpx2` logger, the HTTP client of openai 3.
+
 ## 1.4.3 (2026-11-22)
 
 ### Changed
