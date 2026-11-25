@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 1.5.0 (2026-11-25)
 
 ### Changed
 - **Dependency ranges widened to the current major versions**:
