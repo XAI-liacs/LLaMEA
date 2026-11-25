@@ -48,7 +48,9 @@
   `examples` group: it requires `numpy<=2.3`, which would hold back numpy for
   the whole lockfile. `photonics_benchmark.py` now imports the plasmonic
   problem lazily, so the other photonic problems load without pyGDM2; using it
-  without pyGDM2 raises an `ImportError` explaining how to install it.
+  without pyGDM2 raises an `ImportError` explaining how to install it. The
+  installation docs now describe it as an optional, separately installed
+  dependency (`uv pip install pyGDM2`).
 
 ### Fixes
 - **`Gemini_LLM.query` failed on multi-turn conversations.** Earlier messages
