@@ -1778,23 +1778,28 @@ wheels = [
 
 [[package]]
 name = "iohinspector"
-version = "0.0.3"
+version = "0.3.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
+    { name = "jsonschema" },
     { name = "matplotlib" },
     { name = "moocore" },
+    { name = "networkx", version = "3.6.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.12'" },
+    { name = "networkx", version = "3.7", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.12'" },
     { name = "numpy", version = "2.4.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.12'" },
     { name = "numpy", version = "2.5.5", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.12'" },
     { name = "pandas" },
     { name = "polars" },
     { name = "pyarrow" },
     { name = "robustranking" },
+    { name = "scipy", version = "1.17.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.12'" },
+    { name = "scipy", version = "1.18.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.12'" },
     { name = "seaborn" },
     { name = "skelo" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/b6/08/aaf9e115a998f07b7f5e1afdd261366abf36f687daf1e41556141fe30cd9/iohinspector-0.0.3.tar.gz", hash = "sha256:eb7d368015caa77373560df0f4e91aa8afbcb70a311d0db3ef298943e227c22d", size = 25980, upload-time = "2025-02-18T13:25:06.422Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/a3/d0/8e9a2269b95fca642830a54f49cfccfe02497279f30144b359044bf86bf1/iohinspector-0.3.0.tar.gz", hash = "sha256:e13399e273ec55715b1d05306763a367728ef2d694173a1a1eed3ac8621be953", size = 244307, upload-time = "2026-11-23T16:11:14.581Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/02/eb/2947d786c2053f5613ce984ca6d10b2ccf99eb0f99580a03a064e197dff9/iohinspector-0.0.3-py3-none-any.whl", hash = "sha256:ae51f759ae19423c3ef17c164b4fd8691d91fe3ebb1dfccdf8791a7f68cf5157", size = 25432, upload-time = "2025-02-18T13:25:04.245Z" },
+    { url = "https://files.pythonhosted.org/packages/ee/54/69ae904d12dc4ac7e8fd5b4a0a84fda3c7f35371ca7ce1a9707ccdafc856/iohinspector-0.3.0-py3-none-any.whl", hash = "sha256:59bbb2b9f5466feab7b2c37048984ced06357a3aa8e629e1820a94326dc71ef1", size = 271582, upload-time = "2026-11-23T16:11:12.78Z" },
 ]
 
 [[package]]
@@ -2812,7 +2817,7 @@ docs = [
 examples = [
     { name = "flask", specifier = ">=3.0.3,<4" },
     { name = "flask-socketio", specifier = ">=5.3.6,<6" },
-    { name = "iohinspector", specifier = ">=0.0.3,<0.0.4" },
+    { name = "iohinspector", specifier = ">=0.3.0,<0.4" },
     { name = "jellyfish", specifier = ">=1.0.3,<2" },
     { name = "levenshtein", specifier = ">=0.26.0,<0.28" },
     { name = "lizard", specifier = ">=1.17.13,<2" },

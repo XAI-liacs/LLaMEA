@@ -18,6 +18,14 @@
   default to `v1`, which lacks some models (e.g. the `*-latest` aliases);
   set `GOOGLE_GENAI_API_VERSION` to choose another version.
 - `OpenAI_LLM` also silences the `httpx2` logger, the HTTP client of openai 3.
+- **`iohinspector` 0.0.3 → 0.3.0** (`examples` group, now `>=0.3.0,<0.4`).
+  0.0.3 no longer worked with current polars (`plot_ecdf` crashed). The MA-BBOB
+  `GettingStarted.ipynb` now uses `iohinspector.plots.plot_ecdf(f_min=,
+  f_max=)` (was `plot.plot_ecdf(y_min=, y_max=)`) and `get_aocc(by=...)`
+  (was `group_cols=`). AOCC values shift by at most 2e-3 because 0.3.0
+  integrates from evaluation 1, which matches LLaMEA's own `correct_aoc` more
+  closely; rankings are unchanged. ECDF plots now honour `f_max=100` (0.0.3
+  silently used 1e8).
 
 ### Fixes
 - **`Gemini_LLM.query` failed on multi-turn conversations.** Earlier messages

@@ -61,7 +61,7 @@ examples = [
     "modcma>=1.0.8,<2",
     "lizard>=1.17.13,<2",
     "networkx>=3.4.2,<4",
-    "iohinspector>=0.0.3,<0.0.4",
+    "iohinspector>=0.3.0,<0.4",
     "pymoosh==3.2",
     "pandas>=2.2.3,<4",
 ]
