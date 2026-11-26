@@ -1,6 +1,6 @@
 # Changelog
 
-## 1.5.0 (2026-11-26)
+## 1.5.1 (2026-11-26)
 
 ### Changed
 - **XGBoost is now an optional extra.** It is only used by
@@ -9,6 +9,10 @@
   Install it with `pip install "llamea[feature-guidance]"`. Enabling
   `feature_guided_mutation` without it now raises an `ImportError` with that
   command, instead of silently giving no guidance.
+
+## 1.5.0 (2026-11-25)
+
+### Changed
 - **Dependency ranges widened to the current major versions**:
   `openai` <4 (locks 3.59.0), `google-genai` <4 (3.6.1), `xgboost` <4 (3.4.1;
   3.2.0 on Python 3.11). Dev: `isort` <10, `pytest-cov` <8, `ipykernel` <8,
