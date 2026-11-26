@@ -78,7 +78,7 @@ def test_feature_guidance_prefers_increasing_complexity():
     ]
     print("Solutions: ", solutions)
     guidance = compute_feature_guidance(solutions, minimization=False)
-    print('Guidance: ', guidance)
+    print("Guidance: ", guidance)
     assert guidance is not None
     assert guidance.action == "increase"
     assert guidance.message
@@ -180,3 +180,36 @@ def test_parent_guidance_handles_extreme_feature_values():
     assert guidance is not None
     assert guidance.feature_name in {"Nodes", "Edges"}
     assert guidance.message
+
+
+def test_feature_guided_mutation_requires_xgboost(monkeypatch):
+    """xgboost is an optional extra: enabling the feature without it fails early."""
+    import importlib.util
+
+    import pytest
+
+    from llamea.llamea import LLaMEA
+
+    class StubLLM:
+        model = "dummy"
+
+        def set_logger(self, logger):  # pragma: no cover - unused
+            pass
+
+    real_find_spec = importlib.util.find_spec
+    monkeypatch.setattr(
+        importlib.util,
+        "find_spec",
+        lambda name, *a, **k: (
+            None if name == "xgboost" else real_find_spec(name, *a, **k)
+        ),
+    )
+
+    def evaluator(solution, logger=None):
+        return solution
+
+    with pytest.raises(ImportError, match=r"llamea\[feature-guidance\]"):
+        LLaMEA(evaluator, llm=StubLLM(), log=False, feature_guided_mutation=True)
+
+    optimizer = LLaMEA(evaluator, llm=StubLLM(), log=False)
+    assert optimizer.feature_guided_mutation is False

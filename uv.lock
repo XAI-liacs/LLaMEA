@@ -2747,6 +2747,10 @@ dependencies = [
     { name = "openai" },
     { name = "pymoo" },
     { name = "tqdm" },
+]
+
+[package.optional-dependencies]
+feature-guidance = [
     { name = "xgboost", version = "3.2.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.12'" },
     { name = "xgboost", version = "3.4.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.12'" },
 ]
@@ -2766,6 +2770,8 @@ dev = [
     { name = "pytest" },
     { name = "pytest-cov" },
     { name = "pytest-mock" },
+    { name = "xgboost", version = "3.2.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.12'" },
+    { name = "xgboost", version = "3.4.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.12'" },
 ]
 docs = [
     { name = "furo" },
@@ -2817,8 +2823,9 @@ requires-dist = [
     { name = "openai", specifier = ">=1.99.1,<4" },
     { name = "pymoo", specifier = ">=0.6.1" },
     { name = "tqdm", specifier = ">=4.66.4,<5" },
-    { name = "xgboost", specifier = ">=2.1.1,<4" },
+    { name = "xgboost", marker = "extra == 'feature-guidance'", specifier = ">=2.1.1,<4" },
 ]
+provides-extras = ["feature-guidance"]
 
 [package.metadata.requires-dev]
 apple-silicon = [
@@ -2835,6 +2842,7 @@ dev = [
     { name = "pytest", specifier = ">=7.4.3,<10" },
     { name = "pytest-cov", specifier = ">=4.1.0,<8" },
     { name = "pytest-mock", specifier = ">=3.14.0,<4" },
+    { name = "xgboost", specifier = ">=2.1.1,<4" },
 ]
 docs = [
     { name = "furo", specifier = ">=2024.8.6" },

@@ -5,6 +5,7 @@ algorithms to automatically evaluate (for example metaheuristics evaluated on BB
 
 import concurrent.futures
 import contextlib
+import importlib.util
 import logging
 import math
 import os
@@ -135,6 +136,8 @@ class LLaMEA:
             adaptive_prompt (bool): If True, the task prompt is optimized before each mutation, allowing it to co-evolve with the individuals.
             feature_guided_mutation (bool): Enable archive based mutation guidance that
                 augments mutation prompts using XGBoost and TreeSHAP insights.
+                Requires the optional ``feature-guidance`` extra
+                (``pip install "llamea[feature-guidance]"``).
             budget (int): The number of generations to run the evolutionary algorithm.
             eval_timeout (int): The number of seconds one evaluation can maximum take (to counter infinite loops etc.). Defaults to 1 hour.
             max_workers (int): The maximum number of parallel workers to use for evaluating individuals.
@@ -334,6 +337,11 @@ class LLaMEA:
         self.minimization = minimization
         self.evaluate_population = evaluate_population
         self.adaptive_prompt = adaptive_prompt
+        if feature_guided_mutation and importlib.util.find_spec("xgboost") is None:
+            raise ImportError(
+                "feature_guided_mutation requires xgboost. Install it with: "
+                'pip install "llamea[feature-guidance]"'
+            )
         self.feature_guided_mutation = feature_guided_mutation
         self.feature_guidance: FeatureGuidance | None = None
         self.feature_guidance_message = ""
