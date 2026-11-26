@@ -1,6 +1,6 @@
 [project]
 name = "llamea"
-version = "1.5.0"
+version = "1.5.1"
 description = "LLaMEA is a Python framework for automatically generating and refining metaheuristic optimization algorithms using large language models, featuring optional in-the-loop hyper-parameter optimization."
 authors = [{ name = "Niki van Stein", email = "n.van.stein@liacs.leidenuniv.nl" }]
 requires-python = ">=3.11.5, <4"
@@ -19,6 +19,12 @@ dependencies = [
     "pymoo>=0.6.1",
     "lizard>=1.17.13,<2",
     "networkx>=3.4.2,<4",
+]
+
+[project.optional-dependencies]
+# XGBoost (with its NVIDIA NCCL dependency on Linux) adds ~290 MB, so it is only
+# installed for feature_guided_mutation: pip install "llamea[feature-guidance]"
+feature-guidance = [
     "xgboost>=2.1.1,<4",
 ]
 
@@ -37,6 +43,7 @@ dev = [
     "pytest-mock>=3.14.0,<4",
     "ipykernel>=6.29.5,<8",
     "ioh>=0.3.22,<0.5",
+    "xgboost>=2.1.1,<4",
 ]
 docs = [
     "sphinx>=7.4.7,<10",

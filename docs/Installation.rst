@@ -35,6 +35,13 @@ It is easiest to use LLaMEA from the PyPI package:
    The Python version **must** be >= 3.11.5.
    An OpenAI/Gemini/Ollama API key is needed for using LLM models.
 
+Feature-guided mutation (``feature_guided_mutation=True``) needs XGBoost, which
+is large (~290 MB on Linux), so it is an optional extra:
+
+.. code-block:: bash
+
+   pip install "llamea[feature-guidance]"
+
 You can also install the package from source using uv (0.7.19).
 make sure you have **uv** installed.
 

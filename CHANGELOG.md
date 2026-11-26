@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.5.1 (2026-11-26)
+
+### Changed
+- **XGBoost is now an optional extra.** It is only used by
+  `feature_guided_mutation` (off by default), but with its NVIDIA NCCL
+  dependency it made up ~290 MB of the ~660 MB `llamea` install on Linux.
+  Install it with `pip install "llamea[feature-guidance]"`. Enabling
+  `feature_guided_mutation` without it now raises an `ImportError` with that
+  command, instead of silently giving no guidance.
+
 ## 1.5.0 (2026-11-25)
 
 ### Changed
