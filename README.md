@@ -121,6 +121,13 @@ the lite package:
 ```
 HPO features in the lite package require installing `ConfigSpace` separately.
 
+Feature-guided mutation (`feature_guided_mutation=True`) needs XGBoost, which is
+large (~290 MB on Linux), so it is an optional extra:
+
+```bash
+  pip install "llamea[feature-guidance]"
+```
+
 You can also install the package from source using <a href="https://docs.astral.sh/uv/" target="_blank">uv</a> (0.7.19).
 make sure you have `uv` installed.
 

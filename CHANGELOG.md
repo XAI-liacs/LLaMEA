@@ -1,8 +1,14 @@
 # Changelog
 
-## 1.5.0 (2026-11-25)
+## 1.5.0 (2026-11-26)
 
 ### Changed
+- **XGBoost is now an optional extra.** It is only used by
+  `feature_guided_mutation` (off by default), but with its NVIDIA NCCL
+  dependency it made up ~290 MB of the ~660 MB `llamea` install on Linux.
+  Install it with `pip install "llamea[feature-guidance]"`. Enabling
+  `feature_guided_mutation` without it now raises an `ImportError` with that
+  command, instead of silently giving no guidance.
 - **Dependency ranges widened to the current major versions**:
   `openai` <4 (locks 3.59.0), `google-genai` <4 (3.6.1), `xgboost` <4 (3.4.1;
   3.2.0 on Python 3.11). Dev: `isort` <10, `pytest-cov` <8, `ipykernel` <8,
