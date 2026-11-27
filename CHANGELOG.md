@@ -22,9 +22,14 @@
 ### Fixed
 - **`operator_weight_updater` had no effect**: the argument was ignored and
   `update_weight` was never called. Updaters (e.g. `DiscountedUCBState`)
-  now receive a reward per offspring after every generation. Without an
+  now receive a reward per offspring after every generation, and every
+  operator's weight follows the updater's current score (so with
+  `DiscountedUCBState` untried operators are tried first). Without an
   updater the configured weights stay fixed, as before. Sampling copes with
   UCB's infinite (untried) and negative scores.
+- **`budget` is now a hard cap** on the number of evaluated candidates: the
+  initial population and the last generation are trimmed to what is left
+  (e.g. (5+5) with `budget=8` evaluated 10 candidates).
 - **`adaptive_mutation=True` had no effect**: the mutation-rate prompt was
   built but never sent.
 - **Evaluation timeouts crashed the run**: joblib raises a timeout while the

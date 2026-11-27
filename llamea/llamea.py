@@ -361,6 +361,7 @@ class LLaMEA:
 
         # None keeps the configured weights fixed (no adaptive operator selection).
         self.operator_weight_updater = operator_weight_updater
+        self._refresh_operator_weights()
 
         self.adaptive_mutation = adaptive_mutation
 
@@ -612,7 +613,11 @@ class LLaMEA:
         """
 
         population = self.population
-        n_missing = self.n_parents - len(population)
+        # ``budget`` caps the total number of evaluated candidates.
+        n_missing = min(
+            self.n_parents - len(population),
+            max(self.budget - len(self.run_history), 0 if population else 1),
+        )
         new_individuals = self._run_parallel(
             [delayed(self.initialize_single)() for _ in range(n_missing)]
         )
@@ -1304,6 +1309,25 @@ The selected solutions to update are:\n\n"""
                 self.update_weight(operator, parents, child)
             except Exception as e:  # never let bookkeeping stop a run
                 self.logevent(f"Operator weight update failed: {e!r}")
+        self._refresh_operator_weights()
+
+    def _refresh_operator_weights(self):
+        """Set every operator's weight to the updater's current score.
+
+        ``update`` only returns the score of the operator it updated, but a
+        discounted updater changes the scores of all operators, and an
+        operator that was never tried must start at its exploration score
+        (``inf`` for :class:`DiscountedUCBState`), not at its configured
+        weight. Updaters without a ``score`` method are left as they are.
+        """
+        score = getattr(self.operator_weight_updater, "score", None)
+        if not callable(score):
+            return
+        for operator in self.operators:
+            try:
+                operator.weight = score(operator.id)
+            except Exception:  # e.g. an id the updater does not track
+                pass
 
     # endregion
 
@@ -1532,8 +1556,12 @@ The selected solutions to update are:\n\n"""
         if self.feature_guided_mutation:
             self._update_feature_guidance()
         while len(self.run_history) < self.budget:
-            # pick a new offspring population using random sampling
-            new_offspring_population = self._select_parents()
+            # pick a new offspring population; the last generation is
+            # trimmed so that no more than ``budget`` candidates are evaluated
+            remaining = self.budget - len(self.run_history)
+            new_offspring_population = self._select_parents(
+                count=min(self.n_offspring, remaining)
+            )
 
             new_population = self._run_parallel(
                 [

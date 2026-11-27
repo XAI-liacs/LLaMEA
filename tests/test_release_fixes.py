@@ -551,3 +551,48 @@ def test_blade_hint_is_not_shown_inside_blade(capsys, monkeypatch):
     FakeProblem = type("Problem", (), {"__module__": "iohblade.problem"})
     core._show_blade_hint(FakeProblem())
     assert capsys.readouterr().out == ""
+
+
+def test_ucb_weights_start_at_exploration_score_and_refresh_for_all():
+    ops = [Operator("a", weight=0.5), Operator("b", weight=0.5)]
+    updater = DiscountedUCBState([o.id for o in ops])
+    opt = LLaMEA(
+        scalar_f,
+        ScriptedLLM(GOOD),
+        n_parents=1,
+        operators=ops,
+        operator_weight_updater=updater,
+        log=False,
+    )
+    a, b = opt.operators
+    assert a.weight == b.weight == float("inf")  # untried: explored first
+    parent = make(1.0)
+    opt.population = [parent]
+    child = make(2.0)
+    child.operator_id, child.parent_ids = a.id, [parent.id]
+    opt._update_operator_weights([child])
+    assert a.weight == pytest.approx(updater.score(a.id))
+    assert b.weight == float("inf")  # still untried
+    assert opt._operator_selection_weights() == [0.0, 1.0]
+
+
+@pytest.mark.parametrize(
+    "n_parents, n_offspring, budget", [(5, 5, 8), (5, 5, 3), (2, 4, 7)]
+)
+def test_budget_caps_the_number_of_evaluated_candidates(n_parents, n_offspring, budget):
+    evaluated = []
+
+    def counting_f(solution, logger=None):
+        evaluated.append(solution)
+        return scalar_f(solution)
+
+    LLaMEA(
+        counting_f,
+        ScriptedLLM(GOOD),
+        n_parents=n_parents,
+        n_offspring=n_offspring,
+        budget=budget,
+        max_workers=1,
+        log=False,
+    ).run()
+    assert len(evaluated) == budget
