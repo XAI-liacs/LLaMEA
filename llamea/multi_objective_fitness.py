@@ -1,5 +1,26 @@
 import math
 
+_INTERFACE = ("keys", "to_vector", "to_dict")
+
+
+def is_multi_objective_fitness(value) -> bool:
+    """True for a multi-objective fitness, of this or another class.
+
+    Any object with ``keys()``, ``to_vector()`` and ``to_dict()`` counts, so
+    LLaMEA works with evaluators that use their own fitness class (e.g.
+    BLADE's ``iohblade.fitness.Fitness``).
+    """
+    return all(callable(getattr(value, name, None)) for name in _INTERFACE)
+
+
+def _values(other) -> dict | None:
+    """The objective values of a multi-objective fitness, or None."""
+    if isinstance(other, Fitness):
+        return other._fitness
+    if is_multi_objective_fitness(other):
+        return dict(other.to_dict())
+    return None
+
 
 class Fitness:
     """Multi-objective fitness: one named value per objective.
@@ -38,38 +59,54 @@ class Fitness:
     def __setitem__(self, key: str, value: float):
         self._fitness[key] = value
 
-    def _dominates(self, other: "Fitness") -> tuple[bool, bool]:
-        better_or_equal = all(self[k] <= other[k] for k in self.keys())
-        strictly_better = any(self[k] < other[k] for k in self.keys())
+    @staticmethod
+    def _dominance(a: dict, b: dict) -> tuple[bool, bool]:
+        """(``a`` better or equal on all objectives, strictly better on one)."""
+        nan = float("nan")
+        better_or_equal = all(a.get(k, nan) <= b.get(k, nan) for k in a)
+        strictly_better = any(a.get(k, nan) < b.get(k, nan) for k in a)
         return better_or_equal, strictly_better
 
+    def _dominates(self, other) -> tuple[bool, bool]:
+        return self._dominance(self._fitness, _values(other) or {})
+
+    # Comparisons accept any multi-objective fitness (see
+    # is_multi_objective_fitness), not only this class.
+
     def __eq__(self, other: object) -> bool:
-        if not isinstance(other, Fitness):
+        values = _values(other)
+        if values is None:
             return False
-        return self._fitness == other._fitness
+        return self._fitness == values
 
-    def __lt__(self, other: "Fitness") -> bool:
-        if not isinstance(other, Fitness):
+    __hash__ = None  # mutable; equality is by value
+
+    def __lt__(self, other) -> bool:
+        values = _values(other)
+        if values is None:
             return False
-        be, sb = self._dominates(other)
+        be, sb = self._dominance(self._fitness, values)
         return be and sb
 
-    def __gt__(self, other: "Fitness") -> bool:
-        if not isinstance(other, Fitness):
+    def __gt__(self, other) -> bool:
+        values = _values(other)
+        if values is None:
             return False
-        be, sb = other._dominates(self)
+        be, sb = self._dominance(values, self._fitness)
         return be and sb
 
-    def __le__(self, other: "Fitness") -> bool:
-        if not isinstance(other, Fitness):
+    def __le__(self, other) -> bool:
+        values = _values(other)
+        if values is None:
             return False
-        be, sb = self._dominates(other)
+        be, sb = self._dominance(self._fitness, values)
         return be or sb
 
-    def __ge__(self, other: "Fitness") -> bool:
-        if not isinstance(other, Fitness):
+    def __ge__(self, other) -> bool:
+        values = _values(other)
+        if values is None:
             return False
-        be, sb = other._dominates(self)
+        be, sb = self._dominance(values, self._fitness)
         return be or sb
 
     def to_vector(self) -> list[float]:

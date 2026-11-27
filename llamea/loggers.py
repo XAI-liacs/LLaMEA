@@ -7,7 +7,7 @@ from typing import Any
 import jsonlines
 import numpy as np
 
-from llamea.multi_objective_fitness import Fitness
+from llamea.multi_objective_fitness import Fitness, is_multi_objective_fitness
 from llamea.solution import Solution
 
 try:
@@ -29,8 +29,8 @@ def convert_to_serializable(data):
         return float(data)
     if isinstance(data, np.ndarray):
         return data.tolist()
-    if isinstance(data, Fitness):
-        return convert_to_serializable(data.to_dict())
+    if is_multi_objective_fitness(data):
+        return convert_to_serializable(dict(data.to_dict()))
     else:
         return data
 
@@ -174,7 +174,7 @@ class ExperimentLogger:
             os.path.join(self.dirname, "solutions.jsonl"), "a"
         ) as writer:
             fitness = solution.fitness
-            if isinstance(fitness, Fitness):
+            if is_multi_objective_fitness(fitness):
                 evaluated = all(not math.isnan(v) for v in fitness.to_vector())
             else:
                 evaluated = not math.isnan(fitness)

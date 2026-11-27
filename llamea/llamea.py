@@ -24,7 +24,7 @@ from joblib import Parallel, delayed
 
 from .feature_guidance import FeatureGuidance
 from .llm import LLM
-from .multi_objective_fitness import Fitness
+from .multi_objective_fitness import Fitness, is_multi_objective_fitness
 from .operator import Operator
 from .weight_updaters import DefaultWeightUpdater
 
@@ -75,6 +75,18 @@ def _show_blade_hint(f) -> None:
         f"use BLADE (pip install iohblade): {BLADE_URL}\n"
         "     Set LLAMEA_NO_BLADE_HINT=1 to hide this message."
     )
+
+
+def _make_fitness(cls, values: dict):
+    """A multi-objective fitness of class ``cls`` (llamea's if None)."""
+    if cls is None or cls is Fitness:
+        return Fitness(values)
+    try:
+        if hasattr(cls, "from_dict"):
+            return cls.from_dict(dict(values))
+        return cls(dict(values))
+    except Exception:  # an unexpected constructor: fall back to llamea's
+        return Fitness(values)
 
 
 def _same(a, b) -> bool:
@@ -428,6 +440,9 @@ class LLaMEA:
         self.max_workers = max_workers
 
         self.multi_objective = multi_objective
+        # The evaluator's multi-objective fitness class, learned from the
+        # scores it returns (None: llamea's Fitness), see _ensure_fitness_evaluates.
+        self._mo_fitness_cls = None
         self.multi_objective_keys = []
         if self.multi_objective:
             self.best_so_far = ParetoArchive(minimisation=self.minimization)
@@ -595,10 +610,9 @@ class LLaMEA:
                 new_individual = self.evaluate_fitness(new_individual)
         except Exception as e:
             if self.multi_objective:
-                fitness = Fitness()
-                for key in self.multi_objective_keys:
-                    fitness[key] = self.worst_value
-                new_individual.set_scores(fitness, feedback="", error=e)
+                new_individual.set_scores(
+                    self._worst_mo_fitness(), feedback="", error=e
+                )
             else:
                 new_individual.set_scores(self.worst_value, feedback="", error=e)
             self.logevent(f"An exception occured: {traceback.format_exc()}.")
@@ -687,15 +701,42 @@ class LLaMEA:
 
     # endregion
     # region Evaluator
+    def _worst_mo_fitness(self):
+        """Worst value on every objective, in the evaluator's fitness class."""
+        values = {key: self.worst_value for key in self.multi_objective_keys}
+        return _make_fitness(getattr(self, "_mo_fitness_cls", None), values)
+
+    def _harmonise_mo_fitness(self, population: list[Solution]):
+        """Learn the evaluator's fitness class and convert placeholders to it.
+
+        An evaluator may use its own multi-objective fitness class (e.g.
+        BLADE's). Its comparisons may not accept llamea's ``Fitness``, so the
+        worst-value placeholders LLaMEA creates (for failed generations) must
+        use the same class as the evaluator's scores.
+        """
+        if getattr(self, "_mo_fitness_cls", None) is None:
+            for individual in population:
+                fitness = individual.fitness
+                if is_multi_objective_fitness(fitness) and not isinstance(
+                    fitness, Fitness
+                ):
+                    self._mo_fitness_cls = type(fitness)
+                    break
+        cls = getattr(self, "_mo_fitness_cls", None)
+        if cls is None:
+            return
+        for individual in list(population) + list(self.population):
+            if type(individual.fitness) is Fitness:
+                individual.fitness = _make_fitness(cls, individual.fitness.to_dict())
+
     def _ensure_fitness_evaluates(self, population: list[Solution]):
+        if self.multi_objective:
+            self._harmonise_mo_fitness(population)
         return_population = []
         for individual in population:
             if self.multi_objective:
-                if not isinstance(individual.fitness, Fitness):
-                    fitness = {}
-                    for key in self.multi_objective_keys:
-                        fitness[key] = self.worst_value
-                    individual.fitness = Fitness(fitness)
+                if not is_multi_objective_fitness(individual.fitness):
+                    individual.fitness = self._worst_mo_fitness()
             else:
                 if not math.isfinite(individual.fitness):
                     individual.fitness = self.worst_value
@@ -1259,7 +1300,7 @@ The selected solutions to update are:\n\n"""
         score = 0
 
         for parent in parents:
-            if isinstance(parent.fitness, Fitness):
+            if is_multi_objective_fitness(parent.fitness):
                 if not all([math.isfinite(fit) for fit in parent.fitness.to_vector()]):
                     score += 1
                     continue
