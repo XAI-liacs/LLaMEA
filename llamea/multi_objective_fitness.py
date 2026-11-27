@@ -2,16 +2,25 @@ import math
 
 
 class Fitness:
-    """
-    A class for multi_objective fitness management.
-    Meant for easy comparison, between fitness value.
-    `Note`: Do NOT use sort on this value, sorting makes certain assumptions that cannot be guaranteed by multi-objective fitnesses.
-    `Usage`: Init with a `Dictionary<String, Float>` type multi-objective fitness. Comparisons are not associated with dominance:
-        * `a < b` : `a` strictly dominates `b` in mininimsation task, and visa-versa in maximisation task.
-        * `a > b` : `a` strictly dominates `b` in maximisation task, and visa-versa in minimisation task.
-        * `a ≤ b` : `a` either dominates or belong to same pareto-front for minimisation task for `b`.
-        * `a ≥ b` : `a` either dominates or belong to same pareto-front for maximisation task for `b`.
-        * `a == b` : `a` and `b` have exact same fitness for all .
+    """Multi-objective fitness: one named value per objective.
+
+    Create it from a ``dict[str, float]``, e.g.
+    ``Fitness({"Distance": 12.3, "Fuel": 4.5})``. The comparison operators
+    express Pareto dominance:
+
+    * ``a < b``: ``a`` strictly dominates ``b`` when minimising (and ``b``
+      dominates ``a`` when maximising).
+    * ``a > b``: ``a`` strictly dominates ``b`` when maximising (and ``b``
+      dominates ``a`` when minimising).
+    * ``a <= b``: ``a`` dominates ``b`` or both are on the same Pareto front
+      (minimisation).
+    * ``a >= b``: ``a`` dominates ``b`` or both are on the same Pareto front
+      (maximisation).
+    * ``a == b``: all objective values are equal.
+
+    Note:
+        Do not sort lists of ``Fitness`` objects: dominance is only a partial
+        order, so the result of a sort is not meaningful.
     """
 
     def __init__(self, value: dict[str, float] | None = None):

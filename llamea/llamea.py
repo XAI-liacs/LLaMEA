@@ -773,8 +773,9 @@ Provide an improved / rephrased / augmented task prompt only. The intent of the 
         Constructs a new session prompt for the language model based on a selected individual.
 
         Args:
-            `individuals: list[Solution]`: The individuals to mutate / crossover.
-            `operator: Operator`: An instance of operator object. Make sure that `individuals`'s size is equal to `Operator.number_of_parents`.
+            individuals (list[Solution]): The individuals to mutate or cross over.
+            operator (Operator): The operator to apply; ``len(individuals)`` must
+                equal ``operator.number_of_parents``.
 
         Returns:
             list: A list of dictionaries simulating a conversation with the language model for the next evolutionary step.

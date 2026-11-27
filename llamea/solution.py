@@ -82,7 +82,9 @@ class Solution:
         Sets the operator name that generated this individual.
 
         Args:
-            `operator: tuple(operator, parent.id)`: The operator and the parents used for generating current individual.
+            operator (tuple): ``(operator, *parent_ids)``: the
+                :class:`~llamea.operator.Operator` and the ids of the parents
+                used to generate this individual.
         """
         self.operator = f"Operator: {operator[0]}, with parents: {operator[1:]}."
         self.operator_id = operator[0].id
@@ -109,12 +111,17 @@ class Solution:
     def set_scores(
         self, fitness: float | Fitness, feedback="", error: Optional[Exception] = None
     ):
-        """
-            Set the score of current instance of individual.
+        """Sets the score, feedback and (optional) error of this individual.
+
         Args:
-            `fitness: float | Fitness`: Fitness/Score of the individual. It is of type `float` when single objective, or `Fitness` when multi-objective.
-            `Feedback: str` feedback for the LLM, suggest improvements or target score.
-            `error: Exception`: Exception object encountered during `exec` of the code block.
+            fitness (float | Fitness): The score; a ``float`` for a single
+                objective, a :class:`~llamea.multi_objective_fitness.Fitness`
+                for several objectives.
+            feedback (str): Feedback for the LLM, e.g. suggested improvements
+                or the target score.
+            error (Exception | None): The exception raised while running the
+                code, if any. Its type, message and the offending line of the
+                code are stored in ``error`` and shown to the LLM.
         """
         self.fitness = fitness
         self.feedback = feedback

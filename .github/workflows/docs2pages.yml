@@ -54,7 +54,7 @@ jobs:
       run: uv sync --dev --group docs --no-group apple-silicon
     - name: Build documentation
       run: |
-        uv run sphinx-build -b html docs/ ./_site      
+        uv run sphinx-build -b html -W --keep-going docs/ ./_site
     - name: Upload artifact
       uses: actions/upload-pages-artifact@v3
 
