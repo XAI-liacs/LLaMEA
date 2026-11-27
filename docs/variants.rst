@@ -21,7 +21,7 @@ LLaMEA argument still works and **overrides the preset**.
    * - :class:`~llamea.variants.LLaMEA_HPO`
      - The LLM writes the algorithm and a ConfigSpace of its
        hyper-parameters; your evaluation tunes them (e.g. with SMAC).
-     - ``HPO=True``, ``(1+1)``, "refine or redesign" prompt
+     - ``HPO=True``, ``(5+5)``, "refine or redesign" prompt
      - `ACM TELO 2025 <https://doi.org/10.1145/3731567>`_
    * - :class:`~llamea.variants.LLaMEA_BO`
      - Evolves complete Bayesian optimisation algorithms.
@@ -121,7 +121,7 @@ BLADE's ``llamea`` method (see :doc:`blade`):
      - type: llamea
        name: LLaMEA-HPO
        llm: gemini
-       params: {HPO: true, n_parents: 1, n_offspring: 1}
+       params: {HPO: true, n_parents: 5, n_offspring: 5}
 
 API
 ---

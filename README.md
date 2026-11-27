@@ -114,7 +114,7 @@ preset.
 | Variant | What it does | Preset | Paper |
 |---|---|---|---|
 | `LLaMEA` | The base algorithm | `(5+5)`, mutation | [IEEE TEVC 2025](https://doi.org/10.1109/TEVC.2024.3497793) |
-| `LLaMEA_HPO` | LLM writes the algorithm and its ConfigSpace; your evaluation tunes it (e.g. SMAC) | `HPO=True`, `(1+1)`, refine-or-redesign | [ACM TELO 2025](https://doi.org/10.1145/3731567) |
+| `LLaMEA_HPO` | LLM writes the algorithm and its ConfigSpace; your evaluation tunes it (e.g. SMAC) | `HPO=True`, `(5+5)`, refine-or-redesign | [ACM TELO 2025](https://doi.org/10.1145/3731567) |
 | `LLaMEA_BO` | Evolves complete Bayesian optimisation algorithms | `(4+16)`, crossover 0.6, budget 100, BO prompt | [arXiv:2505.21034](https://arxiv.org/abs/2505.21034) |
 | `LLaMEA_MO` | Several objectives, NSGA-II-style selection, returns a Pareto front | `multi_objective=True`, `(5+10)` | – |
 | `LLaMEA_SAGE` | Mutations guided by explainable-AI analysis of code features | `feature_guided_mutation=True` | [arXiv:2601.21511](https://arxiv.org/abs/2601.21511) |
@@ -225,7 +225,7 @@ methods:
   - type: llamea                      # LLaMEA-HPO
     name: "LLaMEA-HPO-{llm}"
     llm: gemini
-    params: {HPO: true, n_parents: 1, n_offspring: 1}
+    params: {HPO: true, n_parents: 5, n_offspring: 5}
   - {type: random_search, name: "RS-{llm}", llm: gemini}
 problems:
   - {type: bbob_sbox, name: SBOX-COST}   # supports HPO (SMAC)

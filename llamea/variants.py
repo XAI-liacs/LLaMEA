@@ -73,7 +73,7 @@ class LLaMEA_HPO(_Variant):
     before scoring the algorithm. The LLM can then spend its queries on
     structural changes instead of numeric tuning.
 
-    Preset: ``HPO=True``, an elitist (1+1) strategy and the
+    Preset: ``HPO=True``, an elitist (5+5) strategy and the
     "refine or redesign" mutation prompt.
 
     Your evaluation function receives ``solution.configspace``
@@ -96,8 +96,8 @@ class LLaMEA_HPO(_Variant):
     def default_config(cls) -> dict[str, Any]:
         return {
             "HPO": True,
-            "n_parents": 1,
-            "n_offspring": 1,
+            "n_parents": 5,
+            "n_offspring": 5,
             "elitism": True,
             "operators": [Operator(HPO_MUTATION_PROMPT, name="mutation", weight=1.0)],
         }

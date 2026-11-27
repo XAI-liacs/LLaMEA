@@ -68,7 +68,7 @@ LLaMEA-HPO configuration and random search on SBOX-COST:
      - type: llamea
        name: "LLaMEA-HPO-{llm}"
        llm: gemini
-       params: {HPO: true, n_parents: 1, n_offspring: 1}
+       params: {HPO: true, n_parents: 5, n_offspring: 5}
      - {type: random_search, name: "RS-{llm}", llm: gemini}
    problems:
      - {type: bbob_sbox, name: SBOX-COST}
@@ -86,7 +86,7 @@ The same experiment with BLADE's Python API:
    llm = Gemini_LLM(api_key, "gemini-2.0-flash")
    methods = [
        LLaMEA(llm, budget=100, name="LLaMEA"),
-       LLaMEA(llm, budget=100, name="LLaMEA-HPO", HPO=True, n_parents=1, n_offspring=1),
+       LLaMEA(llm, budget=100, name="LLaMEA-HPO", HPO=True, n_parents=5, n_offspring=5),
        RandomSearch(llm, budget=100),
    ]
    experiment = Experiment(methods=methods, problems=[BBOB_SBOX()], runs=5,

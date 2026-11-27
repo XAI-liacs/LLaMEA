@@ -235,7 +235,9 @@ if __name__ == "__main__":
             output_format_prompt=format_prompt,
             operators=feedback_prompts,
             experiment_name=experiment_name,
-            elitism=True,
+            n_parents=5,
+            n_offspring=5,
+            elitism=True,  # (5+5) strategy
             HPO=True,
         )
         print(es.run())

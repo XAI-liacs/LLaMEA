@@ -4,7 +4,7 @@
 
 ### Added
 - **Ready-made variants** in `llamea.variants`, exported from `llamea`:
-  `LLaMEA_HPO` (in-the-loop HPO, (1+1)), `LLaMEA_BO` (Bayesian optimisation
+  `LLaMEA_HPO` (in-the-loop HPO, (5+5)), `LLaMEA_BO` (Bayesian optimisation
   algorithms; (4+16), crossover 0.6, budget 100 and a BO task prompt, as in
   the LLaMEA-BO paper), `LLaMEA_MO` (multi-objective, `objectives=[...]`)
   and `LLaMEA_SAGE` (feature-guided mutation). They only change defaults;

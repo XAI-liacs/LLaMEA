@@ -32,7 +32,7 @@ def f(solution, logger=None):
 def test_hpo_preset():
     opt = LLaMEA_HPO(f, FakeLLM(), log=False)
     assert opt.HPO is True
-    assert (opt.n_parents, opt.n_offspring) == (1, 1)
+    assert (opt.n_parents, opt.n_offspring) == (5, 5)
     assert "Space" in opt.output_format_prompt
     assert "redesign" in opt.operators[0].prompt
 
