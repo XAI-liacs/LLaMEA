@@ -1,390 +1,374 @@
 <p align="center">
   <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="logo-dark.png">
-    <source media="(prefers-color-scheme: light)" srcset="logo.png">
-    <img alt="Shows the LLaMEA logo." src="logo.png" width="200px">
+    <source media="(prefers-color-scheme: dark)" srcset="docs/media/llamea-banner-dark.png">
+    <source media="(prefers-color-scheme: light)" srcset="docs/media/llamea-banner.png">
+    <img alt="LLaMEA: Large Language Model Evolutionary Algorithm for LLM-driven automated algorithm design" src="docs/media/llamea-banner.png" width="100%">
   </picture>
 </p>
-
-<h1 align="center">LLaMEA: Large Language Model Evolutionary Algorithm</h1>
 
 > ⭐ If you like this, please give the repo a star – it helps!
 
 <p align="center">
-  <a href="https://pypi.org/project/llamea/">
-    <img src="https://badge.fury.io/py/llamea.svg" alt="PyPI version" height="18">
-  </a>
-  <a target="_blank" href="https://pypi.org/project/llamea/">
-    <img src="https://img.shields.io/pypi/dm/llamea" alt="Downloads per month"/>
-  </a>
-  <img src="https://img.shields.io/badge/Maintained%3F-yes-brightgreen.svg" alt="Maintenance" height="18">
-  <img src="https://img.shields.io/badge/Python-3.10+-blue" alt="Python 3.10+" height="18">
-  <img src="https://github.com/XAI-liacs/LLaMEA/actions/workflows/test.yml/badge.svg" alt="Test"/>
-  <a href="https://codecov.io/gh/XAI-liacs/LLaMEA" >
-    <img src="https://codecov.io/gh/XAI-liacs/LLaMEA/graph/badge.svg?token=VKCNPWVBNM"/>
- </a>
-  <a href="https://doi.org/10.5281/zenodo.13842144"><img src="https://zenodo.org/badge/DOI/10.5281/zenodo.13842144.svg" alt="DOI"></a>
-  <a target="_blank" href="https://colab.research.google.com/github/XAI-liacs/LLaMEA/blob/main/docs/notebooks/simple_example.ipynb">
-    <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/>
-  </a>
-
-  <a target="_blank" href="https://xai-liacs.github.io/LLaMEA/">
-    <img src="https://img.shields.io/badge/docs-online-success" alt="Docs"/>
-  </a>
-   <br/>
-   <a href="https://colab.research.google.com/github/XAI-liacs/LLaMEA/blob/main/docs/notebooks/simple_example.ipynb" target="_blank">Check our demo on Colab</a>
+  <a href="https://pypi.org/project/llamea/"><img src="https://img.shields.io/pypi/v/llamea?label=PyPI&color=13806f" alt="PyPI version" height="20"></a>
+  <a href="https://pypi.org/project/llamea/"><img src="https://img.shields.io/pypi/dm/llamea?label=downloads&color=13806f" alt="PyPI downloads per month" height="20"></a>
+  <img src="https://img.shields.io/badge/Python-3.11.5+-blue" alt="Python 3.11.5+" height="20">
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-green" alt="MIT license" height="20"></a>
+  <a href="https://github.com/XAI-liacs/LLaMEA/actions/workflows/test.yml"><img src="https://github.com/XAI-liacs/LLaMEA/actions/workflows/test.yml/badge.svg" alt="Tests" height="20"></a>
+  <a href="https://codecov.io/gh/XAI-liacs/LLaMEA"><img src="https://codecov.io/gh/XAI-liacs/LLaMEA/graph/badge.svg?token=VKCNPWVBNM" alt="Code coverage" height="20"></a>
+  <img src="https://img.shields.io/badge/Maintained%3F-yes-brightgreen.svg" alt="Maintained" height="20">
+</p>
+<p align="center">
+  <a href="https://xai-liacs.github.io/LLaMEA/"><img src="https://img.shields.io/badge/docs-online-13806f" alt="Documentation" height="20"></a>
+  <a href="https://doi.org/10.1109/TEVC.2024.3497793"><img src="https://img.shields.io/badge/DOI-10.1109%2FTEVC.2024.3497793-blue" alt="DOI of the IEEE TEVC paper" height="20"></a>
+  <a href="https://doi.org/10.5281/zenodo.13842144"><img src="https://zenodo.org/badge/DOI/10.5281/zenodo.13842144.svg" alt="Zenodo DOI" height="20"></a>
+  <a href="https://www.human-competitive.org/awards"><img src="https://img.shields.io/badge/Humies%202025-Silver-c0c0c0" alt="Humies 2025 Silver award" height="20"></a>
+  <a href="https://github.com/XAI-liacs/BLADE"><img src="https://img.shields.io/badge/benchmark%20with-BLADE-7c5cff" alt="Benchmark with BLADE" height="20"></a>
+  <a href="https://colab.research.google.com/github/XAI-liacs/LLaMEA/blob/main/docs/notebooks/simple_example.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab" height="20"></a>
+  <a href="https://github.com/astral-sh/uv"><img src="https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/uv/main/assets/badge/v0.json" alt="uv" height="20"></a>
+  <a href="https://github.com/psf/black"><img src="https://img.shields.io/badge/code%20style-black-000000.svg" alt="Code style: black" height="20"></a>
 </p>
 
-> **The fully-open alternative to Google DeepMind’s AlphaEvolve for automated algorithm discovery.**
-> First released 📅 Nov 2024 • MIT License • 100 % reproducible.
-> Also read the  <a href="https://xai-liacs.github.io/LLaMEA/" target="_blank">Documentation</a>.
-> 🥈 Winner of the Silver <a href="https://www.human-competitive.org/awards">Humies 2025</a> at GECCO!
+> **The fully open alternative to Google DeepMind's AlphaEvolve for automated algorithm discovery.**
+> First released 📅 Nov 2024 • MIT License • 100 % reproducible • 🥈 Silver [Humies 2025](https://www.human-competitive.org/awards) at GECCO.
 
-LLaMEA couples large-language-model reasoning with an evolutionary loop to **invent, mutate and benchmark algorithms fully autonomously**.
+LLaMEA couples large-language-model reasoning with an evolutionary loop to
+**invent, mutate and benchmark algorithms fully autonomously**: the LLM writes
+code, your evaluation function scores it, and the feedback drives the next
+generation.
+
+> [!TIP]
+> **LLaMEA designs algorithms; [BLADE](https://github.com/XAI-liacs/BLADE) benchmarks them.**
+> To compare LLaMEA (or a variant) with other LLM-driven design methods such
+> as EoH, ReEvo, FunSearch or MCTS-AHD on standard problems, with logging,
+> plots and a web app, run it through BLADE. See
+> [Running experiments with BLADE](#-running-experiments-with-blade).
+> Documentation: [xai-liacs.github.io/LLaMEA](https://xai-liacs.github.io/LLaMEA/).
 
 ## Table of Contents
-- [Introduction](#introduction)
 - [News](#-news)
+- [Introduction](#introduction)
+- [LLaMEA variants](#-llamea-variants)
 - [Installation](#-installation)
 - [Quick Start](#-quick-start)
+- [Running experiments with BLADE](#-running-experiments-with-blade)
 - [Configuration](#-configuration)
 - [Examples](#-examples)
-  - [Running `black-box-optimization.py`](#running-black-box-optimizationpy)
-  - [Running `black-box-opt-with-HPO.py` (LLaMEA-HPO)](#running-black-box-opt-with-hpopy-llamea-hpo)
-  - [Running `automl_example.py`](#running-automl_examplepy)
-- [Documentation](https://xai-liacs.github.io/LLaMEA/)
+- [Publications](#-publications)
+- [Awards](#-awards)
+- [Reproducibility](#-reproducibility)
 - [Contributing](#-contributing)
 - [License](#-license)
 - [Citation](#-citation)
 
+## 🔥 News
+
++ 2026.11 ✨ **LLaMEA v1.6.0**: ready-made variants `LLaMEA_HPO`, `LLaMEA_BO`, `LLaMEA_MO` and `LLaMEA_SAGE`, adaptive operator selection that now really adapts, and a round of bug fixes ([changelog](CHANGELOG.md)).
++ 2026.11 ✨ **[BLADE v1.2](https://github.com/XAI-liacs/BLADE)**: benchmark LLaMEA against other methods from a single YAML file.
++ 2026.08 📄 ["Evolving Executable Pipeline Programs for AutoML with Language Models"](https://arxiv.org/abs/2608.16416) on arXiv.
++ 2026.07 📄 ["LLM-Driven Evolutionary Generation of Multi-Objective Bayesian Optimization Algorithms"](https://arxiv.org/abs/2607.08791) on arXiv.
++ 2026.01 📄 ["LLaMEA-SAGE: Guiding Automated Algorithm Design with Structural Feedback from Explainable AI"](https://arxiv.org/abs/2601.21511) on arXiv.
++ 2025.08 🥉 **A LLaMEA-generated agent won 3rd prize at the IEEE CoG 2025 Planet Wars RTS competition.**
++ 2025.07 🥈 **LLaMEA won the Silver award at the [Humies @ GECCO 2025](https://www.human-competitive.org/awards).**
++ 2025.07 🏆 **LLaMEA won the Anytime Performance on Many-Affine BBOB competition at GECCO 2025.**
++ 2025.06 📄 ["LLaMEA-BO"](https://arxiv.org/abs/2505.21034) on arXiv.
++ 2025.05 🎉 ["Optimizing Photonic Structures with LLM-Driven Algorithm Discovery"](https://doi.org/10.1145/3712255.3734288) and ["BLADE"](https://doi.org/10.1145/3712255.3734347) at GECCO 2025.
++ 2025.04 🎉 **LLaMEA-HPO** in ACM TELO: ["In-the-loop Hyper-Parameter Optimization for LLM-Based Automated Design of Heuristics"](https://doi.org/10.1145/3731567).
++ 2025.04 🎉 ["Code Evolution Graphs"](https://doi.org/10.1145/3712256.3726328) accepted as a full paper at GECCO 2025.
++ 2025.01 🎉 **LLaMEA paper in IEEE TEVC**: ["LLaMEA: A Large Language Model Evolutionary Algorithm for Automatically Generating Metaheuristics"](https://doi.org/10.1109/TEVC.2024.3497793).
 
 ## Introduction
 
-**LLaMEA** (Large Language Model Evolutionary Algorithm) is an innovative framework that leverages the power of large language models (LLMs) such as GPT-4 for the automated generation and refinement of metaheuristic optimization algorithms. The framework utilizes a novel approach to evolve and optimize algorithms iteratively based on performance metrics and runtime evaluations without requiring extensive prior algorithmic knowledge. This makes LLaMEA an ideal tool for both research and practical applications in fields where optimization is crucial.
-
-**Key Features:**
-- **Automated Algorithm Generation**: Automatically generates and refines algorithms using GPT-based or similar LLM models.
-- **Performance Evaluation**: Integrates seamlessly with the IOHexperimenter for real-time performance feedback, guiding the evolutionary process.
-- **LLaMEA-HPO**: Provides an in-the-loop hyper-parameter optimization mechanism (via SMAC) to offload numerical tuning, so that LLM queries focus on novel structural improvements.
-- **Extensible & Modular**: You can easily integrate additional models and evaluation tools.
-- **Niching for Diversity**: Fitness sharing and clearing strategies maintain a diverse set of solutions.
-- **Unified Diff Mode**: Evolve code through patch-based edits for efficient token usage.
-- **Population Evaluation Mode**: Optionally evaluate whole populations in a single call to speed up expensive fitness functions.
+**LLaMEA** (Large Language Model Evolutionary Algorithm) uses LLMs such as
+GPT, Gemini, Claude or local models (Ollama, LM Studio, MLX) to generate and
+refine algorithms, typically optimisation heuristics, but equally ML pipelines
+or any other code you can score. Candidates evolve on measured performance and
+runtime feedback, so no prior algorithm-design expertise is needed.
 
 <p align="center">
-  <img src="framework.png" alt="LLaMEA framework" style="width:100%;"/>
+  <img src="framework.png" alt="The LLaMEA framework: the LLM generates algorithms, they are evaluated, and the scores and errors feed the next prompt." width="100%">
 </p>
 
-**Example use-cases:**
-- **Problem specific optimization algorithms**: Easily generate and fine-tune optimization algorithms to work on **your specific** problem. By leveraging problem knowledge in the prompt the generated optimized algorithms can perform even better.
-- **Efficient new Bayesian Optimization algorithms**: Generate optimized and novel Bayesian optimization algorithms, specifically for optimizing very expensive problems such as auto-motive crash worthiness or car shape design optimization tasks.
-- **Machine Learning Pipelines**: Without any ML knowledge, you can use LLaMEA to generate optimized machine learning pipelines for any task. Just insert the task description and provide the dataset and evaluation metric and start LLaMEA.
+**Key features**
 
+| | |
+|---|---|
+| 🧬 **Evolution strategies** | `(μ+λ)` and `(μ,λ)` with random, tournament or roulette parent selection |
+| 🔀 **Operators** | Mutation and crossover prompts with fixed weights or adaptive selection (e.g. discounted UCB) |
+| 🎛️ **LLaMEA-HPO** | In-the-loop hyper-parameter optimisation (SMAC) so the LLM focuses on structure |
+| 🎯 **Multi-objective** | Pareto-based selection (non-dominated sorting + crowding) over named objectives |
+| 🌱 **Diversity** | Fitness sharing, clearing, novelty search and MAP-Elites |
+| 🔍 **Explainable guidance** | LLaMEA-SAGE: XGBoost + TreeSHAP on code features steer mutations |
+| ✂️ **Diff mode** | SEARCH/REPLACE patches instead of full rewrites, saving tokens |
+| ⚡ **Parallel & robust** | Parallel evaluation with timeouts, population-level evaluation, warm start |
 
-## 🔥 News
+**Use cases:** problem-specific optimisation algorithms, new Bayesian
+optimisation algorithms for expensive problems, ML pipelines, photonic
+structure design, game agents, and more.
 
-+ 2025.08 🥉 **A LLaMEA generated agent won the 3rd price at the IEEE COG Planet Wars RTS competition**
-+ 2025.07 🥇 **"LLaMEA" won the Silver award at the [Humies @GECCO2025](https://www.human-competitive.org/awards)**
-+ 2025.07 🥈 **"LLaMEA" won the Any-time Performancy on Many-Affine BBOB 2025 competition**
-+ 2025.06 🎉 **["LLaMEA-BO: A Large Language Model Evolutionary Algorithm for Automatically Generating Bayesian Optimization Algorithms"](https://arxiv.org/abs/2505.21034) published on Arxiv**
-+ 2025.05 🎉 **["Optimizing Photonic Structures with Large Language Model Driven Algorithm Discovery"](https://arxiv.org/abs/2503.19742) and ["BLADE: Benchmark Suite for LLM-Driven Automated Design and Evolution of iterative optimisation heuristics"](https://arxiv.org/abs/2504.20183) accepted as workshop papers at GECCO 2025**
-+ 2025.04 🎉 **LLaMEA-HPO paper accepted in ACM TELO** [“In-the-loop Hyper-Parameter Optimization for LLM-Based Automated Design of Heuristics"](https://dl.acm.org/doi/abs/10.1145/3731567)!
-+ 2025.04 🎉 **["Code Evolution Graphs"](https://arxiv.org/abs/2503.16668) accepted as full paper at GECCO 2025**!
-+ 2025.03 🎉 **LLaMEA v1.0.0 released**!
-+ 2025.01 🎉 **LLaMEA paper accepted in IEEE TEVC** [“Llamea: A large language model evolutionary algorithm for automatically generating metaheuristics"](https://ieeexplore.ieee.org/abstract/document/10752628/)!
+## 🧬 LLaMEA variants
 
+The configurations from our papers are available as ready-made classes. They
+only change defaults, so any `LLaMEA` argument still works and overrides the
+preset.
+
+| Variant | What it does | Preset | Paper |
+|---|---|---|---|
+| `LLaMEA` | The base algorithm | `(5+5)`, mutation | [IEEE TEVC 2025](https://doi.org/10.1109/TEVC.2024.3497793) |
+| `LLaMEA_HPO` | LLM writes the algorithm and its ConfigSpace; your evaluation tunes it (e.g. SMAC) | `HPO=True`, `(1+1)`, refine-or-redesign | [ACM TELO 2025](https://doi.org/10.1145/3731567) |
+| `LLaMEA_BO` | Evolves complete Bayesian optimisation algorithms | `(4+16)`, crossover 0.6, budget 100, BO prompt | [arXiv:2505.21034](https://arxiv.org/abs/2505.21034) |
+| `LLaMEA_MO` | Several objectives, NSGA-II-style selection, returns a Pareto front | `multi_objective=True`, `(5+10)` | – |
+| `LLaMEA_SAGE` | Mutations guided by explainable-AI analysis of code features | `feature_guided_mutation=True` | [arXiv:2601.21511](https://arxiv.org/abs/2601.21511) |
+
+```python
+from llamea import LLaMEA_BO, LLaMEA_MO, get_variant
+
+optimizer = LLaMEA_BO(evaluate, llm)                   # paper defaults
+optimizer = LLaMEA_BO(evaluate, llm, budget=200)       # override any argument
+optimizer = LLaMEA_MO(evaluate_mo, llm, objectives=["Distance", "Fuel"],
+                      task_prompt="...")
+Variant = get_variant("hpo")                           # look up by name
+```
 
 ## 🎁 Installation
 
-> [!Important]
-> Ensure that SWIG is installed on your system by running `swig --version`
-> If it is not installed, use the appropriate method for your platform:
-> 
-> -	**macOS**: `brew install swig`
-> -	**Ubuntu/Linux**: `sudo apt-get install swig` (or your distribution’s package manager)
-> -	**Windows**: Download and install from the official [SWIG website](https://www.swig.org/download.html) and make sure to add it to your system PATH.
-
-
-It is the easiest to use LLaMEA from the pypi package.
 ```bash
-  pip install llamea
-```
-> [!Important]
-> The Python version **must** be higher or equal to 3.11.5.
-> You need an OpenAI/Gemini/Ollama API key for using LLM models.
-
-For a slimmed-down installation without bundled LLM or HPO dependencies, install
-the lite package:
-
-```bash
-  pip install llamea-lite
-```
-HPO features in the lite package require installing `ConfigSpace` separately.
-
-Feature-guided mutation (`feature_guided_mutation=True`) needs XGBoost, which is
-large (~290 MB on Linux), so it is an optional extra:
-
-```bash
-  pip install "llamea[feature-guidance]"
+pip install llamea
 ```
 
-You can also install the package from source using <a href="https://docs.astral.sh/uv/" target="_blank">uv</a> (0.7.19).
-make sure you have `uv` installed.
+> [!IMPORTANT]
+> Python **3.11.5 or higher** is required, plus an API key for your LLM
+> provider (or a local model via Ollama, LM Studio or MLX).
 
-1. Clone the repository:
-   ```bash
-   git clone https://github.com/XAI-liacs/LLaMEA.git
-   cd LLaMEA
-   ```
-2. Install the required dependencies via uv:
-   ```bash
-   uv sync
-   ```
-3. Optional install dev or/and example dependencies:
-   ```bash
-   uv sync --dev --group examples
-   ```
-   The plasmonic nanostructure problem in
-   `benchmarks/tuto_global_optimization_photonics` additionally needs
-   [pyGDM2](https://pypi.org/project/pyGDM2/), which is not part of any group
-   because it requires `numpy<=2.3`. Install it separately if you need that
-   problem:
-   ```bash
-   uv pip install pyGDM2
-   ```
+Optional extras:
+
+```bash
+pip install "llamea[feature-guidance]"   # XGBoost for LLaMEA_SAGE / feature_guided_mutation (~290 MB)
+pip install llamea-lite                  # slim install without bundled LLM / HPO dependencies
+pip install iohblade                     # BLADE, to benchmark LLaMEA against other methods
+```
+
+<details>
+<summary><b>From source with uv</b></summary>
+
+```bash
+git clone https://github.com/XAI-liacs/LLaMEA.git
+cd LLaMEA
+uv sync                            # core
+uv sync --dev --group examples     # tests and example dependencies
+```
+
+Some examples need [SWIG](https://www.swig.org/download.html)
+(`brew install swig` / `sudo apt-get install swig`). The plasmonic photonics
+problem in `benchmarks/tuto_global_optimization_photonics` also needs
+[pyGDM2](https://pypi.org/project/pyGDM2/) (`uv pip install pyGDM2`), which
+requires `numpy<=2.3` and is therefore not part of any group.
+</details>
 
 ## 💻 Quick Start
 
-
 > [!TIP]
-> See also the getting started demo: <a target="_blank" href="https://colab.research.google.com/github/XAI-liacs/LLaMEA/blob/main/docs/notebooks/simple_example.ipynb">
-  <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/>
-</a>
+> Try the getting-started notebook in
+> <a href="https://colab.research.google.com/github/XAI-liacs/LLaMEA/blob/main/docs/notebooks/simple_example.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab" height="18"></a>.
 
-1. Set up an OpenAI API key:
-   - Obtain an API key from [OpenAI](https://openai.com/).
-   - Set the API key in your environment variables:
-     ```bash
-     export OPENAI_API_KEY='your_api_key_here'
-     ```
+```python
+from llamea import LLaMEA, OpenAI_LLM
 
-2. Running an Experiment
+llm = OpenAI_LLM(api_key="...", model="gpt-4o")   # or Gemini_LLM, Anthropic_LLM, Ollama_LLM, ...
 
-    To run an optimization experiment using LLaMEA:
+def evaluate(solution, logger=None):
+    # solution.code holds the generated Python code, solution.name its class name.
+    namespace = {}
+    exec(solution.code, namespace)
+    algorithm = namespace[solution.name](budget=1000, dim=5)
+    score = ...                                   # run it on your problem
+    solution.set_scores(score, feedback=f"The algorithm scored {score:.3f}.")
+    return solution
 
-    ```python
-    from llamea import LLaMEA
+optimizer = LLaMEA(evaluate, llm, n_parents=4, n_offspring=8, budget=100)
+best = optimizer.run()
+print(best.name, best.fitness)
+print(best.code)
+```
 
-    # Define your evaluation function
-    def your_evaluation_function(solution):
-        # Implementation of your function
-        # return feedback, quality score, error information
-        return "feedback for LLM", 0.1, ""
+`budget` is the number of generated and evaluated candidates. LLaMEA
+maximises by default; pass `minimization=True` otherwise. Errors raised by the
+candidate code are best caught in `evaluate` and passed on with
+`solution.set_scores(score, feedback, error=e)`, so the LLM can repair them.
 
-    # Initialize LLaMEA with your API key and other parameters
-    optimizer = LLaMEA(f=your_evaluation_function, api_key="your_api_key_here")
+## 🧪 Running experiments with BLADE
 
-    # Run the optimizer
-    best_solution, best_fitness = optimizer.run()
-    print(f"Best Solution: {best_solution}, Fitness: {best_fitness}")
-    ```
+[**BLADE**](https://github.com/XAI-liacs/BLADE) (Benchmarking LLM-driven
+Automated Design and Evolution, [GECCO '25](https://doi.org/10.1145/3712255.3734347))
+is our benchmarking platform for LLM-driven algorithm design. It runs LLaMEA,
+including any variant configuration, next to other methods on built-in
+problem suites (BBOB, MA-BBOB, SBOX-COST, photonics, AutoML, ...) with
+isolated evaluation, the same budget for every method, seeding, logging,
+plots and a results web app.
 
-## ⚙️ Configuration
+Use **LLaMEA directly** for your own problem and evaluation function; use
+**BLADE** to benchmark, compare and report.
 
-Key hyper-parameters of `LLaMEA`:
+```bash
+pip install iohblade
+iohblade init my-exp          # starter experiment.yml
+iohblade check my-exp/experiment.yml
+iohblade run my-exp/experiment.yml
+```
+
+```yaml
+# experiment.yml
+experiment: {output_dir: results/my-exp, runs: 5, budget: 100}
+llms:
+  gemini: {provider: gemini, model: gemini-2.0-flash, api_key: "${env:GEMINI_API_KEY}"}
+methods:
+  - {type: llamea, name: "LLaMEA-{llm}", llm: gemini}
+  - type: llamea                      # LLaMEA-HPO
+    name: "LLaMEA-HPO-{llm}"
+    llm: gemini
+    params: {HPO: true, n_parents: 1, n_offspring: 1}
+  - {type: random_search, name: "RS-{llm}", llm: gemini}
+problems:
+  - {type: bbob_sbox, name: SBOX-COST}   # supports HPO (SMAC)
+```
+
+When you run LLaMEA on its own it prints a one-line pointer to BLADE; set
+`LLAMEA_NO_BLADE_HINT=1` to hide it. See the
+[BLADE documentation](https://xai-liacs.github.io/BLADE/) for all problems and
+methods.
+
+## 🔧 Configuration
+
+The most used arguments of `LLaMEA`:
 
 | Parameter | Description |
 | --- | --- |
-| `n_parents`, `n_offspring` | Population sizes controlling selection and mutation |
-| `budget` | Number of generations to run |
-| `niching` | Diversity management strategy (`None`, `"sharing"`, `"clearing"`) with `niche_radius` and related options |
-| `evaluate_population` | If `True`, the evaluation function `f` operates on a list of solutions |
-| `diff_mode` | Requests unified diff patches instead of full code for mutations |
-| `HPO` | Enable in-the-loop hyper-parameter optimization |
-| `eval_timeout`, `max_workers`, `parallel_backend` | Control evaluation time and parallelism |
-| `adaptive_mutation`, `adaptive_prompt` | Adaptive control of mutation strength and task prompt |
+| `n_parents`, `n_offspring`, `elitism` | Population sizes and `(μ+λ)` (default) vs. `(μ,λ)` selection |
+| `budget` | Number of candidates to generate and evaluate |
+| `operators`, `operator_weight_updater` | Mutation/crossover prompts (`Operator`) and adaptive operator selection |
+| `parent_selection`, `tournament_size` | `"random"`, `"tournament"` or `"roulette"` |
+| `role_prompt`, `task_prompt`, `example_prompt`, `output_format_prompt` | Prompt components |
+| `HPO` | Ask for a ConfigSpace next to the code (LLaMEA-HPO) |
+| `multi_objective`, `multi_objective_keys` | Pareto-based multi-objective mode |
+| `niching` | `"sharing"`, `"clearing"`, `"novelty"` or `"map_elites"`, with related options |
+| `diff_mode` | SEARCH/REPLACE patches instead of full code |
+| `adaptive_mutation`, `adaptive_prompt`, `feature_guided_mutation` | Mutation-rate control, co-evolving task prompt, XAI guidance |
+| `evaluate_population` | `f` receives the whole offspring population |
+| `eval_timeout`, `max_workers`, `parallel_backend` | Evaluation time limit and parallelism |
 
-See the [Documentation](https://xai-liacs.github.io/LLaMEA/) for a complete description of all parameters.
+See the [documentation](https://xai-liacs.github.io/LLaMEA/) for every parameter.
 
----
+## 💡 Examples
 
-## 💻 Examples
+| Script | Shows |
+|---|---|
+| [`examples/minimum_example.py`](examples/minimum_example.py) | The smallest complete set-up |
+| [`examples/black-box-optimization.py`](examples/black-box-optimization.py) | Metaheuristics for the 24 BBOB functions, scored by AOCC |
+| [`examples/black-box-opt-with-HPO.py`](examples/black-box-opt-with-HPO.py) | **LLaMEA-HPO** with SMAC tuning in the loop |
+| [`examples/black-box-optimization-diff-mode.py`](examples/black-box-optimization-diff-mode.py) | Diff mode (SEARCH/REPLACE patches) |
+| [`examples/crossover.py`](examples/crossover.py) | Mutation and crossover operators, tournament selection, discounted UCB |
+| [`examples/multi_objective.py`](examples/multi_objective.py) | **LLaMEA-MO** on a vehicle-routing problem (distance and fuel) |
+| [`examples/automl_example.py`](examples/automl_example.py) | Evolving ML pipelines instead of optimisers |
+| [`examples/warm-start-tests.py`](examples/warm-start-tests.py) | Resuming a run from its archive |
 
-Below are two example scripts from the `examples` directory demonstrating LLaMEA in action for black-box optimization with a BBOB (24 noiseless) function suite. One script (`examples/black-box-optimization.py`) runs basic LLaMEA, while the other (`examples/black-box-opt-with-HPO.py`) incorporates a **hyper-parameter optimization** pipeline—known as **LLaMEA-HPO**—that employs SMAC to tune the algorithm’s parameters in the loop.
+Run any of them with `uv run python examples/<script>.py` after setting the
+model and API key in the script. `benchmarks/` holds the set-ups of our papers
+(MA-BBOB, photonics, mini-Bragg).
 
-### Running `black-box-optimization.py`
+To browse the LLM conversation of a run: `uv run python logreader/app.py --logfile path/to/conversationlog.jsonl`
+and open `http://localhost:5001`.
 
-**`black-box-optimization.py`** showcases a straightforward use-case of LLaMEA. It:
-- Defines an evaluation function `evaluateBBOB` that runs generated algorithms on a standard set of BBOB problems (24 functions).
-- Initializes LLaMEA with a specific model (e.g., GPT-4, GPT-3.5) and prompts the LLM to generate metaheuristic code.
-- Iterates over a `(1+1)`-style evolutionary loop, refining the code until a certain budget is reached.
+## 📚 Publications
 
-**How to run:**
-```bash
-uv run python examples/black-box-optimization.py
-```
+LLaMEA is developed by the [XAI group of NACO at LIACS, Leiden University](https://naco.liacs.nl/projects/2024-llamea/)
+([project page](https://naco.liacs.nl/projects/2024-llamea/), [video](https://www.youtube.com/watch?v=LtFc8K5Uc4w)).
 
-The script will:
-1. Query the specified LLM with a prompt describing the black-box optimization task.
-2. Dynamically execute each generated algorithm on BBOB problems.
-3. Log performance data such as AOCC (Area Over the Convergence Curve).
-4. Iteratively refine the best-so-far algorithms.
+**Methodology**
+- **LLaMEA: A Large Language Model Evolutionary Algorithm for Automatically Generating Metaheuristics.** *IEEE Transactions on Evolutionary Computation* 29(2), 2025. [DOI](https://doi.org/10.1109/TEVC.2024.3497793)
+- **In-the-loop Hyper-Parameter Optimization for LLM-Based Automated Design of Heuristics** (LLaMEA-HPO). *ACM Transactions on Evolutionary Learning and Optimization*, 2025. [DOI](https://doi.org/10.1145/3731567)
+- **Controlling the Mutation in Large Language Models for the Efficient Evolution of Algorithms.** *EvoApplications* (Springer LNCS), 2025. [DOI](https://doi.org/10.1007/978-3-031-90065-5_25)
+- **LLaMEA-BO: A Large Language Model Evolutionary Algorithm for Automatically Generating Bayesian Optimization Algorithms.** [arXiv:2505.21034](https://arxiv.org/abs/2505.21034)
+- **LLaMEA-SAGE: Guiding Automated Algorithm Design with Structural Feedback from Explainable AI.** [arXiv:2601.21511](https://arxiv.org/abs/2601.21511)
+- **LLM-Driven Evolutionary Generation of Multi-Objective Bayesian Optimization Algorithms.** [arXiv:2607.08791](https://arxiv.org/abs/2607.08791)
+- **Large Language Models and Evolutionary Computation: A Critical Review of Bidirectional Interaction, Automated Algorithm Design, and Co-adaptive Systems.** *Computer Science Review*, 2026. [Article](https://www.sciencedirect.com/science/article/pii/S1574013726001589)
 
+**Benchmarking & analysis**
+- **BLADE: Benchmark Suite for LLM-driven Automated Design and Evolution of Iterative Optimisation Heuristics.** *GECCO '25 Companion*. [DOI](https://doi.org/10.1145/3712255.3734347) · [code](https://github.com/XAI-liacs/BLADE)
+- **Code Evolution Graphs: Understanding Large Language Model Driven Design of Algorithms.** *GECCO '25*. [DOI](https://doi.org/10.1145/3712256.3726328)
+- **Behaviour Space Analysis of LLM-driven Meta-heuristic Discovery.** [arXiv:2507.03605](https://arxiv.org/abs/2507.03605)
+- **From Heuristic Selection to Automated Algorithm Design: LLMs Benefit from Strong Priors.** [arXiv:2603.02792](https://arxiv.org/abs/2603.02792)
 
-### Running `black-box-opt-with-HPO.py` (LLaMEA-HPO)
+**Applications**
+- **Optimizing Photonic Structures with Large Language Model Driven Algorithm Discovery.** *GECCO '25 Companion*. [DOI](https://doi.org/10.1145/3712255.3734288)
+- **Landscape-aware Automated Algorithm Design: An Efficient Framework for Real-world Optimization.** [arXiv:2602.04529](https://arxiv.org/abs/2602.04529)
+- **LLM Driven Design of Continuous Optimization Problems with Controllable High-level Properties.** [arXiv:2601.18846](https://arxiv.org/abs/2601.18846)
+- **Evolving Executable Pipeline Programs for AutoML with Language Models.** [arXiv:2608.16416](https://arxiv.org/abs/2608.16416)
 
-**`black-box-opt-with-HPO.py`** extends LLaMEA with **in-the-loop hyper-parameter optimization**—termed **LLaMEA-HPO**. Instead of having the LLM guess or refine hyper-parameters directly, the code:
-- Allows the LLM to generate a Python class representing the metaheuristic **plus** a ConfigSpace dictionary describing hyper-parameters.
-- Passes these hyper-parameters to SMAC, which then searches for good parameter settings on a BBOB training set.
-- Evaluates the best hyper-parameters found by SMAC on the full BBOB suite.
-- Feeds back the final performance (and errors) to the LLM, prompting it to mutate the algorithm’s structure (rather than simply numeric settings).
+## 🏆 Awards
 
-**Why LLaMEA-HPO?**
-Offloading hyper-parameter search to SMAC significantly reduces LLM query overhead and encourages the LLM to focus on novel structural improvements.
+- 🥈 **Silver award, Humies @ GECCO 2025** ([awards](https://gecco-2025.sigevo.org/Humies-Awards))
+- 🏆 **Winner, Anytime Performance for Affine BBOB competition, GECCO 2025** ([results](https://gecco-2025.sigevo.org/Competition-Awards#AA4AffineBBOB_Competition))
+- 🏆 **Winner, Anytime Algorithms for Many-affine BBOB Functions, GECCO 2024** ([results](https://gecco-2024.sigevo.org/Competition-Awards.html#Anytime_Algorithms_for_Many-affine_BBOB_Functions))
+- 🥉 **Bronze, IEEE CoG 2025 Planet Wars RTS competition** ([results](https://simonlucas.github.io/planet-wars-rts/competitions/IEEE_CoG_2025_Results.html))
 
-**How to run:**
-```bash
-uv run python examples/black-box-opt-with-HPO.py
-```
+## 🔁 Reproducibility
 
-**Script outline:**
-1. **Prompt & Generation**: Script sets up a role/task prompt, along with hyper-parameter config space templates.
-2. **HPO Step**: For each newly generated algorithm, SMAC tries different parameter values within a budget.
-3. **Evaluation**: The final best configuration from SMAC is tested across BBOB instances.
-4. **Refinement**: The script returns the performance to LLaMEA, prompting the LLM to mutate the algorithm design.
+Each paper has a Zenodo record with code, generated algorithms and logs:
 
-> [!Note]
-> Adjust the model name (`ai_model`) or API key as needed in the script.
-> Changing `budget` or the HPO budget can drastically affect runtime and cost.
-> Additional arguments (e.g., logging directories) can be set if desired.
+* van Stein, N. (2025). BLADE – Code and Results for the paper. [doi:10.5281/zenodo.15119985](https://doi.org/10.5281/zenodo.15119985)
+* van Stein, N., Vermetten, D., & Bäck, T. (2025). LLaMEA-HPO: code, generated algorithms and IOH logging data. [doi:10.5281/zenodo.14917719](https://doi.org/10.5281/zenodo.14917719)
+* van Stein, N., Kononova, A. V., Kotthoff, L., & Bäck, T. (2025). Figures and code for Code Evolution Graphs. [doi:10.5281/zenodo.14770672](https://doi.org/10.5281/zenodo.14770672)
+* van Stein, N., & Bäck, T. (2024). LLaMEA. [doi:10.5281/zenodo.13842144](https://doi.org/10.5281/zenodo.13842144)
 
-### Running `automl_example.py`
+## 🤝 Contributing
 
-**`automl_example.py`** uses LLaMEA to showcase that it can not only evolve and generate metaheuristics but also all kind of other algorithms, such as Machine Learning pipelines.
-In this example, a basic classification task on the breast-cancer dataset from sklearn is solved by generating and evolving open-ended ML pipelines.
-- We define the evaluate function (accuracy score on a hold-out test set)
-- We provide a very basic example code to get the algorithm started.
-- We run a few iterations and observe the excellent performance of our completely automatic ML pipeline.
-
-**How to run:**
-```bash
-uv run python examples/automl_example.py
-```
-> [!Note]
-> Adjust the model name (`ai_model`) or API key as needed in the script.
-
-### Viewing conversation logs
-
-The repository provides a minimal Flask app in `logreader/app.py` to explore
-conversation logs stored as JSON Lines files. Start the server with a log file
-path:
-
-```bash
-uv run python logreader/app.py --logfile path/to/conversationlog.jsonl
-```
-
-You can also set the environment variable `CONVERSATION_LOG` instead of passing
-`--logfile`. If neither is given, the app defaults to `conversationlog.jsonl` in
-the current working directory. Navigate to `http://localhost:5001` to browse the
-messages.
-
----
-
-## 🤖 Contributing
-
-Contributions to LLaMEA are welcome! Here are a few ways you can help:
-
-- **Report Bugs**: Use [GitHub Issues](https://github.com/XAI-liacs/LLaMEA/issues) to report bugs.
-- **Feature Requests**: Suggest new features or improvements.
-- **Pull Requests**: Submit PRs for bug fixes or feature additions.
-
-Please refer to CONTRIBUTING.md for more details on contributing guidelines.
+Contributions are welcome: report bugs or request features in
+[GitHub Issues](https://github.com/XAI-liacs/LLaMEA/issues), or open a pull
+request. See [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## 🪪 License
 
-Distributed under the [MIT](https://choosealicense.com/licenses/mit/) License. See `LICENSE` for more information.
-
-
-
-## 🤖 Reproducability
-
-Each paper we published also has an accompanying Zenodo repository for full reproducability of all our results.
-
-* van Stein, N. (2025). BLADE - Code and Results for the paper [Data set]. Zenodo. [https://doi.org/10.5281/zenodo.15119985](https://doi.org/10.5281/zenodo.15119985)
-* van Stein, N., Vermetten, D., & Bäck, T. (2025). LLaMEA-HPO: code, generated algorithms and IOH logging data. [https://doi.org/10.5281/zenodo.14917719](https://doi.org/10.5281/zenodo.14917719)
-* van Stein, N., Kononova, A. V., Kotthoff, L., & Bäck, T. (2025). Figures and code for Code Evolution Graphs. Zenodo. [https://doi.org/10.5281/zenodo.14770672](https://doi.org/10.5281/zenodo.14770672)
-* van Stein, N., & Bäck, T. (2024). LLaMEA. Zenodo. [https://doi.org/10.5281/zenodo.13842144](https://doi.org/10.5281/zenodo.13842144)
-
+Distributed under the [MIT](LICENSE) License.
 
 ## ✨ Citation
 
-If you use LLaMEA in your research, please consider citing the associated paper:
+If you use LLaMEA in your research, please cite:
 
 ```bibtex
-@ARTICLE{van2025llamea,
-  author={Stein, Niki van and Bäck, Thomas},
-  journal={IEEE Transactions on Evolutionary Computation},
-  title={LLaMEA: A Large Language Model Evolutionary Algorithm for Automatically Generating Metaheuristics},
-  year={2025},
-  volume={29},
-  number={2},
-  pages={331-345},
-  keywords={Benchmark testing;Evolutionary computation;Metaheuristics;Codes;Large language models;Closed box;Heuristic algorithms;Mathematical models;Vectors;Systematics;Automated code generation;evolutionary computation (EC);large language models (LLMs);metaheuristics;optimization},
-  doi={10.1109/TEVC.2024.3497793}
+@article{van2025llamea,
+  author  = {van Stein, Niki and B{\"a}ck, Thomas},
+  journal = {IEEE Transactions on Evolutionary Computation},
+  title   = {LLaMEA: A Large Language Model Evolutionary Algorithm for Automatically Generating Metaheuristics},
+  year    = {2025},
+  volume  = {29},
+  number  = {2},
+  pages   = {331--345},
+  doi     = {10.1109/TEVC.2024.3497793}
 }
 ```
 
-If you only want to cite the LLaMEA-HPO variant use the folllowing:
+<details>
+<summary>LLaMEA-HPO, mutation control and BLADE</summary>
 
 ```bibtex
-@article{van2024intheloop,
-  author = {van Stein, Niki and Vermetten, Diederick and B\"{a}ck, Thomas},
-  title = {In-the-loop Hyper-Parameter Optimization for LLM-Based Automated Design of Heuristics},
-  year = {2025},
-  publisher = {Association for Computing Machinery},
-  address = {New York, NY, USA},
-  url = {https://doi.org/10.1145/3731567},
-  doi = {10.1145/3731567},
-  note = {Just Accepted},
-  journal = {ACM Trans. Evol. Learn. Optim.},
-  month = apr,
-  keywords = {Code Generation, Heuristic Optimization, Large Language Models, Evolutionary Computation, Black-Box Optimization, Traveling Salesperson Problems}
+@article{van2025intheloop,
+  author  = {van Stein, Niki and Vermetten, Diederick and B{\"a}ck, Thomas},
+  title   = {In-the-loop Hyper-Parameter Optimization for LLM-Based Automated Design of Heuristics},
+  journal = {ACM Transactions on Evolutionary Learning and Optimization},
+  year    = {2025},
+  doi     = {10.1145/3731567}
+}
+
+@inproceedings{yin2025controlling,
+  author    = {Yin, Haoran and Kononova, Anna V. and B{\"a}ck, Thomas and van Stein, Niki},
+  title     = {Controlling the Mutation in Large Language Models for the Efficient Evolution of Algorithms},
+  booktitle = {Applications of Evolutionary Computation},
+  publisher = {Springer Nature Switzerland},
+  year      = {2025},
+  pages     = {403--417},
+  doi       = {10.1007/978-3-031-90065-5_25}
 }
 ```
 
-Other works about extensions or integrations of LLaMEA:
-
-```bibtex
-@InProceedings{yin2024controlling,
-  author="Yin, Haoran and Kononova, Anna V. and B{\"a}ck, Thomas and van Stein, Niki",
-  editor="Garc{\'i}a-S{\'a}nchez, Pablo and Hart, Emma and Thomson, Sarah L.",
-  title="Controlling the Mutation in Large Language Models for the Efficient Evolution of Algorithms",
-  booktitle="Applications of Evolutionary Computation",
-  year="2025",
-  publisher="Springer Nature Switzerland",
-  address="Cham",
-  pages="403--417",
-  isbn="978-3-031-90065-5"
-}
-```
-
----
-
-For more details, please refer to the documentation and tutorials available in the repository.
-
-```mermaid
-flowchart LR
-    A[Initialization] -->|Starting prompt| B{Stop? fa:fa-hand}
-    B -->|No| C(Generate Algorithm - LLM )
-    B --> |Yes| G{{Return best so far fa:fa-code}}
-    C --> |fa:fa-code|D(Evaluate)
-    D -->|errors, scores| E[Store session history fa:fa-database]
-    E --> F(Construct Refinement Prompt)
-    F --> B
-```
-
----
-
-CodeCov test coverage
-
-<img src="https://codecov.io/gh/XAI-liacs/LLaMEA/graphs/sunburst.svg?token=VKCNPWVBNM"/>
+For BLADE, see the [BLADE citation](https://github.com/XAI-liacs/BLADE#-citation)
+([GECCO '25, doi:10.1145/3712255.3734347](https://doi.org/10.1145/3712255.3734347)).
+</details>
