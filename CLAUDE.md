@@ -11,7 +11,8 @@ Key source files under `llamea/`:
 - `llm.py` – LLM wrappers (`OpenAI_LLM`, `Gemini_LLM`, `Ollama_LLM`, `Dummy_LLM`, …)
 - `solution.py` – `Solution` dataclass holding code, description, score, feedback
 - `diffmodemanager.py` – applies SEARCH/REPLACE diffs returned by the LLM
-- `feature_guidance.py` – complexity-based mutation guidance
+- `feature_guidance.py` – complexity-based mutation guidance (LLaMEA-SAGE)
+- `variants.py` – ready-made configurations (`LLaMEA_HPO`, `LLaMEA_BO`, `LLaMEA_MO`, `LLaMEA_SAGE`, `get_variant`)
 - `loggers.py` / `utils.py` – experiment logging and helper utilities
 
 Examples live in `examples/`, benchmarks in `benchmarks/`.

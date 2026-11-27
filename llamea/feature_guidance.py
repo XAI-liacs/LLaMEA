@@ -7,7 +7,6 @@ from typing import Iterable, Optional, Sequence
 
 import numpy as np
 
-from .ast_features import extract_ast_features
 from .solution import Solution
 
 
@@ -44,6 +43,8 @@ def _prepare_training_data(
         features = solution.get_metadata("ast_features")
         if features is None:
             try:
+                from .ast_features import extract_ast_features
+
                 features = extract_ast_features(code)
             except Exception:
                 continue
@@ -149,6 +150,8 @@ def compute_feature_guidance(
         if parent_features is None:
             code = getattr(parent, "code", "") or ""
             try:
+                from .ast_features import extract_ast_features
+
                 parent_features = extract_ast_features(code)
                 parent.add_metadata("ast_features", dict(parent_features))
             except Exception:

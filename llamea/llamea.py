@@ -22,8 +22,7 @@ import jsonlines
 import numpy as np
 from joblib import Parallel, delayed
 
-from .ast_features import extract_ast_features
-from .feature_guidance import FeatureGuidance, compute_feature_guidance
+from .feature_guidance import FeatureGuidance
 from .llm import LLM
 from .multi_objective_fitness import Fitness
 from .operator import Operator
@@ -50,8 +49,8 @@ logging.basicConfig(
     datefmt="%Y-%m-%d %H:%M:%S",
 )
 
-from pymoo.operators.survival.rank_and_crowding.metrics import calc_crowding_distance
-from pymoo.util.nds.non_dominated_sorting import NonDominatedSorting
+# Imported where used: pymoo (multi-objective selection), lizard and networkx
+# (AST features for feature-guided mutation) are not needed by llamea-lite.
 
 BLADE_URL = "https://github.com/XAI-liacs/BLADE"
 _BLADE_HINT_SHOWN = False
@@ -864,6 +863,8 @@ The selected solutions to update are:\n\n"""
     def _update_feature_guidance(self, parent: Solution | None = None) -> None:
         """Train the archive model and refresh mutation guidance."""
 
+        from .feature_guidance import compute_feature_guidance
+
         guidance = compute_feature_guidance(
             self.run_history, self.minimization, parent=parent
         )
@@ -1207,6 +1208,11 @@ The selected solutions to update are:\n\n"""
         else:
             pool: list[Solution] = offspring + parents if self.elitism else offspring
             fitness_vector = np.array([x.fitness.to_vector() for x in pool])
+            from pymoo.operators.survival.rank_and_crowding.metrics import (
+                calc_crowding_distance,
+            )
+            from pymoo.util.nds.non_dominated_sorting import NonDominatedSorting
+
             nds = NonDominatedSorting()
             sorted_pool = []
             # NonDominatedSorting minimises, so negate the objectives for
@@ -1368,6 +1374,8 @@ The selected solutions to update are:\n\n"""
             # enhance the individual with AST features and feature guidance metadata (before logging).
             if self.feature_guided_mutation:
                 try:
+                    from .ast_features import extract_ast_features
+
                     ast_features = extract_ast_features(evolved_individual.code)
                     evolved_individual.add_metadata("ast_features", dict(ast_features))
                     evolved_individual.add_metadata(
