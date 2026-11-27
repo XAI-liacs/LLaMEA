@@ -1,3 +1,4 @@
+import copy
 import json
 import traceback
 import uuid
@@ -21,7 +22,7 @@ class Solution:
         description="",
         configspace=None,
         generation=0,
-        parent_ids=[],
+        parent_ids=None,
         operator=None,
         task_prompt="",
     ):
@@ -47,20 +48,34 @@ class Solution:
         self.fitness = float("nan")
         self.feedback = ""
         self.error = ""
-        self.parent_ids = parent_ids
+        self.parent_ids = list(parent_ids) if parent_ids is not None else []
         self.metadata = {}  # Dictionary to store additional metadata
         self.operator = operator
         self.operator_id = None  # Operator.id, set by set_operator()
         self.task_prompt = task_prompt
 
     def __getstate__(self):
-        return self.to_dict()
+        # The attributes themselves, so that a ConfigurationSpace survives
+        # pickling (joblib workers, deepcopy, warm start); ``to_dict`` would
+        # turn it into a plain dict.
+        return self.__dict__.copy()
 
     def __setstate__(self, state):
         state.setdefault("operator_id", None)  # older pickles lack this field
+        state.setdefault("metadata", {})
         self.__dict__.update(state)
         if self.configspace == "":
             self.configspace = None
+        elif isinstance(self.configspace, dict):
+            # Pickles written before 1.6.0 hold the serialised dict.
+            try:
+                from ConfigSpace import ConfigurationSpace
+
+                self.configspace = ConfigurationSpace.from_serialized_dict(
+                    self.configspace
+                )
+            except Exception:
+                pass
 
     def set_operator(self, operator):
         """
@@ -117,8 +132,13 @@ class Solution:
 
             if getattr(error, "__traceback__", None) is not None:
                 tb = traceback.extract_tb(error.__traceback__)
-                if tb:
-                    frame = tb[-1]
+                # Prefer the innermost frame in the candidate code (exec'd
+                # code has the file name "<string>"); the innermost frame
+                # overall is often inside numpy or scipy.
+                own = [f for f in tb if f.filename.startswith("<")]
+                frames = own or tb
+                if frames:
+                    frame = frames[-1]
                     line_no = frame.lineno
 
                     if 1 <= line_no <= len(code_lines):
@@ -164,7 +184,7 @@ class Solution:
         )
         new_solution.feedback = self.feedback
         new_solution.error = self.error
-        new_solution.metadata = self.metadata.copy()  # Copy the metadata as well
+        new_solution.metadata = copy.deepcopy(self.metadata)  # nested dicts too
         new_solution.operator_id = self.operator_id
         return new_solution
 
@@ -183,6 +203,7 @@ class Solution:
             generation=self.generation + 1,
             parent_ids=[self.id],  # Link this solution as the parent
             operator=self.operator,
+            task_prompt=self.task_prompt,
         )
         return new_solution
 

@@ -70,7 +70,7 @@ class Fitness:
         return vector
 
     def to_dict(self) -> dict[str, float]:
-        return self._fitness
+        return dict(self._fitness)
 
     @classmethod
     def from_dict(cls, data: dict[str, float]) -> "Fitness":

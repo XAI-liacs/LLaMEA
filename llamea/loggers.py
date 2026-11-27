@@ -19,7 +19,7 @@ except ModuleNotFoundError:  # pragma: no cover - optional dependency
 def convert_to_serializable(data):
     if isinstance(data, dict):
         return {key: convert_to_serializable(value) for key, value in data.items()}
-    elif isinstance(data, list):
+    elif isinstance(data, (list, tuple)):
         return [convert_to_serializable(item) for item in data]
     elif isinstance(data, np.integer):
         return int(data)
@@ -173,7 +173,14 @@ class ExperimentLogger:
         with jsonlines.open(
             os.path.join(self.dirname, "solutions.jsonl"), "a"
         ) as writer:
-            if solution.code and not math.isnan(solution.fitness) and sol_data:
+            fitness = solution.fitness
+            if isinstance(fitness, Fitness):
+                evaluated = all(not math.isnan(v) for v in fitness.to_vector())
+            else:
+                evaluated = not math.isnan(fitness)
+            if solution.code and evaluated and sol_data is not None:
                 writer.write(
-                    {"id": solution.id, "fitness": solution.fitness, "output": sol_data}
+                    convert_to_serializable(
+                        {"id": solution.id, "fitness": fitness, "output": sol_data}
+                    )
                 )

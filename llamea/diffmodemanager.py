@@ -30,20 +30,29 @@ class DiffModeManager:
         self.code_block = [line.rstrip() for line in old_code.split("\n")]
         self._index = 0
         self._regex = [
-            re.compile(r"<<{3,}\s*SEARCH"),  # Search Regex
+            re.compile(r"<{3,}\s*SEARCH"),  # Search Regex
             re.compile(r"={3,}"),  # Divider Regex
             re.compile(r">{3,}\s*REPLACE"),  # Replace
         ]
 
-    def _find_sub_list_index(self, sub_list: list):
+    def _find_sub_list_index(self, sub_list: list, taken=()):
+        """First index where ``sub_list`` occurs without overlapping ``taken``.
+
+        ``taken`` holds ``(start, end)`` ranges of earlier blocks, so a block
+        whose SEARCH text repeats an earlier one applies to the next
+        occurrence instead of being dropped.
+        """
         n, m = len(sub_list), len(self.code_block)
         for k in range(m - n + 1):
-            if self.code_block[k : k + n] == sub_list:
+            if self.code_block[k : k + n] != sub_list:
+                continue
+            if all(k + n <= start or k >= end for start, end in taken):
                 return k
         return -1
 
     def get_mutations(self):
         mutations: list[Mutation] = []
+        self.unmatched = 0  # SEARCH blocks that matched no (free) code
         current_state = -1
         search: list[str] = []
         replace: list[str] = []
@@ -72,13 +81,12 @@ class DiffModeManager:
                     case 1:
                         replace.append(line)
                     case 2:
-                        lc = self._find_sub_list_index(search)
-                        if (
-                            lc != -1
-                            and len(search) != 0
-                            and lc not in list(map(lambda x: x.lc, mutations))
-                        ):
+                        taken = [(m.lc, m.lc + len(m.search)) for m in mutations]
+                        lc = self._find_sub_list_index(search, taken)
+                        if lc != -1 and len(search) != 0:
                             mutations.append(Mutation(search[:], replace[:], lc))
+                        elif len(search) != 0:
+                            self.unmatched += 1
                         search.clear()
                         replace.clear()
 
@@ -86,7 +94,8 @@ class DiffModeManager:
         return mutations
 
     def mutate_code(self):
-        for mutation in sorted(self.get_mutations(), key=lambda x: x.lc, reverse=True):
+        mutations = self.get_mutations()
+        for mutation in sorted(mutations, key=lambda x: x.lc, reverse=True):
             start = mutation.lc
             end = start + len(mutation.search)
             self.code_block[start:end] = mutation.replacement

@@ -198,6 +198,14 @@ def _add_builtins_into(allowed_list: list[str]):
         "heapq",
         "copy",
         "collections",
+        "functools",
+        "typing",
+        "dataclasses",
+        "abc",
+        "bisect",
+        "enum",
+        "numbers",
+        "time",
     ]
 
 
@@ -223,7 +231,8 @@ def prepare_namespace(
     imports = _collect_imports(code)
 
     allowed = allowed.copy()
-    allowed = list(map(lambda x: x.split(">")[0], allowed))
+    # "numpy>=1.2", "numpy==2.0", "scikit-learn[all]" -> the distribution name.
+    allowed = [re.split(r"[<>=!~\[;\s]", a, maxsplit=1)[0] for a in allowed]
     _add_builtins_into(allowed)
     not_allowed: list[str] = []
 
@@ -238,10 +247,19 @@ def prepare_namespace(
                 not_allowed.append(imp["module"])
             else:
                 mod = importlib.import_module(module)
-                ns[imp["alias"] or module.split(".")[0]] = mod
+                if imp["alias"]:
+                    ns[imp["alias"]] = mod
+                else:
+                    # ``import numpy.linalg`` binds the name ``numpy`` to the
+                    # top-level package, as Python itself does.
+                    top = module.split(".")[0]
+                    ns[top] = importlib.import_module(top)
 
         elif imp["type"] == "from":
             module = imp["module"]
+            if module is None:  # relative import (``from . import x``)
+                not_allowed.append("." + imp["name"])
+                continue
 
             if allowed and not any(
                 module == a or module.startswith(a + ".") for a in allowed
@@ -250,7 +268,17 @@ def prepare_namespace(
                 not_allowed.append(imp["module"])
             else:
                 mod = importlib.import_module(module)
-                obj = getattr(mod, imp["name"])
+                if imp["name"] == "*":
+                    names = getattr(mod, "__all__", None) or [
+                        n for n in dir(mod) if not n.startswith("_")
+                    ]
+                    ns.update({n: getattr(mod, n) for n in names if hasattr(mod, n)})
+                    continue
+                try:
+                    obj = getattr(mod, imp["name"])
+                except AttributeError:
+                    # A submodule that the package does not import itself.
+                    obj = importlib.import_module(f"{module}.{imp['name']}")
                 ns[imp["alias"] or imp["name"]] = obj
 
     potential_issue = None
