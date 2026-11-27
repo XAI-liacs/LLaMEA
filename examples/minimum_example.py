@@ -12,7 +12,7 @@ if __name__ == "__main__":
     # Execution code starts here
     gemini_api_key = os.getenv("GEMINI_API_KEY")
     openai_api_key = os.getenv("OPENAI_API_KEY")
-    ai_model = "gpt-4.1-nano-2025-04-14"
+    ai_model = "gpt-6-luna"  # or "gemini-3.8-flash" with Gemini_LLM
     experiment_name = "minimal_example"
     # llm = OpenAI_LLM(api_key=openai_api_key, model=ai_model)
     # llm = Gemini_LLM(api_key=gemini_api_key, model=ai_model)

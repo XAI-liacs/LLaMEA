@@ -12,19 +12,19 @@ LLaMEA talks to language models through small wrapper classes in
      - Example
    * - :class:`~llamea.llm.OpenAI_LLM`
      - OpenAI, or any OpenAI-compatible endpoint (vLLM, OpenRouter, ...)
-     - ``OpenAI_LLM(api_key, "gpt-4o")``, ``OpenAI_LLM(key, "model", base_url="http://localhost:8000/v1")``
+     - ``OpenAI_LLM(api_key, "gpt-6.2-sol")``, ``OpenAI_LLM(key, "model", base_url="http://localhost:8000/v1")``
    * - :class:`~llamea.llm.Gemini_LLM`
      - Google Gemini
-     - ``Gemini_LLM(api_key, "gemini-2.0-flash")``
+     - ``Gemini_LLM(api_key, "gemini-3.8-flash")``
    * - :class:`~llamea.llm.Anthropic_LLM`
      - Anthropic Claude
      - ``Anthropic_LLM(api_key, "claude-sonnet-5-5")``
    * - :class:`~llamea.llm.DeepSeek_LLM`
      - DeepSeek
-     - ``DeepSeek_LLM(api_key, "deepseek-chat")``
+     - ``DeepSeek_LLM(api_key, "deepseek-flash")``
    * - :class:`~llamea.llm.Ollama_LLM`
      - Local models through Ollama
-     - ``Ollama_LLM("qwen2.5-coder:14b")``
+     - ``Ollama_LLM("qwen2.5-coder:7b")``
    * - :class:`~llamea.llm.LMStudio_LLM`
      - Local models through LM Studio (Apple silicon extra)
      - ``LMStudio_LLM("model-name")``
@@ -38,11 +38,34 @@ LLaMEA talks to language models through small wrapper classes in
      - No model; fixed response, for tests
      - ``Dummy_LLM()``
 
-Reasoning models
-----------------
+Default models
+--------------
 
-Some reasoning models reject a ``temperature`` other than the default; create
-``OpenAI_LLM(..., temperature=None)`` to leave it out of the request.
+Each wrapper has a default model, used when you pass none. Model names change
+often, so name the model explicitly in experiments you want to reproduce.
+
+.. list-table::
+   :header-rows: 1
+
+   * - Class
+     - Default (since 1.6.0)
+   * - ``OpenAI_LLM``
+     - ``gpt-6.2-sol`` (``gpt-6.2-astra`` is the flagship, ``gpt-6-luna`` the cheapest)
+   * - ``Gemini_LLM``
+     - ``gemini-3.8-flash``
+   * - ``Anthropic_LLM``
+     - ``claude-sonnet-5-5``
+   * - ``DeepSeek_LLM``
+     - ``deepseek-flash`` (``deepseek-v4-pro`` is the larger model)
+   * - ``Ollama_LLM``
+     - ``qwen2.5-coder:7b`` (``qwen3-coder:30b`` on a larger GPU)
+
+Temperature
+-----------
+
+``OpenAI_LLM`` leaves ``temperature`` out of the request by default, as OpenAI
+recommends for its current models, some of which reject other values. Pass
+``temperature=0.8`` (for example) for a model that accepts it.
 
 Errors and retries
 ------------------

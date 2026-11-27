@@ -16,7 +16,7 @@ from misc import OverBudgetException, aoc_logger, correct_aoc
 if __name__ == "__main__":
     # Execution code starts here
     openai_api_key = os.getenv("OPENAI_API_KEY")
-    ai_model = "gpt-4o"
+    ai_model = "gpt-6.2-sol"
     experiment_name = "pop1-5"
     llm = OpenAI_LLM(openai_api_key, ai_model)
 

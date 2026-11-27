@@ -19,6 +19,27 @@
 - `DeepSeek_LLM` is exported from `llamea`.
 - `LLM.extract_algorithm_name()`.
 
+### Changed
+- **New default models** (#165). Three of the old defaults no longer work:
+  `gpt-4-turbo` was shut down on 2026-10-23, `gemini-2.0-flash` on
+  2026-06-01, and DeepSeek discontinued `deepseek-chat` on 2026-07-24.
+
+  | Class | Old default | New default |
+  |---|---|---|
+  | `OpenAI_LLM` | `gpt-4-turbo` | `gpt-6.2-sol` |
+  | `Gemini_LLM` | `gemini-2.0-flash` | `gemini-3.8-flash` |
+  | `DeepSeek_LLM` | `deepseek-chat` | `deepseek-flash` |
+  | `Ollama_LLM` | `llama3.2` | `qwen2.5-coder:7b` |
+
+  The defaults are module constants in `llamea.llm` (`DEFAULT_OPENAI_MODEL`,
+  ...). The examples, notebooks and documentation use the new models; the
+  MA-BBOB and mini-Bragg benchmarks note that their papers used
+  `gemini-2.0-flash`.
+- **`OpenAI_LLM` no longer sends a temperature by default** (was 0.8).
+  OpenAI recommends omitting it for its current models, some of which
+  reject other values. Pass `temperature=0.8` to keep the old behaviour with
+  a model that accepts it. `DeepSeek_LLM` keeps 0.8.
+
 ### Fixed
 - **`operator_weight_updater` had no effect**: the argument was ignored and
   `update_weight` was never called. Updaters (e.g. `DiscountedUCBState`)

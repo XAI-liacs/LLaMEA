@@ -173,7 +173,7 @@ requires `numpy<=2.3` and is therefore not part of any group.
 ```python
 from llamea import LLaMEA, OpenAI_LLM
 
-llm = OpenAI_LLM(api_key="...", model="gpt-4o")   # or Gemini_LLM, Anthropic_LLM, Ollama_LLM, ...
+llm = OpenAI_LLM(api_key="...", model="gpt-6.2-sol")   # or Gemini_LLM, Anthropic_LLM, Ollama_LLM, ...
 
 def evaluate(solution, logger=None):
     # solution.code holds the generated Python code, solution.name its class name.
@@ -219,7 +219,7 @@ iohblade run my-exp/experiment.yml
 # experiment.yml
 experiment: {output_dir: results/my-exp, runs: 5, budget: 100}
 llms:
-  gemini: {provider: gemini, model: gemini-2.0-flash, api_key: "${env:GEMINI_API_KEY}"}
+  gemini: {provider: gemini, model: gemini-3.8-flash, api_key: "${env:GEMINI_API_KEY}"}
 methods:
   - {type: llamea, name: "LLaMEA-{llm}", llm: gemini}
   - type: llamea                      # LLaMEA-HPO

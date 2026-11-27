@@ -23,7 +23,7 @@ from misc import OverBudgetException, aoc_logger, correct_aoc
 if __name__ == "__main__":
     # Execution code starts here
     api_key = os.getenv("GOOGLE_API_KEY")
-    ai_model = "gemini-2.5-flash"
+    ai_model = "gemini-3.8-flash"
     experiment_name = "pop1-5"
     llm = Gemini_LLM(api_key, ai_model)
 

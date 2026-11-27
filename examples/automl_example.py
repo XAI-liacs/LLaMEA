@@ -95,7 +95,7 @@ Give an excellent and novel ML pipeline to solve this task and also give it a on
 if __name__ == "__main__":
     # Execution code starts here
     api_key = os.getenv("GEMINI_API_KEY")
-    ai_model = "gemini-1.5-flash"
+    ai_model = "gemini-3.8-flash"
     experiment_name = "automl-breast-cancer"
     llm = Gemini_LLM(api_key, ai_model)
 

@@ -787,3 +787,28 @@ def test_lms_getstate_setstate_reloads_llm(fake_lms_llm):
     assert restored.model == llm.model
     assert restored.config == llm.config
     assert hasattr(restored, "llm")
+
+def test_default_models_are_current():
+    """Defaults must not name models the providers have shut down (#165)."""
+    from llamea import llm as llm_module
+    from llamea.llm import DeepSeek_LLM, Gemini_LLM, Ollama_LLM, OpenAI_LLM
+
+    assert OpenAI_LLM(api_key="sk-test").model == llm_module.DEFAULT_OPENAI_MODEL
+    assert Gemini_LLM(api_key="key").model == llm_module.DEFAULT_GEMINI_MODEL
+    assert Ollama_LLM().model == llm_module.DEFAULT_OLLAMA_MODEL
+    assert DeepSeek_LLM(api_key="key").model == llm_module.DEFAULT_DEEPSEEK_MODEL
+    retired = {"gpt-4-turbo", "gemini-2.0-flash", "deepseek-chat", "llama3.2"}
+    defaults = {
+        llm_module.DEFAULT_OPENAI_MODEL,
+        llm_module.DEFAULT_GEMINI_MODEL,
+        llm_module.DEFAULT_OLLAMA_MODEL,
+        llm_module.DEFAULT_DEEPSEEK_MODEL,
+    }
+    assert not defaults & retired
+
+
+def test_openai_omits_temperature_by_default():
+    from llamea.llm import DeepSeek_LLM, OpenAI_LLM
+
+    assert OpenAI_LLM(api_key="sk-test").temperature is None
+    assert DeepSeek_LLM(api_key="key").temperature == 0.8
