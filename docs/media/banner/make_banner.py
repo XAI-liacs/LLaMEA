@@ -134,7 +134,24 @@ def render(theme_name, size, path, social=False):
     print("wrote", path)
 
 
+def render_mark(theme_name, path):
+    """Square helix mark for the docs sidebar and favicon (transparent)."""
+    theme = THEMES[theme_name]
+    fig = plt.figure(figsize=(2.56, 2.56), dpi=200)
+    ax = fig.add_axes([0, 0, 1, 1])
+    ax.set_xlim(0, 512)
+    ax.set_ylim(0, 512)
+    ax.axis("off")
+    helix(ax, 256, 256, 440, 300, theme)
+    fig.savefig(path, transparent=True)
+    plt.close(fig)
+    print("wrote", path)
+
+
 if __name__ == "__main__":
+    STATIC = OUT.parent / "_static"
+    render_mark("light", STATIC / "llamea-mark.png")
+    render_mark("dark", STATIC / "llamea-mark-dark.png")
     render("dark", (3200, 800), OUT / "llamea-banner-dark.png")
     render("light", (3200, 800), OUT / "llamea-banner.png")
-    render("dark", (2560, 1280), OUT / "llamea-social-preview.png", social=True)
+    render("dark", (2560, 1280), STATIC / "llamea-social-preview.png", social=True)

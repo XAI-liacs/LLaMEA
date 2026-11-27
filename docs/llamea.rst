@@ -1,40 +1,50 @@
-LLaMEA
-======
+Configuring LLaMEA
+==================
 
 The :class:`~llamea.llamea.LLaMEA` class implements the evolutionary loop
-around a large language model. Its behaviour is governed by many
-hyper-parameters controlling population sizes, mutation style, diversity and
-evaluation.
+around a large language model. This page groups its arguments by purpose;
+the :doc:`API reference <api_llamea>` lists them all. For ready-made
+combinations from our papers, see :doc:`variants`.
 
-Recent features include:
+Features
+--------
 
-* **Niching** – enable ``niching="sharing"`` or ``niching="clearing"`` to
-  maintain diversity. ``distance_metric``, ``niche_radius``,
-  ``adaptive_niche_radius`` and ``clearing_interval`` further tune the niches.
-* **Diff mode** – set ``diff_mode=True`` to request SEARCH/REPLACE patches
-  instead of entire source files from the LLM. This is more token efficient for large code bases.
-* **Population evaluation** – with ``evaluate_population=True`` the evaluation
-  function ``f`` operates on lists of solutions, allowing batch evaluations.
-* **Multi-objective mode** – set ``multi_objective=True`` and provide
-  ``multi_objective_keys=[...]`` to optimize multiple objectives and maintain a
-  Pareto archive instead of a single best solution.
-* **Warm start** -With every iteration, **LLaMEA** archives its latest run in
-    `<experiment_log_directory>/llamea_config.pkl`. The framework provides
-    **``warm_start`` class methods** that allow you to resume from a previously
-    saved state. This methods:
-        - Accept the path to the ``<experiment_log_directory>``.
-        - Restore the most recent object from the archive.
-        - Reinitialize the program in warm-start mode.
-    After restoring the object, you can call `restored_object.run()` to continue execution
-    from the point where the program was last terminated, while updating the same experiment
-    directory.
-*  **Initial Population**  -After a cold start, initialisation of LLaMEA object
-   one can use `.run(<experiment_log_directory>)` to start with latest individual
-   from the run logged in that directory. Make sure to use similar initialisation
-   criteria, as was used in the logged experiment.
+* **Niching**: ``niching="sharing"``, ``"clearing"``, ``"novelty"`` or
+  ``"map_elites"`` keeps the population diverse. ``distance_metric``,
+  ``niche_radius``, ``adaptive_niche_radius``, ``clearing_interval``,
+  ``behavior_descriptor``, ``map_elites_bins``, ``novelty_k`` and
+  ``novelty_archive_size`` tune them. Niching changes ``solution.fitness``
+  for selection only; the raw fitness is kept in
+  ``solution.metadata["raw_fitness"]`` and the best solution is judged on it.
+* **Diff mode**: ``diff_mode=True`` asks for SEARCH/REPLACE patches instead
+  of complete files, which saves tokens on large code. A reply whose SEARCH
+  blocks match nothing is reported back to the LLM as an error.
+* **Population evaluation**: with ``evaluate_population=True``, ``f``
+  receives the offspring and the parents,
+  ``f(offspring, parents, logger) -> (offspring, parents)``, for batch or
+  relative evaluations.
+* **Multi-objective mode**: ``multi_objective=True`` with
+  ``multi_objective_keys=[...]``; see :class:`~llamea.variants.LLaMEA_MO`.
+* **Adaptive mutation**: ``adaptive_mutation=True`` replaces the mutation
+  prompt with one that fixes the fraction of lines the LLM may change, drawn
+  from a heavy-tailed distribution (Yin et al., 2025).
+* **Adaptive prompt**: ``adaptive_prompt=True`` lets the LLM rewrite the task
+  prompt before each mutation, so the prompt co-evolves with the solutions.
+* **Feature-guided mutation**: ``feature_guided_mutation=True``, see
+  :class:`~llamea.variants.LLaMEA_SAGE`.
+* **Timeouts**: an evaluation that does not return within ``eval_timeout``
+  seconds (plus a margin) is recorded as a failed candidate with a
+  ``TimeoutError``; it counts towards the budget.
+* **Warm start**: after every generation LLaMEA stores itself in
+  ``<log directory>/llamea_config.pkl``.
+  ``LLaMEA.warm_start("<log directory>")`` restores the object; call
+  ``.run()`` on it to continue in the same directory.
+* **Initial population**: ``optimizer.run("<log directory>")`` starts a new
+  run from the last ``n_parents`` solutions logged in an earlier run. Use the
+  same task set-up as that run.
 
-Initialization Parameters
--------------------------
+Arguments
+---------
 
 The most important keyword arguments of :class:`LLaMEA` are summarised below.
 
@@ -53,8 +63,10 @@ The most important keyword arguments of :class:`LLaMEA` are summarised below.
      - ``True`` uses a ``(μ+λ)`` strategy, ``False`` a ``(μ,λ)`` strategy.
    * - ``role_prompt`` / ``task_prompt`` / ``example_prompt`` / ``output_format_prompt``
      - Prompt engineering controls.
-   * - ``mutation_prompts`` / ``adaptive_mutation`` / ``adaptive_prompt``
-     - Mutation and prompt adaptation settings.
+   * - ``operators`` / ``operator_weight_updater`` / ``parent_selection`` / ``tournament_size``
+     - Mutation and crossover prompts and how they and the parents are chosen (:doc:`crossover`).
+   * - ``adaptive_mutation`` / ``adaptive_prompt`` / ``feature_guided_mutation``
+     - Mutation-rate control, co-evolving task prompt, explainable-AI guidance.
    * - ``multi_objective`` / ``multi_objective_keys``
      - Enable Pareto-based optimization and define objective names.
    * - ``budget`` / ``eval_timeout`` / ``max_workers`` / ``parallel_backend``
@@ -70,8 +82,3 @@ The most important keyword arguments of :class:`LLaMEA` are summarised below.
      - Use population-level evaluation.
    * - ``diff_mode``
      - Request unified diff patches.
-
-.. automodule:: llamea.llamea
-   :members:
-   :undoc-members:
-   :show-inheritance:

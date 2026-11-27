@@ -55,6 +55,7 @@ docs = [
     "sphinxext-opengraph>=0.9.1,<0.14",
     "sphinx-copybutton>=0.5.2,<0.6",
     "sphinx-autobuild>=2024.10.3",
+    "sphinx-design>=0.6.1",
 ]
 examples = [
     "scikit-learn>=1.5.0,<2",

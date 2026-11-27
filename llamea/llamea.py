@@ -466,9 +466,9 @@ class LLaMEA:
 
     def get_population_from(self, archive_path):
         """
-        Finds population log in archive_path/log.jsonl and loads it to current population.
-        If population size in log file is insufficient, runs initialize() for rest of the population.
-        Used to run a cold started algorithm with best known population.
+        Loads the last ``n_parents`` individuals of archive_path/log.jsonl as the population.
+        If the log holds fewer, initialize() generates the rest.
+        Used to cold-start a run from a previous run's latest individuals.
         `Note`: Make sure the goal of initialisation of current instance of LLaMEA matches the population being selected.
         Args:
             archive_path: A directory from previous runs, to load well known population from.
@@ -483,41 +483,36 @@ class LLaMEA:
         except Exception as e:
             print("Error reading population: " + e.__repr__())
 
-        restore_population = data[-1 * self.n_parents :]
         population = []
-        print(
-            f"Restoring population of size {len(restore_population)}, of {self.n_parents}"
-        )
-        for individual in restore_population:
-            print("\tRestoring...")
-            for key, value in individual.items():
-                print(f"{key}: {value}, ({type(value)})")
+        for individual in data:
+            if not individual.get("code"):
+                continue
+            configspace = individual.get("configspace")
             soln = Solution(
                 code=individual["code"],
-                name=individual["name"],
-                description=individual["description"],
-                configspace=(
-                    None
-                    if individual["configspace"] == ""
-                    else individual["configspace"]
-                ),
-                operator=individual["operator"],
-                task_prompt=individual["task_prompt"],
+                name=individual.get("name", ""),
+                description=individual.get("description", ""),
+                configspace=None if configspace in ("", None) else configspace,
+                operator=individual.get("operator"),
+                task_prompt=individual.get("task_prompt", ""),
             )
-            if isinstance(individual["fitness"], dict):
-                fitness = Fitness(individual["fitness"])
-                soln.set_scores(fitness, individual["feedback"])
-            else:
-                fitness = individual["fitness"]
-                soln.set_scores(fitness, individual["feedback"])
+            fitness = individual.get("fitness", self.worst_value)
+            if isinstance(fitness, dict):
+                fitness = Fitness(fitness)
+            elif fitness is None:
+                fitness = self.worst_value
+            soln.set_scores(fitness, individual.get("feedback", ""))
             population.append(soln)
-
+        population = self._ensure_fitness_evaluates(population)
+        # The most recent n_parents logged individuals.
+        population = population[-self.n_parents :] if self.n_parents else []
+        self.logevent(
+            f"Restored the last {len(population)} of {len(data)} logged "
+            f"individuals (n_parents={self.n_parents})."
+        )
         self.population = population
         if len(population) < self.n_parents:
-            print(len(population), self.n_parents)
             self.initialize()
-        else:
-            print("-----------Init not called--------------")
 
     # endregion
 

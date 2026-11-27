@@ -1,75 +1,46 @@
 Installation
-------------
-.. note:: SWIG Dependency
-
-   Ensure that **SWIG** is installed on your system by running:
-
-   .. code-block:: bash
-
-      swig --version
-
-   If it is not installed, use the appropriate method for your platform:
-
-   - **macOS**:
-
-     .. code-block:: bash
-
-        brew install swig
-
-   - **Ubuntu/Linux**:
-
-     .. code-block:: bash
-
-        sudo apt-get install swig
-        (or use your distribution's package manager)
-
-   - **Windows**: Download and install from the `official SWIG website <https://www.swig.org/download.html>`_ and make sure to add it to your system PATH.
-
-It is easiest to use LLaMEA from the PyPI package:
+============
 
 .. code-block:: bash
 
    pip install llamea
 
 .. important::
-   The Python version **must** be >= 3.11.5.
-   An OpenAI/Gemini/Ollama API key is needed for using LLM models.
+   LLaMEA needs Python **3.11.5 or higher**, and an API key for your LLM
+   provider (or a local model through Ollama, LM Studio or MLX).
 
-Feature-guided mutation (``feature_guided_mutation=True``) needs XGBoost, which
-is large (~290 MB on Linux), so it is an optional extra:
+Optional extras
+---------------
+
+.. list-table::
+   :header-rows: 1
+
+   * - Install
+     - For
+   * - ``pip install "llamea[feature-guidance]"``
+     - XGBoost for :class:`~llamea.variants.LLaMEA_SAGE` /
+       ``feature_guided_mutation`` (~290 MB on Linux)
+   * - ``pip install llamea-lite``
+     - A slim install without bundled LLM or HPO dependencies (install
+       ``ConfigSpace`` yourself for HPO)
+   * - ``pip install iohblade``
+     - :doc:`BLADE <blade>`, to benchmark LLaMEA against other methods
+
+From source
+-----------
+
+With `uv <https://docs.astral.sh/uv/>`_:
 
 .. code-block:: bash
 
-   pip install "llamea[feature-guidance]"
+   git clone https://github.com/XAI-liacs/LLaMEA.git
+   cd LLaMEA
+   uv sync                           # core
+   uv sync --dev --group examples    # tests and example dependencies
+   uv sync --group docs              # to build this documentation
 
-You can also install the package from source using uv (0.7.19).
-make sure you have **uv** installed.
-
-1. Clone the repository:
-
-   .. code-block:: bash
-
-      git clone https://github.com/xai-liacs/LLaMEA.git
-      cd LLaMEA
-
-2. Install the required dependencies via uv:
-
-   .. code-block:: bash
-
-      uv sync
-
-3. Optionally install dev or/and example dependencies:
-
-   .. code-block:: bash
-
-      uv sync --dev --group examples
-
-   The plasmonic nanostructure problem in
-   ``benchmarks/tuto_global_optimization_photonics`` additionally needs
-   `pyGDM2 <https://pypi.org/project/pyGDM2/>`_, which is not part of any group
-   because it requires ``numpy<=2.3``. Install it separately if you need that
-   problem:
-
-   .. code-block:: bash
-
-      uv pip install pyGDM2
+.. note::
+   Some example dependencies need `SWIG <https://www.swig.org/download.html>`_
+   (``brew install swig`` / ``sudo apt-get install swig``). The plasmonic
+   photonics problem additionally needs ``pyGDM2`` (``uv pip install pyGDM2``),
+   which requires ``numpy<=2.3`` and is therefore not part of any group.

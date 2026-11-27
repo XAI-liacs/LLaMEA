@@ -1,13 +1,14 @@
-LLaMEA API
-======
+API reference
+=============
 
 .. toctree::
    :titlesonly:
-   :caption: LLaMEA Modules
 
-   llamea
+   api_llamea
+   api_variants
    solution
    llm
+   api_operators
+   api_fitness
    loggers
    utils
-   crossover

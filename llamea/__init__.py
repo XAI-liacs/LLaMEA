@@ -3,6 +3,7 @@ from .llm import (
     LLM,
     MLX_LM_LLM,
     Anthropic_LLM,
+    DeepSeek_LLM,
     Dummy_LLM,
     Gemini_LLM,
     LMStudio_LLM,
