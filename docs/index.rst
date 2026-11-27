@@ -65,7 +65,7 @@ Quick start
 
          from llamea import LLaMEA, OpenAI_LLM
 
-         llm = OpenAI_LLM(api_key="...", model="gpt-4o")
+         llm = OpenAI_LLM(api_key="...", model="gpt-6.2-sol")
 
          def evaluate(solution, logger=None):
              namespace = {}

@@ -13,7 +13,8 @@ from misc import OverBudgetException, aoc_logger, correct_aoc
 from llamea import Gemini_LLM
 
 api_key = os.getenv("GEMINI_API_KEY")
-ai_model = "gemini-2.0-flash"  # gpt-4-turbo or gpt-3.5-turbo gpt-4o llama3:70b gpt-4o-2024-05-13, gemini-1.5-flash gpt-4-turbo-2024-04-09
+# The paper used gemini-2.0-flash, which Google shut down on 2026-06-01.
+ai_model = "gemini-3.8-flash"
 experiment_name = "gemini-minibrag"
 llm = Gemini_LLM(api_key, ai_model)
 

@@ -62,7 +62,7 @@ LLaMEA-HPO configuration and random search on SBOX-COST:
 
    experiment: {output_dir: results/my-exp, runs: 5, budget: 100}
    llms:
-     gemini: {provider: gemini, model: gemini-2.0-flash, api_key: "${env:GEMINI_API_KEY}"}
+     gemini: {provider: gemini, model: gemini-3.8-flash, api_key: "${env:GEMINI_API_KEY}"}
    methods:
      - {type: llamea, name: "LLaMEA-{llm}", llm: gemini}
      - type: llamea
@@ -83,7 +83,7 @@ The same experiment with BLADE's Python API:
    from iohblade.loggers import ExperimentLogger
    from iohblade.methods import LLaMEA, RandomSearch
 
-   llm = Gemini_LLM(api_key, "gemini-2.0-flash")
+   llm = Gemini_LLM(api_key, "gemini-3.8-flash")
    methods = [
        LLaMEA(llm, budget=100, name="LLaMEA"),
        LLaMEA(llm, budget=100, name="LLaMEA-HPO", HPO=True, n_parents=5, n_offspring=5),

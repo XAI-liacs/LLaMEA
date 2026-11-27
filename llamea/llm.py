@@ -52,6 +52,13 @@ from .diffmodemanager import DiffModeManager
 from .solution import Solution
 from .utils import NoCodeException, apply_code_delta
 
+# Default models of the wrappers, checked against the providers' model and
+# deprecation pages in November 2026. Pass ``model=...`` to choose another.
+DEFAULT_OPENAI_MODEL = "gpt-6.2-sol"
+DEFAULT_GEMINI_MODEL = "gemini-3.8-flash"
+DEFAULT_OLLAMA_MODEL = "qwen2.5-coder:7b"
+DEFAULT_DEEPSEEK_MODEL = "deepseek-flash"
+
 
 class LLM(ABC):
     def __init__(
@@ -332,17 +339,24 @@ class OpenAI_LLM(LLM):
     """
 
     def __init__(
-        self, api_key, model="gpt-4-turbo", temperature=0.8, base_url=None, **kwargs
+        self,
+        api_key,
+        model=DEFAULT_OPENAI_MODEL,
+        temperature=None,
+        base_url=None,
+        **kwargs,
     ):
         """
         Initializes the LLM manager with an API key and model name.
 
         Args:
             api_key (str): api key for authentication.
-            model (str, optional): model abbreviation. Defaults to "gpt-4-turbo".
-                Options are: gpt-3.5-turbo, gpt-4-turbo, gpt-4o, and others from OpeNAI models library.
-            temperature (float, optional): Sampling temperature. Some reasoning
-                models only accept the default; pass ``None`` to omit it.
+            model (str, optional): The model ID. Defaults to ``"gpt-6.2-sol"``;
+                see https://developers.openai.com/api/docs/models for others.
+            temperature (float | None, optional): Sampling temperature. The
+                default ``None`` leaves it out of the request, as OpenAI
+                recommends for its current models, some of which reject other
+                values. Set it (e.g. ``0.8``) for models that accept it.
             base_url (str, optional): An OpenAI-compatible endpoint (e.g. vLLM,
                 OpenRouter). Defaults to OpenAI (or ``OPENAI_BASE_URL``).
         """
@@ -445,14 +459,16 @@ class Gemini_LLM(LLM):
     A manager class for handling requests to Google's Gemini models.
     """
 
-    def __init__(self, api_key, model="gemini-2.0-flash", **kwargs):
+    def __init__(self, api_key, model=DEFAULT_GEMINI_MODEL, **kwargs):
         """
         Initializes the LLM manager with an API key and model name.
 
         Args:
             api_key (str): api key for authentication.
-            model (str, optional): model abbreviation. Defaults to "gemini-2.0-flash".
-                Options are: "gemini-1.5-flash","gemini-2.0-flash", and others from Googles models library.
+            model (str, optional): The model ID. Defaults to
+                ``"gemini-3.8-flash"`` (stable; output limit 65,536 tokens, the
+                ``max_output_tokens`` used here). See
+                https://ai.google.dev/gemini-api/docs/models for others.
         """
         if genai is None:  # pragma: no cover - optional dependency
             raise ImportError(
@@ -584,13 +600,16 @@ def _gemini_retryable(err: Exception) -> bool:
 
 
 class Ollama_LLM(LLM):
-    def __init__(self, model="llama3.2", **kwargs):
+    def __init__(self, model=DEFAULT_OLLAMA_MODEL, **kwargs):
         """
         Initializes the Ollama LLM manager with a model name. See https://ollama.com/search for models.
 
         Args:
-            model (str, optional): model abbreviation. Defaults to "llama3.2".
-                See for options: https://ollama.com/search.
+            model (str, optional): The model tag. Defaults to
+                ``"qwen2.5-coder:7b"``, a 4.7 GB code model
+                (``ollama pull qwen2.5-coder:7b``). For better results on a
+                larger GPU try ``"qwen3-coder:30b"``. See
+                https://ollama.com/search for others.
         """
         if ollama is None:  # pragma: no cover - optional dependency
             raise ImportError(
@@ -675,8 +694,19 @@ class Multi_LLM(LLM):
 class DeepSeek_LLM(OpenAI_LLM):
     """A manager class for the DeepSeek chat models."""
 
-    def __init__(self, api_key, model="deepseek-chat", temperature=0.8, **kwargs):
-        """Initializes DeepSeek LLM with required base URL."""
+    def __init__(
+        self, api_key, model=DEFAULT_DEEPSEEK_MODEL, temperature=0.8, **kwargs
+    ):
+        """Initializes DeepSeek LLM with required base URL.
+
+        Args:
+            api_key (str): DeepSeek API key.
+            model (str, optional): The model ID. Defaults to
+                ``"deepseek-flash"``; ``"deepseek-v4-pro"`` is the larger model.
+                The legacy names ``deepseek-chat`` and ``deepseek-reasoner``
+                were discontinued on 2026-07-24.
+            temperature (float | None, optional): Sampling temperature.
+        """
         super().__init__(api_key, model=model, temperature=temperature, **kwargs)
         self.base_url = "https://api.deepseek.com"
         self._client_kwargs["base_url"] = self.base_url

@@ -12,9 +12,9 @@ Quick start
 
    from llamea import OpenAI_LLM, Gemini_LLM, Ollama_LLM
 
-   llm = OpenAI_LLM(api_key="...", model="gpt-4o")
-   # llm = Gemini_LLM(api_key="...", model="gemini-2.0-flash")
-   # llm = Ollama_LLM("qwen2.5-coder:14b")       # local, no key
+   llm = OpenAI_LLM(api_key="...", model="gpt-6.2-sol")
+   # llm = Gemini_LLM(api_key="...", model="gemini-3.8-flash")
+   # llm = Ollama_LLM("qwen2.5-coder:7b")        # local, no key
 
 See :doc:`llms` for all back-ends.
 

@@ -6,7 +6,7 @@ overrides the preset::
 
     from llamea import LLaMEA_BO, Gemini_LLM
 
-    llm = Gemini_LLM(api_key, "gemini-2.0-flash")
+    llm = Gemini_LLM(api_key, "gemini-3.8-flash")
     optimizer = LLaMEA_BO(evaluate, llm, budget=100)
     best = optimizer.run()
 

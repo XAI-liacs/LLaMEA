@@ -16,7 +16,7 @@ from misc import OverBudgetException, aoc_logger, correct_aoc
 if __name__ == "__main__":
     # Execution code starts here
     api_key = os.getenv("GEMINI_API_KEY")
-    ai_model = "gemini-1.5-flash"
+    ai_model = "gemini-3.8-flash"
     experiment_name = "pop1-5"
     llm = Dummy_LLM()
     
