@@ -3,6 +3,7 @@ from .llm import (
     LLM,
     MLX_LM_LLM,
     Anthropic_LLM,
+    DeepSeek_LLM,
     Dummy_LLM,
     Gemini_LLM,
     LMStudio_LLM,
@@ -20,5 +21,13 @@ from .utils import (
     code_distance,
     discrete_power_law_distribution,
     prepare_namespace,
+)
+from .variants import (
+    VARIANTS,
+    LLaMEA_BO,
+    LLaMEA_HPO,
+    LLaMEA_MO,
+    LLaMEA_SAGE,
+    get_variant,
 )
 from .weight_updaters import DefaultWeightUpdater, DiscountedUCBState

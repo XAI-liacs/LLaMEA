@@ -233,9 +233,11 @@ if __name__ == "__main__":
             task_prompt=task_prompt,
             example_prompt=example_prompt,
             output_format_prompt=format_prompt,
-            mutation_prompts=feedback_prompts,
+            operators=feedback_prompts,
             experiment_name=experiment_name,
-            elitism=True,
+            n_parents=5,
+            n_offspring=5,
+            elitism=True,  # (5+5) strategy
             HPO=True,
         )
         print(es.run())

@@ -198,6 +198,14 @@ def _add_builtins_into(allowed_list: list[str]):
         "heapq",
         "copy",
         "collections",
+        "functools",
+        "typing",
+        "dataclasses",
+        "abc",
+        "bisect",
+        "enum",
+        "numbers",
+        "time",
     ]
 
 
@@ -223,7 +231,8 @@ def prepare_namespace(
     imports = _collect_imports(code)
 
     allowed = allowed.copy()
-    allowed = list(map(lambda x: x.split(">")[0], allowed))
+    # "numpy>=1.2", "numpy==2.0", "scikit-learn[all]" -> the distribution name.
+    allowed = [re.split(r"[<>=!~\[;\s]", a, maxsplit=1)[0] for a in allowed]
     _add_builtins_into(allowed)
     not_allowed: list[str] = []
 
@@ -238,10 +247,19 @@ def prepare_namespace(
                 not_allowed.append(imp["module"])
             else:
                 mod = importlib.import_module(module)
-                ns[imp["alias"] or module.split(".")[0]] = mod
+                if imp["alias"]:
+                    ns[imp["alias"]] = mod
+                else:
+                    # ``import numpy.linalg`` binds the name ``numpy`` to the
+                    # top-level package, as Python itself does.
+                    top = module.split(".")[0]
+                    ns[top] = importlib.import_module(top)
 
         elif imp["type"] == "from":
             module = imp["module"]
+            if module is None:  # relative import (``from . import x``)
+                not_allowed.append("." + imp["name"])
+                continue
 
             if allowed and not any(
                 module == a or module.startswith(a + ".") for a in allowed
@@ -250,7 +268,17 @@ def prepare_namespace(
                 not_allowed.append(imp["module"])
             else:
                 mod = importlib.import_module(module)
-                obj = getattr(mod, imp["name"])
+                if imp["name"] == "*":
+                    names = getattr(mod, "__all__", None) or [
+                        n for n in dir(mod) if not n.startswith("_")
+                    ]
+                    ns.update({n: getattr(mod, n) for n in names if hasattr(mod, n)})
+                    continue
+                try:
+                    obj = getattr(mod, imp["name"])
+                except AttributeError:
+                    # A submodule that the package does not import itself.
+                    obj = importlib.import_module(f"{module}.{imp['name']}")
                 ns[imp["alias"] or imp["name"]] = obj
 
     potential_issue = None
@@ -272,15 +300,21 @@ def prepare_namespace(
 def clean_local_namespace(
     local_namespace: dict[str, Any], global_namespace: dict[str, Any]
 ):
-    """The exec command upon execution, adds global_namespace parameters to local_namespace parameters.
-    This function returns local_ns - gobal_ns, so that sweeping for object type never returns a library imported objects.
+    """Removes the global names that ``exec`` copied into the local namespace.
+
+    After ``exec(code, global_namespace, local_namespace)`` the local namespace
+    also holds the globals (e.g. imported libraries). Removing them leaves only
+    what the code itself defined, so searching it for a class never finds an
+    imported object.
 
     Args:
-        `local_namespace : dict[str, Any]`: Dictionary that was passed as local_namespace to `exec` block.
-        `global_namespace : dict[str, Any]`: Dictionary/Mapping passed as global_namespace to `exec` block.
+        local_namespace (dict[str, Any]): The locals passed to ``exec``;
+            modified in place.
+        global_namespace (dict[str, Any]): The globals passed to ``exec``.
 
     Returns:
-        Original `local_namespace`, that is `local_namespace` - `global_namespace`.
+        dict[str, Any]: ``local_namespace`` without the keys of
+        ``global_namespace``.
     """
     for key in global_namespace:
         if key in local_namespace:

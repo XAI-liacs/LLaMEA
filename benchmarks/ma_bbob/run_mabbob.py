@@ -289,7 +289,7 @@ for experiment_i in [1]:
         eval_timeout=int(3600),  # 1 hours per algorithm
         role_prompt=role_prompt,
         task_prompt=task_prompt,
-        mutation_prompts=feedback_prompts,
+        operators=feedback_prompts,
         experiment_name=experiment_name,
         elitism=True,
         HPO=True,

@@ -5,6 +5,7 @@ algorithms to automatically evaluate (for example metaheuristics evaluated on BB
 
 import concurrent.futures
 import contextlib
+import copy
 import importlib.util
 import logging
 import math
@@ -21,8 +22,7 @@ import jsonlines
 import numpy as np
 from joblib import Parallel, delayed
 
-from .ast_features import extract_ast_features
-from .feature_guidance import FeatureGuidance, compute_feature_guidance
+from .feature_guidance import FeatureGuidance
 from .llm import LLM
 from .multi_objective_fitness import Fitness
 from .operator import Operator
@@ -49,8 +49,42 @@ logging.basicConfig(
     datefmt="%Y-%m-%d %H:%M:%S",
 )
 
-from pymoo.operators.survival.rank_and_crowding.metrics import calc_crowding_distance
-from pymoo.util.nds.non_dominated_sorting import NonDominatedSorting
+# Imported where used: pymoo (multi-objective selection), lizard and networkx
+# (AST features for feature-guided mutation) are not needed by llamea-lite.
+
+BLADE_URL = "https://github.com/XAI-liacs/BLADE"
+_BLADE_HINT_SHOWN = False
+
+
+def _show_blade_hint(f) -> None:
+    """Point users who run LLaMEA directly to BLADE, once per process.
+
+    Not shown when LLaMEA runs inside BLADE (the evaluation function is an
+    ``iohblade`` problem) or when ``LLAMEA_NO_BLADE_HINT`` is set.
+    """
+    global _BLADE_HINT_SHOWN
+    if _BLADE_HINT_SHOWN or os.environ.get("LLAMEA_NO_BLADE_HINT"):
+        return
+    module = getattr(type(f), "__module__", "") or ""
+    if module.split(".")[0] == "iohblade":
+        return
+    _BLADE_HINT_SHOWN = True
+    print(
+        "Tip: to benchmark LLaMEA against other LLM-driven algorithm design "
+        "methods on standard problems, with logging, plots and a web app, "
+        f"use BLADE (pip install iohblade): {BLADE_URL}\n"
+        "     Set LLAMEA_NO_BLADE_HINT=1 to hide this message."
+    )
+
+
+def _same(a, b) -> bool:
+    """Equality that also treats two NaNs as equal."""
+    try:
+        if isinstance(a, float) and isinstance(b, float) and math.isnan(a):
+            return math.isnan(b)
+    except TypeError:  # pragma: no cover - defensive
+        pass
+    return a == b
 
 
 class LLaMEA:
@@ -72,11 +106,11 @@ class LLaMEA:
         example_prompt=None,
         output_format_prompt=None,
         multi_objective=False,
-        multi_objective_keys: list[str] = [],
+        multi_objective_keys: list[str] | None = None,
         experiment_name="",
         elitism=True,
         HPO=False,
-        operators=[],
+        operators=None,
         operator_weight_updater=None,
         adaptive_mutation=False,
         adaptive_prompt=False,
@@ -129,8 +163,11 @@ class LLaMEA:
                 In case it is, a configuration space should be asked from the LLM as additional output in json format.
             operators (list): A list of `Operator` | `str` to specify operators to the LLM model. If provided as `str` it is typecasted to `Operator`
                 of `mutation` type. A single `Operator` or `str` is also accepted. Each mutation, a random choice from this list is made.
-            operator_weight_updater (WeightUpdater): An operator updater object, that inherits form WeightUpdater ABC. Used to define weight
-                update behaviour for operators. Defaults to `DefaultWeightUpdater` if None provided.
+            operator_weight_updater (WeightUpdater | None): An operator weight updater (subclass of
+                :class:`~llamea.weight_updaters.WeightUpdater`), e.g.
+                :class:`~llamea.weight_updaters.DiscountedUCBState`. After every generation it
+                receives a reward per offspring and returns the new weight of the operator that
+                produced it. If ``None`` (default) the operator weights stay as configured.
             adaptive_mutation (bool): If set to True, the mutation prompt 'Change X% of the lines of code' will be used in an adaptive control setting.
                 This overwrites operator.
             adaptive_prompt (bool): If True, the task prompt is optimized before each mutation, allowing it to co-evolve with the individuals.
@@ -138,7 +175,9 @@ class LLaMEA:
                 augments mutation prompts using XGBoost and TreeSHAP insights.
                 Requires the optional ``feature-guidance`` extra
                 (``pip install "llamea[feature-guidance]"``).
-            budget (int): The number of generations to run the evolutionary algorithm.
+            budget (int): The total number of candidate solutions to generate and
+                evaluate (including the initial population). This is the
+                "LLM evaluation budget"; it is not a number of generations.
             eval_timeout (int): The number of seconds one evaluation can maximum take (to counter infinite loops etc.). Defaults to 1 hour.
             max_workers (int): The maximum number of parallel workers to use for evaluating individuals.
             parallel_backend (str): The backend to use for parallel processing (e.g., 'loky', 'threading').
@@ -211,7 +250,7 @@ class LLaMEA:
         else:
             self.task_prompt = task_prompt
 
-        if example_prompt == None:
+        if example_prompt is None:
             self.example_prompt = textwrap.dedent("""
                 An example of such code (a simple random search), is as follows:
                 ```
@@ -287,6 +326,8 @@ class LLaMEA:
             >>>>>>> REPLACE
             ```
             """)
+        if operators is None:
+            operators = []
         if isinstance(operators, (str, Operator)):
             # A single operator was passed; wrap it so a string is not
             # iterated character by character.
@@ -318,9 +359,9 @@ class LLaMEA:
                 assert operator.weight >= 0, "Cannot assign negative weight."
                 self.operators.append(operator)
 
-        self.operator_weight_updater = DefaultWeightUpdater(
-            [o.id for o in self.operators]
-        )
+        # None keeps the configured weights fixed (no adaptive operator selection).
+        self.operator_weight_updater = operator_weight_updater
+        self._refresh_operator_weights()
 
         self.adaptive_mutation = adaptive_mutation
 
@@ -341,6 +382,11 @@ class LLaMEA:
             raise ImportError(
                 "feature_guided_mutation requires xgboost. Install it with: "
                 'pip install "llamea[feature-guidance]"'
+            )
+        if feature_guided_mutation and multi_objective:
+            raise ValueError(
+                "feature_guided_mutation needs a scalar fitness and cannot be "
+                "combined with multi_objective=True."
             )
         self.feature_guided_mutation = feature_guided_mutation
         self.feature_guidance: FeatureGuidance | None = None
@@ -371,21 +417,21 @@ class LLaMEA:
         self.tournament_size = tournament_size
 
         if self.log and getattr(self, "logger", None) is None:
-            modelname = self.model.replace(":", "_")
-            modelname = self.model.replace("/", "_")
+            modelname = self.model.replace(":", "_").replace("/", "_")
             self.logger = ExperimentLogger(f"LLaMEA-{modelname}-{experiment_name}")
             self.llm.set_logger(self.logger)
         else:
             self.logger = None
-        if max_workers > self.n_offspring:
-            max_workers = self.n_offspring
+        # More workers than jobs per batch (n_parents at initialisation,
+        # n_offspring afterwards) would only sit idle.
+        max_workers = max(1, min(max_workers, max(self.n_parents, self.n_offspring)))
         self.max_workers = max_workers
 
         self.multi_objective = multi_objective
         self.multi_objective_keys = []
         if self.multi_objective:
             self.best_so_far = ParetoArchive(minimisation=self.minimization)
-            self.multi_objective_keys = multi_objective_keys
+            self.multi_objective_keys = list(multi_objective_keys or [])
         else:
             self.best_so_far = Solution(name="", code="")
             self.best_so_far = self._ensure_fitness_evaluates([self.best_so_far])[0]
@@ -420,9 +466,9 @@ class LLaMEA:
 
     def get_population_from(self, archive_path):
         """
-        Finds population log in archive_path/log.jsonl and loads it to current population.
-        If population size in log file is insufficient, runs initialize() for rest of the population.
-        Used to run a cold started algorithm with best known population.
+        Loads the last ``n_parents`` individuals of archive_path/log.jsonl as the population.
+        If the log holds fewer, initialize() generates the rest.
+        Used to cold-start a run from a previous run's latest individuals.
         `Note`: Make sure the goal of initialisation of current instance of LLaMEA matches the population being selected.
         Args:
             archive_path: A directory from previous runs, to load well known population from.
@@ -437,41 +483,36 @@ class LLaMEA:
         except Exception as e:
             print("Error reading population: " + e.__repr__())
 
-        restore_population = data[-1 * self.n_parents :]
         population = []
-        print(
-            f"Restoring population of size {len(restore_population)}, of {self.n_parents}"
-        )
-        for individual in restore_population:
-            print("\tRestoring...")
-            for key, value in individual.items():
-                print(f"{key}: {value}, ({type(value)})")
+        for individual in data:
+            if not individual.get("code"):
+                continue
+            configspace = individual.get("configspace")
             soln = Solution(
                 code=individual["code"],
-                name=individual["name"],
-                description=individual["description"],
-                configspace=(
-                    None
-                    if individual["configspace"] == ""
-                    else individual["configspace"]
-                ),
-                operator=individual["operator"],
-                task_prompt=individual["task_prompt"],
+                name=individual.get("name", ""),
+                description=individual.get("description", ""),
+                configspace=None if configspace in ("", None) else configspace,
+                operator=individual.get("operator"),
+                task_prompt=individual.get("task_prompt", ""),
             )
-            if isinstance(individual["fitness"], dict):
-                fitness = Fitness(individual["fitness"])
-                soln.set_scores(fitness, individual["feedback"])
-            else:
-                fitness = individual["fitness"]
-                soln.set_scores(fitness, individual["feedback"])
+            fitness = individual.get("fitness", self.worst_value)
+            if isinstance(fitness, dict):
+                fitness = Fitness(fitness)
+            elif fitness is None:
+                fitness = self.worst_value
+            soln.set_scores(fitness, individual.get("feedback", ""))
             population.append(soln)
-
+        population = self._ensure_fitness_evaluates(population)
+        # The most recent n_parents logged individuals.
+        population = population[-self.n_parents :] if self.n_parents else []
+        self.logevent(
+            f"Restored the last {len(population)} of {len(data)} logged "
+            f"individuals (n_parents={self.n_parents})."
+        )
         self.population = population
         if len(population) < self.n_parents:
-            print(len(population), self.n_parents)
             self.initialize()
-        else:
-            print("-----------Init not called--------------")
 
     # endregion
 
@@ -481,6 +522,12 @@ class LLaMEA:
 
     def __setstate__(self, to_state):
         self.__dict__.update(to_state)
+        # Archives written before 1.6.0 always held a DefaultWeightUpdater,
+        # which was never applied; keep their operator weights unchanged.
+        if isinstance(
+            self.__dict__.get("operator_weight_updater"), DefaultWeightUpdater
+        ):
+            self.operator_weight_updater = None
 
     def _find_unpicklable(self, obj, path="root"):
         try:
@@ -534,6 +581,7 @@ class LLaMEA:
             {
                 "role": "user",
                 "content": self.role_prompt
+                + "\n"
                 + self.task_prompt
                 + self.example_prompt
                 + self.output_format_prompt,
@@ -565,22 +613,16 @@ class LLaMEA:
         """
 
         population = self.population
-        population_gen = []
-        try:
-            timeout = self.eval_timeout
-            population_gen = Parallel(
-                n_jobs=self.max_workers,
-                backend=self.parallel_backend,
-                timeout=timeout + 15,
-                return_as="generator_unordered",
-            )(
-                delayed(self.initialize_single)()
-                for _ in range(self.n_parents - len(population))
-            )
-        except Exception as e:
-            print(f"Parallel time out in initialization {e}, retrying.")
-        for p in population_gen:
-            population.append(p)
+        # ``budget`` caps the total number of evaluated candidates.
+        n_missing = min(
+            self.n_parents - len(population),
+            max(self.budget - len(self.run_history), 0 if population else 1),
+        )
+        new_individuals = self._run_parallel(
+            [delayed(self.initialize_single)() for _ in range(n_missing)]
+        )
+        new_individuals += self._timed_out_individuals(n_missing - len(new_individuals))
+        population.extend(new_individuals)
 
         if self.evaluate_population:
             population = self.evaluate_population_fitness(population)
@@ -596,6 +638,52 @@ class LLaMEA:
         self.generation += 1
         self.population = population  # Save the entire population
         self.update_best()
+
+    def _run_parallel(self, jobs) -> list[Solution]:
+        """Run ``jobs`` (joblib ``delayed`` calls) and return the results.
+
+        joblib raises a timeout (or a worker error) while the results are
+        consumed, not when ``Parallel`` is created, so the results are
+        collected inside the ``try``. Results that finished before the error
+        are kept.
+        """
+        results: list[Solution] = []
+        if not jobs:
+            return results
+        try:
+            generator = Parallel(
+                n_jobs=self.max_workers,
+                backend=self.parallel_backend,
+                timeout=self.eval_timeout + 15,
+                return_as="generator_unordered",
+            )(jobs)
+            for result in generator:
+                results.append(result)
+        except Exception as e:
+            self.logevent(
+                f"Parallel evaluation stopped early ({e!r}); "
+                f"{len(results)} of {len(jobs)} results were collected."
+            )
+        return results
+
+    def _timed_out_individuals(self, count: int) -> list[Solution]:
+        """Placeholders for jobs lost to a parallel timeout.
+
+        They count towards the budget, so a run whose evaluations keep timing
+        out still terminates.
+        """
+        placeholders = []
+        for _ in range(max(0, count)):
+            individual = Solution(generation=self.generation)
+            individual.set_scores(
+                self.worst_value,
+                feedback="The evaluation did not finish within the time limit.",
+                error=TimeoutError(
+                    f"No result within eval_timeout ({self.eval_timeout} s)."
+                ),
+            )
+            placeholders.append(individual)
+        return self._ensure_fitness_evaluates(placeholders)
 
     # endregion
     # region Evaluator
@@ -690,8 +778,9 @@ Provide an improved / rephrased / augmented task prompt only. The intent of the 
         Constructs a new session prompt for the language model based on a selected individual.
 
         Args:
-            `individuals: list[Solution]`: The individuals to mutate / crossover.
-            `operator: Operator`: An instance of operator object. Make sure that `individuals`'s size is equal to `Operator.number_of_parents`.
+            individuals (list[Solution]): The individuals to mutate or cross over.
+            operator (Operator): The operator to apply; ``len(individuals)`` must
+                equal ``operator.number_of_parents``.
 
         Returns:
             list: A list of dictionaries simulating a conversation with the language model for the next evolutionary step.
@@ -702,7 +791,8 @@ Provide an improved / rephrased / augmented task prompt only. The intent of the 
             for individual in individuals:
                 self._update_feature_guidance(parent=individual)
 
-        if self.adaptive_mutation == True:
+        adaptive_mutation_prompt = None
+        if self.adaptive_mutation and len(individuals) == 1:
             num_lines = len(individuals[0].code.split("\n"))
             prob = discrete_power_law_distribution(num_lines, 1.5)
             new_mutation_prompt = f"""Refine the strategy of the selected solution to improve it.
@@ -710,7 +800,7 @@ Make sure you only change {(prob*100):.1f}% of the code, which means if the code
 This input code has {num_lines} lines, so you can only change {max(1, int(prob*num_lines))} lines, the rest {num_lines-max(1, int(prob*num_lines))} lines should remain unchanged.
 This changing rate {(prob*100):.1f}% is a mandatory requirement, you cannot change more or less than this rate.
 """
-            self.mutation_prompts = [new_mutation_prompt]
+            adaptive_mutation_prompt = new_mutation_prompt
 
         guidance_message = self.feature_guidance_message.strip()
 
@@ -718,9 +808,15 @@ This changing rate {(prob*100):.1f}% is a mandatory requirement, you cannot chan
             individuals
         ), f"Operator expecting {getattr(operator, 'number_of_parents', 1)} parents, got {len(individuals)}."
 
-        mutation_operator = f"{operator.__repr__()}"
+        # Adaptive mutation (Yin et al., 2025) replaces the mutation prompt
+        # with one that fixes the fraction of lines the LLM may change.
+        mutation_operator = (
+            adaptive_mutation_prompt
+            if adaptive_mutation_prompt is not None
+            else f"{operator.__repr__()}"
+        )
         if guidance_message:
-            mutation_operator = f"{operator}\n\n{guidance_message}"
+            mutation_operator = f"{mutation_operator}\n\n{guidance_message}"
 
         individual = random.choice(individuals)
         task_prompt = (
@@ -758,12 +854,12 @@ The selected solutions to update are:\n\n"""
         )
 
         session_messages = [
-            {"role": "user", "content": self.role_prompt + final_prompt},
+            {"role": "user", "content": self.role_prompt + "\n" + final_prompt},
         ]
 
         if self._random:  # not advised to use, only for debugging purposes
             session_messages = [
-                {"role": "user", "content": self.role_prompt + self.task_prompt},
+                {"role": "user", "content": self.role_prompt + "\n" + self.task_prompt},
             ]
         # Logic to construct the new prompt based on current evolutionary state.
         return session_messages
@@ -772,6 +868,8 @@ The selected solutions to update are:\n\n"""
     # region FeatureGuidance
     def _update_feature_guidance(self, parent: Solution | None = None) -> None:
         """Train the archive model and refresh mutation guidance."""
+
+        from .feature_guidance import compute_feature_guidance
 
         guidance = compute_feature_guidance(
             self.run_history, self.minimization, parent=parent
@@ -796,19 +894,45 @@ The selected solutions to update are:\n\n"""
         """
         Update the best individual in the new population
         """
-        if not isinstance(self.best_so_far, ParetoArchive):
-            if self.niching == "novelty" or self.minimization == False:
-                best_individual = max(self.population, key=lambda x: x.fitness)
-
-                if best_individual.fitness > self.best_so_far.fitness:
-                    self.best_so_far = best_individual
-            else:
-                best_individual = min(self.population, key=lambda x: x.fitness)
-
-                if best_individual.fitness < self.best_so_far.fitness:
-                    self.best_so_far = best_individual
-        else:
+        if isinstance(self.best_so_far, ParetoArchive):
             self.best_so_far.add_solutions(self.population)
+            return
+        # Niching (sharing, clearing, novelty) replaces ``fitness`` by an
+        # adjusted value; the best solution is judged on the raw fitness.
+        pick = min if self.minimization else max
+        best_individual = pick(self.population, key=self._raw_fitness)
+        candidate = self._raw_fitness(best_individual)
+        incumbent = self._raw_fitness(self.best_so_far)
+        improved = candidate < incumbent if self.minimization else candidate > incumbent
+        if improved:
+            if best_individual.fitness != candidate:
+                # Return a copy that reports the raw fitness to the user.
+                best_individual = copy.deepcopy(best_individual)
+                best_individual.fitness = candidate
+            self.best_so_far = best_individual
+
+    @staticmethod
+    def _raw_fitness(individual: Solution):
+        """Fitness of ``individual`` before any niching adjustment."""
+        raw = individual.get_metadata("raw_fitness")
+        niched = individual.get_metadata("niched_fitness")
+        if raw is not None and niched is not None and _same(individual.fitness, niched):
+            return raw
+        return individual.fitness
+
+    def _restore_raw_fitness(self, individual: Solution):
+        """Reset ``individual.fitness`` to its raw value before niching.
+
+        Without this, parents that survive several generations (elitism)
+        would have their fitness divided by the niche count (sharing) or
+        cleared again and again. A fitness changed by the evaluation function
+        since the last niching step (e.g. ``evaluate_population``) is taken as
+        the new raw fitness.
+        """
+        raw = self._raw_fitness(individual)
+        individual.add_metadata("raw_fitness", raw)
+        individual.fitness = raw
+        return raw
 
     def adapt_niche_radius(self, population):
         """Adapt the niche radius based on the current population."""
@@ -990,10 +1114,10 @@ The selected solutions to update are:\n\n"""
                 k = min(self.novelty_k, len(distances))
                 novelty_score = float(np.mean(distances[:k]))
 
-            if individual.get_metadata("raw_fitness") is None:
-                individual.add_metadata("raw_fitness", individual.fitness)
+            self._restore_raw_fitness(individual)
             individual.add_metadata("novelty_score", novelty_score)
             individual.fitness = novelty_score
+            individual.add_metadata("niched_fitness", novelty_score)
 
         self._update_novelty_archive(population)
         return population
@@ -1007,6 +1131,13 @@ The selected solutions to update are:\n\n"""
             return self._apply_novelty(population)
 
         if self.niching not in {"sharing", "clearing"}:
+            return population
+
+        for ind in population:
+            self._restore_raw_fitness(ind)
+        if self.niching == "clearing" and (
+            self.clearing_interval and self.generation % self.clearing_interval != 0
+        ):
             return population
 
         self.adapt_niche_radius(population)
@@ -1025,8 +1156,6 @@ The selected solutions to update are:\n\n"""
                 else:
                     ind.fitness /= niche_count
         elif self.niching == "clearing":
-            if self.clearing_interval and self.generation % self.clearing_interval != 0:
-                return population
             reverse = self.minimization == False
             population.sort(key=lambda x: x.fitness, reverse=reverse)
             niches = []
@@ -1038,6 +1167,8 @@ The selected solutions to update are:\n\n"""
                     niches.append(ind)
                 else:
                     ind.fitness = self.worst_value
+        for ind in population:
+            ind.add_metadata("niched_fitness", ind.fitness)
         return population
 
     # endregion
@@ -1083,6 +1214,11 @@ The selected solutions to update are:\n\n"""
         else:
             pool: list[Solution] = offspring + parents if self.elitism else offspring
             fitness_vector = np.array([x.fitness.to_vector() for x in pool])
+            from pymoo.operators.survival.rank_and_crowding.metrics import (
+                calc_crowding_distance,
+            )
+            from pymoo.util.nds.non_dominated_sorting import NonDominatedSorting
+
             nds = NonDominatedSorting()
             sorted_pool = []
             # NonDominatedSorting minimises, so negate the objectives for
@@ -1145,15 +1281,82 @@ The selected solutions to update are:\n\n"""
     def update_weight(
         self, operator: Operator, parents: list[Solution], offspring: Solution
     ):
+        if self.operator_weight_updater is None:
+            return
         reward = self._operator_rewards(parents, offspring)
         weight = self.operator_weight_updater.update(operator.id, reward)
         operator.weight = weight
 
+    def _update_operator_weights(self, offspring: list[Solution]):
+        """Reward the operators that produced ``offspring`` (main process).
+
+        Offspring are generated in worker processes, so the operator weights
+        are updated here, after evaluation and before survivor selection.
+        """
+        if self.operator_weight_updater is None:
+            return
+        operators = {operator.id: operator for operator in self.operators}
+        known = {ind.id: ind for ind in self.population}
+        known.update({ind.id: ind for ind in self.run_history})
+        for child in offspring:
+            operator = operators.get(getattr(child, "operator_id", None))
+            if operator is None:
+                continue
+            parents = [known[pid] for pid in child.parent_ids if pid in known]
+            if not parents:
+                continue
+            try:
+                self.update_weight(operator, parents, child)
+            except Exception as e:  # never let bookkeeping stop a run
+                self.logevent(f"Operator weight update failed: {e!r}")
+        self._refresh_operator_weights()
+
+    def _refresh_operator_weights(self):
+        """Set every operator's weight to the updater's current score.
+
+        ``update`` only returns the score of the operator it updated, but a
+        discounted updater changes the scores of all operators, and an
+        operator that was never tried must start at its exploration score
+        (``inf`` for :class:`DiscountedUCBState`), not at its configured
+        weight. Updaters without a ``score`` method are left as they are.
+        """
+        score = getattr(self.operator_weight_updater, "score", None)
+        if not callable(score):
+            return
+        for operator in self.operators:
+            try:
+                operator.weight = score(operator.id)
+            except Exception:  # e.g. an id the updater does not track
+                pass
+
     # endregion
 
     # region Evolution
+    def _operator_selection_weights(self) -> list[float]:
+        """Sampling weights for the operators, valid for ``random.choices``.
+
+        Weight updaters such as :class:`DiscountedUCBState` return ``inf``
+        for operators that were never tried and may return negative scores;
+        untried operators are tried first and negative scores are shifted.
+        """
+        weights = []
+        for operator in self.operators:
+            w = operator.weight
+            if w is None or (isinstance(w, float) and math.isnan(w)):
+                w = 1.0
+            weights.append(float(w))
+        if any(math.isinf(w) and w > 0 for w in weights):
+            return [1.0 if (math.isinf(w) and w > 0) else 0.0 for w in weights]
+        finite = [w if math.isfinite(w) else 0.0 for w in weights]
+        lowest = min(finite)
+        if lowest < 0:
+            finite = [w - lowest for w in finite]
+        if sum(finite) <= 0:
+            return [1.0] * len(finite)
+        return finite
+
     def evolve_solution(self, individual: Solution):
-        weights = [operator.weight or 1.0 for operator in self.operators]
+        weights = self._operator_selection_weights()
         operator = random.choices(self.operators, weights=weights, k=1)[0]
         return self._evolve_solution(individual, operator)
 
@@ -1196,6 +1399,8 @@ The selected solutions to update are:\n\n"""
             # enhance the individual with AST features and feature guidance metadata (before logging).
             if self.feature_guided_mutation:
                 try:
+                    from .ast_features import extract_ast_features
+
                     ast_features = extract_ast_features(evolved_individual.code)
                     evolved_individual.add_metadata("ast_features", dict(ast_features))
                     evolved_individual.add_metadata(
@@ -1347,36 +1552,32 @@ The selected solutions to update are:\n\n"""
             )
 
         self.logevent(log_message)
+        _show_blade_hint(self.f)
         if self.feature_guided_mutation:
             self._update_feature_guidance()
         while len(self.run_history) < self.budget:
-            # pick a new offspring population using random sampling
-            new_offspring_population = self._select_parents()
+            # pick a new offspring population; the last generation is
+            # trimmed so that no more than ``budget`` candidates are evaluated
+            remaining = self.budget - len(self.run_history)
+            new_offspring_population = self._select_parents(
+                count=min(self.n_offspring, remaining)
+            )
 
-            new_population = []
-            try:
-                timeout = self.eval_timeout
-                new_population_gen = Parallel(
-                    n_jobs=self.max_workers,
-                    timeout=timeout + 15,
-                    backend=self.parallel_backend,
-                    return_as="generator_unordered",
-                )(
+            new_population = self._run_parallel(
+                [
                     delayed(self.evolve_solution)(individual)
                     for individual in new_offspring_population
-                )
-            except Exception as e:
-                print("Parallel time out .")
-
-            for p in new_population_gen:
-                if math.isnan(p.fitness):
-                    p.fitness = self.worst_value
-                new_population.append(p)
-
+                ]
+            )
             if self.evaluate_population:
                 new_population = self.evaluate_population_fitness(new_population)
-
+            # Non-finite single-objective fitness and missing multi-objective
+            # fitness are replaced by the worst value here.
             new_population = self._ensure_fitness_evaluates(new_population)
+            new_population += self._timed_out_individuals(
+                len(new_offspring_population) - len(new_population)
+            )
+            self._update_operator_weights(new_population)
             for p in new_population:
                 self.run_history.append(p)
 

@@ -1,5 +1,97 @@
 # Changelog
 
+## 1.6.0 (2026-11-27)
+
+### Added
+- **Ready-made variants** in `llamea.variants`, exported from `llamea`:
+  `LLaMEA_HPO` (in-the-loop HPO, (5+5)), `LLaMEA_BO` (Bayesian optimisation
+  algorithms; (4+16), crossover 0.6, budget 100 and a BO task prompt, as in
+  the LLaMEA-BO paper), `LLaMEA_MO` (multi-objective, `objectives=[...]`)
+  and `LLaMEA_SAGE` (feature-guided mutation). They only change defaults;
+  every `LLaMEA` argument still overrides them. `get_variant(name)` and
+  `VARIANTS` look them up by name.
+- A one-time hint pointing to [BLADE](https://github.com/XAI-liacs/BLADE)
+  for benchmarking when LLaMEA runs on its own (not inside BLADE). Set
+  `LLAMEA_NO_BLADE_HINT=1` to hide it.
+- `OpenAI_LLM(base_url=...)` for OpenAI-compatible endpoints (vLLM,
+  OpenRouter, ...); `temperature=None` omits the temperature, for reasoning
+  models that only accept the default.
+- `DeepSeek_LLM` is exported from `llamea`.
+- `LLM.extract_algorithm_name()`.
+
+### Fixed
+- **`operator_weight_updater` had no effect**: the argument was ignored and
+  `update_weight` was never called. Updaters (e.g. `DiscountedUCBState`)
+  now receive a reward per offspring after every generation, and every
+  operator's weight follows the updater's current score (so with
+  `DiscountedUCBState` untried operators are tried first). Without an
+  updater the configured weights stay fixed, as before. Sampling copes with
+  UCB's infinite (untried) and negative scores.
+- **`budget` is now a hard cap** on the number of evaluated candidates: the
+  initial population and the last generation are trimmed to what is left
+  (e.g. (5+5) with `budget=8` evaluated 10 candidates).
+- **`adaptive_mutation=True` had no effect**: the mutation-rate prompt was
+  built but never sent.
+- **Evaluation timeouts crashed the run**: joblib raises a timeout while the
+  results are consumed, outside the `try`. Finished results are now kept,
+  and lost jobs are recorded as failed candidates (`TimeoutError`) that count
+  towards the budget.
+- Multi-objective runs crashed on `math.isnan(Fitness)` in the main loop.
+- **Fitness sharing and clearing compounded** on parents that survived
+  several generations (their fitness was divided again every generation).
+  Niching now starts from the raw fitness (`metadata["raw_fitness"]`), and
+  `best_so_far` is chosen and reported on the raw fitness.
+- The log directory name kept `:` from model names such as `qwen2.5:14b`.
+- The role prompt was glued to the task prompt without a separator.
+- Algorithm names: `def` inside words (`# Undefined ...`) or a helper
+  function before the class gave the wrong name; code without a class or
+  function raised `IndexError` instead of `NoCodeException`.
+- Code extraction returned prose when the reply had a ` ```bash ` (or
+  ` ```py `) block before the code. Custom `desc_pattern`, `cs_pattern` and
+  `name_pattern` were ignored, and an empty `# Description:` captured the
+  next line.
+- Pickling a `Solution` (joblib workers, deepcopy, warm start) turned its
+  `ConfigurationSpace` into a dict, breaking HPO with the default `loky`
+  backend. Old pickles are converted back.
+- `OpenAI_LLM` retried permanent errors (wrong key, unknown model, bad
+  parameter) for 150 s, crashed on a non-integer `Retry-After`, and returned
+  `None` for refusals; `Gemini_LLM` likewise retried permanent errors and
+  returned `None` for blocked replies.
+- Diff mode: a repeated SEARCH text was dropped instead of applied to the
+  next occurrence; only the first fenced block was used; a reply whose SEARCH
+  blocks matched nothing silently re-evaluated the unchanged parent (now an
+  error the LLM sees); a reply with complete code instead of SEARCH/REPLACE
+  blocks was ignored, which also re-evaluated the parent (the code is now
+  used).
+- Error messages pointed to a line inside numpy/scipy instead of the
+  candidate code.
+- `prepare_namespace`: `import numpy.linalg` bound `numpy` to the
+  submodule; relative and star imports crashed; version specifiers other
+  than `>` were not stripped; `typing`, `functools`, `dataclasses`, `abc`,
+  `bisect`, `enum`, `numbers` and `time` are now allowed.
+- `ExperimentLogger.log_solution` crashed for multi-objective fitness and
+  numpy output (including numpy values inside a `Fitness`).
+- `feature_guided_mutation` with `multi_objective=True` now fails at
+  construction instead of crashing the run.
+- `llamea-lite` could not be imported: `pymoo`, `lizard` and `networkx` are
+  now imported only by the features that need them.
+- `examples/black-box-opt-with-HPO.py` and the MA-BBOB and mini-Bragg
+  benchmarks passed `mutation_prompts=`, which raised a `TypeError`; they
+  use `operators=`.
+- `Solution(parent_ids=...)` no longer shares one default list;
+  `Solution.copy()` deep-copies metadata; `empty_copy()` keeps the task
+  prompt; `Fitness.to_dict()` returns a copy; `Operator == other` returns
+  `NotImplemented` for non-operators; `MLX_LM_LLM` adds the generation prompt
+  by default.
+
+### Documentation
+- README and documentation redesigned in the BLADE visual family (banner,
+  badges, Furo theme with LLaMEA's teal accent, cards, captioned navigation).
+- New pages: variants, LLM back-ends, benchmarking with BLADE, examples,
+  publications (with awards and reproducibility records) and changelog.
+- Quick start corrected (it used `best_solution.solution` and non-existent
+  script names).
+
 ## 1.5.1 (2026-11-26)
 
 ### Changed

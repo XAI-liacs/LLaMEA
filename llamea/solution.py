@@ -1,3 +1,4 @@
+import copy
 import json
 import traceback
 import uuid
@@ -21,7 +22,7 @@ class Solution:
         description="",
         configspace=None,
         generation=0,
-        parent_ids=[],
+        parent_ids=None,
         operator=None,
         task_prompt="",
     ):
@@ -47,27 +48,43 @@ class Solution:
         self.fitness = float("nan")
         self.feedback = ""
         self.error = ""
-        self.parent_ids = parent_ids
+        self.parent_ids = list(parent_ids) if parent_ids is not None else []
         self.metadata = {}  # Dictionary to store additional metadata
         self.operator = operator
         self.operator_id = None  # Operator.id, set by set_operator()
         self.task_prompt = task_prompt
 
     def __getstate__(self):
-        return self.to_dict()
+        # The attributes themselves, so that a ConfigurationSpace survives
+        # pickling (joblib workers, deepcopy, warm start); ``to_dict`` would
+        # turn it into a plain dict.
+        return self.__dict__.copy()
 
     def __setstate__(self, state):
         state.setdefault("operator_id", None)  # older pickles lack this field
+        state.setdefault("metadata", {})
         self.__dict__.update(state)
         if self.configspace == "":
             self.configspace = None
+        elif isinstance(self.configspace, dict):
+            # Pickles written before 1.6.0 hold the serialised dict.
+            try:
+                from ConfigSpace import ConfigurationSpace
+
+                self.configspace = ConfigurationSpace.from_serialized_dict(
+                    self.configspace
+                )
+            except Exception:
+                pass
 
     def set_operator(self, operator):
         """
         Sets the operator name that generated this individual.
 
         Args:
-            `operator: tuple(operator, parent.id)`: The operator and the parents used for generating current individual.
+            operator (tuple): ``(operator, *parent_ids)``: the
+                :class:`~llamea.operator.Operator` and the ids of the parents
+                used to generate this individual.
         """
         self.operator = f"Operator: {operator[0]}, with parents: {operator[1:]}."
         self.operator_id = operator[0].id
@@ -94,12 +111,17 @@ class Solution:
     def set_scores(
         self, fitness: float | Fitness, feedback="", error: Optional[Exception] = None
     ):
-        """
-            Set the score of current instance of individual.
+        """Sets the score, feedback and (optional) error of this individual.
+
         Args:
-            `fitness: float | Fitness`: Fitness/Score of the individual. It is of type `float` when single objective, or `Fitness` when multi-objective.
-            `Feedback: str` feedback for the LLM, suggest improvements or target score.
-            `error: Exception`: Exception object encountered during `exec` of the code block.
+            fitness (float | Fitness): The score; a ``float`` for a single
+                objective, a :class:`~llamea.multi_objective_fitness.Fitness`
+                for several objectives.
+            feedback (str): Feedback for the LLM, e.g. suggested improvements
+                or the target score.
+            error (Exception | None): The exception raised while running the
+                code, if any. Its type, message and the offending line of the
+                code are stored in ``error`` and shown to the LLM.
         """
         self.fitness = fitness
         self.feedback = feedback
@@ -117,8 +139,13 @@ class Solution:
 
             if getattr(error, "__traceback__", None) is not None:
                 tb = traceback.extract_tb(error.__traceback__)
-                if tb:
-                    frame = tb[-1]
+                # Prefer the innermost frame in the candidate code (exec'd
+                # code has the file name "<string>"); the innermost frame
+                # overall is often inside numpy or scipy.
+                own = [f for f in tb if f.filename.startswith("<")]
+                frames = own or tb
+                if frames:
+                    frame = frames[-1]
                     line_no = frame.lineno
 
                     if 1 <= line_no <= len(code_lines):
@@ -164,7 +191,7 @@ class Solution:
         )
         new_solution.feedback = self.feedback
         new_solution.error = self.error
-        new_solution.metadata = self.metadata.copy()  # Copy the metadata as well
+        new_solution.metadata = copy.deepcopy(self.metadata)  # nested dicts too
         new_solution.operator_id = self.operator_id
         return new_solution
 
@@ -183,6 +210,7 @@ class Solution:
             generation=self.generation + 1,
             parent_ids=[self.id],  # Link this solution as the parent
             operator=self.operator,
+            task_prompt=self.task_prompt,
         )
         return new_solution
 

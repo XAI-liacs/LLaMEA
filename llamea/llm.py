@@ -83,18 +83,21 @@ class LLM(ABC):
         self.model = model
         self.logger = logger
         self.log = self.logger != None
+        # With the default (None) code blocks are found by their fences, see
+        # ``_fenced_blocks``; a custom pattern is used as given.
+        self._custom_code_pattern = code_pattern is not None
         self.code_pattern = (
             code_pattern
             if code_pattern is not None
             else r"```(?:python|diff)?\n(.*?)\n```"
         )
         self.name_pattern = (
-            name_pattern
-            if name_pattern != None
-            else "class\\s*(\\w*)(?:\\(\\w*\\))?\\:"
+            name_pattern if name_pattern is not None else r"^[ \t]*class\s+(\w+)"
         )
         self.desc_pattern = (
-            desc_pattern if desc_pattern != None else r"#\s*Description\s*:\s*(.*)"
+            desc_pattern
+            if desc_pattern is not None
+            else r"#[ \t]*Description[ \t]*:[ \t]*(.*)"
         )
         self.cs_pattern = (
             cs_pattern
@@ -165,17 +168,24 @@ class LLM(ABC):
         if self.log:
             self.logger.log_conversation(self.model, message)
 
-        code = self.extract_algorithm_code(message)
-
-        if diff_mode and isinstance(base_code, str):
+        if diff_mode and isinstance(base_code, str) and self._has_diff_blocks(message):
+            # LLMs often put every SEARCH/REPLACE block in its own fence.
+            code = self._extract_diff_blocks(message)
             dfm = DiffModeManager(base_code, code)
             code = dfm()
+            if getattr(dfm, "unmatched", 0) and code == base_code:
+                # Re-evaluating the unchanged parent as a "new" offspring
+                # would waste an evaluation and tell the LLM nothing.
+                raise ValueError(
+                    "None of the SEARCH blocks matched the code exactly; copy "
+                    "the lines to replace verbatim into each SEARCH block."
+                )
+        else:
+            # Also in diff mode when the LLM answered with complete code: use
+            # it, instead of returning the unchanged parent.
+            code = self.extract_algorithm_code(message)
 
-        name = re.findall(
-            r"(?:def|class)\s*(\w*).*\:",
-            code,
-            re.IGNORECASE,
-        )[0]
+        name = self.extract_algorithm_name(code)
         desc = self.extract_algorithm_description(message)
         cs = None
         if HPO and ConfigurationSpace is not None:
@@ -202,9 +212,8 @@ class LLM(ABC):
         """
         if ConfigurationSpace is None:  # pragma: no cover - optional dependency
             return None
-        pattern = r"space\s*:\s*\n*```\n*(?:python)?\n(.*?)\n```"
         c = None
-        for m in re.finditer(pattern, message, re.DOTALL | re.IGNORECASE):
+        for m in re.finditer(self.cs_pattern, message, re.DOTALL | re.IGNORECASE):
             try:
                 c = ConfigurationSpace(eval(m.group(1)))
             except Exception as e:  # pragma: no cover - best effort
@@ -225,9 +234,12 @@ class LLM(ABC):
         Raises:
             NoCodeException: If no code block is found within the message.
         """
-        match = re.search(self.code_pattern, message, re.DOTALL | re.IGNORECASE)
-        if match:
-            code = match.group(1)
+        if self._custom_code_pattern:
+            match = re.search(self.code_pattern, message, re.DOTALL | re.IGNORECASE)
+            code = match.group(1) if match else None
+        else:
+            code = self._preferred_block(message)
+        if code is not None:
             main_guard_pattern = re.compile(
                 r"^\s*if __name__\s*={1,2}\s*['\"]__main__['\"]\s*:\s*$",
                 re.MULTILINE,
@@ -249,12 +261,69 @@ class LLM(ABC):
         Returns:
             str: Extracted algorithm name or empty string.
         """
-        pattern = r"#\s*Description\s*:\s*(.*)"
-        match = re.search(pattern, message, re.IGNORECASE)
+        match = re.search(self.desc_pattern, message, re.IGNORECASE)
         if match:
-            return match.group(1)
+            return match.group(1).strip()
         else:
             return ""
+
+    _FENCE = re.compile(
+        r"^[ \t]*```[ \t]*([\w+.-]*)[^\n]*\n(.*?)\n?^[ \t]*```",
+        re.DOTALL | re.MULTILINE,
+    )
+    _CODE_LANGS = ("", "python", "py", "python3", "diff")
+
+    def _fenced_blocks(self, message: str) -> list[tuple[str, str]]:
+        """All fenced code blocks in ``message`` as ``(language, body)``.
+
+        Fences must start a line, so the closing fence of a ``bash`` block is
+        never taken for the opening fence of the next block.
+        """
+        return [(lang.lower(), body) for lang, body in self._FENCE.findall(message)]
+
+    def _preferred_block(self, message: str) -> str | None:
+        """The first Python (or untagged) block, else the first block."""
+        blocks = self._fenced_blocks(message)
+        if not blocks:
+            return None
+        for lang, body in blocks:
+            if lang in self._CODE_LANGS:
+                return body
+        return blocks[0][1]
+
+    def _has_diff_blocks(self, message: str) -> bool:
+        """True if any fenced block holds SEARCH/REPLACE markers."""
+        return any(
+            "SEARCH" in body and "REPLACE" in body
+            for _, body in self._fenced_blocks(message)
+        )
+
+    def _extract_diff_blocks(self, message: str) -> str:
+        """Join all fenced blocks with SEARCH/REPLACE markers (diff mode).
+
+        Falls back to the regular code block when there are none.
+        """
+        diffs = [
+            body
+            for _, body in self._fenced_blocks(message)
+            if "SEARCH" in body and "REPLACE" in body
+        ]
+        if diffs:
+            return "\n".join(diffs)
+        return self.extract_algorithm_code(message)
+
+    def extract_algorithm_name(self, code: str) -> str:
+        """Name of the algorithm: the first class, else the first function.
+
+        Raises:
+            NoCodeException: If the code defines neither.
+        """
+        match = re.search(self.name_pattern, code, re.MULTILINE)
+        if match is None:
+            match = re.search(r"^[ \t]*(?:class|def)\s+(\w+)", code, re.MULTILINE)
+        if match is None:
+            raise NoCodeException
+        return match.group(1)
 
 
 class OpenAI_LLM(LLM):
@@ -262,7 +331,9 @@ class OpenAI_LLM(LLM):
     A manager class for handling requests to OpenAI's GPT models.
     """
 
-    def __init__(self, api_key, model="gpt-4-turbo", temperature=0.8, **kwargs):
+    def __init__(
+        self, api_key, model="gpt-4-turbo", temperature=0.8, base_url=None, **kwargs
+    ):
         """
         Initializes the LLM manager with an API key and model name.
 
@@ -270,13 +341,19 @@ class OpenAI_LLM(LLM):
             api_key (str): api key for authentication.
             model (str, optional): model abbreviation. Defaults to "gpt-4-turbo".
                 Options are: gpt-3.5-turbo, gpt-4-turbo, gpt-4o, and others from OpeNAI models library.
+            temperature (float, optional): Sampling temperature. Some reasoning
+                models only accept the default; pass ``None`` to omit it.
+            base_url (str, optional): An OpenAI-compatible endpoint (e.g. vLLM,
+                OpenRouter). Defaults to OpenAI (or ``OPENAI_BASE_URL``).
         """
         if openai is None:  # pragma: no cover - optional dependency
             raise ImportError(
                 "openai is required to use OpenAI_LLM. Install the 'openai' package."
             )
-        super().__init__(api_key, model, None, **kwargs)
+        super().__init__(api_key, model, base_url, **kwargs)
         self._client_kwargs = dict(api_key=api_key)
+        if base_url:
+            self._client_kwargs["base_url"] = base_url
         self.client = openai.OpenAI(**self._client_kwargs)
         logging.getLogger("openai").setLevel(logging.ERROR)
         logging.getLogger("httpx").setLevel(logging.ERROR)
@@ -298,12 +375,16 @@ class OpenAI_LLM(LLM):
         attempt = 0
         while True:
             try:
+                extra = {}
+                if self.temperature is not None:
+                    extra["temperature"] = self.temperature
                 response = self.client.chat.completions.create(
                     model=self.model,
                     messages=session_messages,
-                    temperature=self.temperature,
+                    **extra,
                 )
-                return response.choices[0].message.content
+                # content is None for refusals and tool-only replies.
+                return response.choices[0].message.content or ""
 
             except openai.RateLimitError as err:
                 attempt += 1
@@ -313,15 +394,19 @@ class OpenAI_LLM(LLM):
                 retry_after = None
                 if getattr(err, "response", None) is not None:
                     retry_after = err.response.headers.get("Retry-After")
-
-                wait = int(retry_after) if retry_after else default_delay * attempt
+                try:
+                    wait = float(retry_after)
+                except (TypeError, ValueError):  # missing or an HTTP date
+                    wait = default_delay * attempt
                 time.sleep(wait)
 
             except (
                 openai.APITimeoutError,
                 openai.APIConnectionError,
-                openai.APIError,
+                openai.InternalServerError,
             ) as err:
+                # Only transient errors are retried: a bad request, wrong key
+                # or unknown model (other APIErrors) fails immediately.
                 attempt += 1
                 if attempt > max_retries:
                     raise
@@ -470,12 +555,13 @@ class Gemini_LLM(LLM):
                     model=self.model, history=history, config=config
                 )
                 response = chat.send_message(last)
-                return response.text
+                # text is None when the reply was blocked or empty.
+                return response.text or ""
 
             except Exception as err:
                 attempt += 1
-                if attempt > max_retries:
-                    raise err  # bubble out after N tries
+                if attempt > max_retries or not _gemini_retryable(err):
+                    raise err  # bubble out after N tries, or at once if permanent
 
                 # Prefer the structured retry_delay field if present
                 delay = getattr(err, "retry_delay", None)
@@ -487,6 +573,14 @@ class Gemini_LLM(LLM):
                     wait = int(m.group(1)) if m else default_delay * attempt
 
                 time.sleep(wait)
+
+
+def _gemini_retryable(err: Exception) -> bool:
+    """True for rate limits, server errors and errors without an HTTP code."""
+    code = getattr(err, "code", None)
+    if not isinstance(code, int):
+        return True  # e.g. connection errors
+    return code == 429 or code >= 500
 
 
 class Ollama_LLM(LLM):
@@ -848,7 +942,7 @@ class MLX_LM_LLM(LLM):
         session: list,
         max_tries: int = 5,
         default_delay: int = 5,
-        add_generation_prompt: bool = False,
+        add_generation_prompt: bool = True,
     ):
         """
         Query stub for LMStudio class.

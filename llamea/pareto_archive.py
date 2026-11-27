@@ -1,5 +1,4 @@
 import numpy as np
-from pymoo.util.nds.non_dominated_sorting import NonDominatedSorting
 
 from llamea.multi_objective_fitness import Fitness
 from llamea.solution import Solution
@@ -65,6 +64,8 @@ class ParetoArchive:
         # Handle maximisation by negating objectives
         if not self.minimisation:
             F = -F
+
+        from pymoo.util.nds.non_dominated_sorting import NonDominatedSorting
 
         nds = NonDominatedSorting()
         front_idx = nds.do(F, only_non_dominated_front=True)

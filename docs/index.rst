@@ -1,137 +1,164 @@
-.. LLaMEA documentation master file, created by
-   sphinx-quickstart on Mon Mar  3 09:42:40 2025.
-   You can adapt this file completely to your liking, but it should at least
-   contain the root `toctree` directive.
+:hide-toc:
 
+LLaMEA
+======
 
-LLaMEA: Large Language Model Evolutionary Algorithm
-===================================================
+.. raw:: html
 
-.. note::
-   **The fully-open alternative to Google DeepMind's AlphaEvolve.
-   First released 📅 Nov 2024 • MIT License • 100 % reproducible.**
+   <div class="llamea-hero">
+     <div class="hero-title">LLM-driven <span class="grad">algorithm design</span></div>
+     <p>LLaMEA couples large-language-model reasoning with an evolutionary loop
+     to invent, mutate and benchmark algorithms fully autonomously. The fully
+     open alternative to AlphaEvolve, first released in November 2024.</p>
+     <a class="hero-btn primary" href="Quickstart.html">Get started</a>
+     <a class="hero-btn ghost" href="variants.html">Variants</a>
+     <a class="hero-btn blade" href="blade.html">Benchmark with BLADE &rarr;</a>
+   </div>
 
-.. note::
-   **🥈 Winner of the Silver `Humies 2025 <https://www.human-competitive.org/awards>`_ at GECCO!**
+.. grid:: 1 2 2 3
+   :gutter: 3
 
-LLaMEA couples large-language-model reasoning with an evolutionary loop to **invent, mutate and benchmark algorithms fully autonomously**.  
+   .. grid-item-card:: :octicon:`rocket` Get started
+      :link: Quickstart
+      :link-type: doc
 
-.. image:: https://badge.fury.io/py/llamea.svg
-   :target: https://pypi.org/project/llamea/
-   :alt: PyPI version
-   :height: 18
-.. image:: https://img.shields.io/badge/Maintained%3F-yes-brightgreen.svg
-   :alt: Maintenance
-   :height: 18
-.. image:: https://img.shields.io/badge/Python-3.10+-blue.svg
-   :alt: Python 3.10+
-   :height: 18
-.. image:: https://codecov.io/gh/XAI-liacs/LLaMEA/graph/badge.svg?token=VKCNPWVBNM
-   :target: https://codecov.io/gh/XAI-liacs/LLaMEA
-   :alt: Codecov
-   :height: 18
-.. image:: https://zenodo.org/badge/DOI/10.5281/zenodo.13842144.svg
-   :target: https://doi.org/10.5281/zenodo.13842144
-   :alt: DOI
-   :height: 18
+      Install LLaMEA and evolve a first algorithm in a few lines.
 
+   .. grid-item-card:: :octicon:`git-branch` Variants
+      :link: variants
+      :link-type: doc
 
-**LLaMEA** (Large Language Model Evolutionary Algorithm) is an innovative framework
-that leverages the power of large language models (LLMs) such as GPT-4 for the
-automated generation and refinement of metaheuristic optimization algorithms.
-The framework utilizes a novel approach to evolve and optimize algorithms
-iteratively based on performance metrics and runtime evaluations without
-requiring extensive prior algorithmic knowledge. This makes LLaMEA an ideal tool
-for both research and practical applications in fields where optimization is
-crucial.
+      LLaMEA-HPO, -BO, -MO and -SAGE as ready-made classes.
 
-🔥 News
-----
-- 2025.07 🎉🎉 **"LLaMEA" won the Any-time Performancy on Many-Affine BBOB competition, and the Silver award at the** `Humies @GECCO2025 <https://www.human-competitive.org/awards>`_!
+   .. grid-item-card:: :octicon:`gear` Configure the loop
+      :link: llamea
+      :link-type: doc
 
-- 2025.06 🎉🎉 **"LLaMEA-BO: A Large Language Model Evolutionary Algorithm for Automatically Generating Bayesian Optimization Algorithms"** `paper <https://arxiv.org/abs/2505.21034>`_ **published on Arxiv!**
+      Strategies, operators, niching, diff mode, warm start.
 
-- 2025.05 🎉🎉 **"Optimizing Photonic Structures with Large Language Model Driven Algorithm Discovery"** accepted as a `workshop paper <https://arxiv.org/abs/2503.19742>`_ **at GECCO 2025!**
+   .. grid-item-card:: :octicon:`beaker` Benchmark with BLADE
+      :link: blade
+      :link-type: doc
 
-- 2025.05 🎉🎉 **"BLADE: Benchmark Suite for LLM-Driven Automated Design and Evolution of iterative optimisation heuristics"** accepted as a `workshop paper <https://arxiv.org/abs/2504.20183>`_ **at GECCO 2025!**
+      Compare LLaMEA with other methods on standard suites.
 
-- 2025.04 🎉🎉 **LLaMEA-HPO paper accepted in ACM TELO** `“In-the-loop Hyper-Parameter Optimization for LLM-Based Automated Design of Heuristics" <https://dl.acm.org/doi/abs/10.1145/3731567>`_!
+   .. grid-item-card:: :octicon:`book` Publications
+      :link: publications
+      :link-type: doc
 
-- 2025.04 🎉🎉 **`"Code Evolution Graphs"** accepted as a `full paper <https://arxiv.org/abs/2503.16668>`_ **at GECCO 2025`!**
+      Papers on the method, its analysis and applications.
 
-- 2025.03 🎉🎉 **LLaMEA v1.0.0 released**!
+   .. grid-item-card:: :octicon:`code` API reference
+      :link: modules
+      :link-type: doc
 
-- 2025.01 🎉🎉 **LLaMEA paper accepted in IEEE TEVC** `LLaMEA: A large language model evolutionary algorithm for automatically generating metaheuristics" <https://ieeexplore.ieee.org/abstract/document/10752628/>`_!
+      Every class and function, from ``LLaMEA`` to ``Solution``.
 
+Quick start
+-----------
 
-🤖 Contributing
-------------
+.. tab-set::
 
-Contributions to LLaMEA are welcome! Here are a few ways you can help:
+   .. tab-item:: LLaMEA
 
-- **Report Bugs**: Use `GitHub Issues <https://github.com/nikivanstein/LLaMEA/issues>`_ to report bugs.
-- **Feature Requests**: Suggest new features or improvements.
-- **Pull Requests**: Submit PRs for bug fixes or feature additions.
+      .. code-block:: python
 
-Please refer to ``CONTRIBUTING.md`` for more details on contributing guidelines.
+         from llamea import LLaMEA, OpenAI_LLM
 
-License
--------
+         llm = OpenAI_LLM(api_key="...", model="gpt-4o")
 
-Distributed under the `MIT <https://choosealicense.com/licenses/mit/>`_ License.
-See ``LICENSE`` for more information.
+         def evaluate(solution, logger=None):
+             namespace = {}
+             exec(solution.code, namespace)
+             algorithm = namespace[solution.name](budget=1000, dim=5)
+             score = ...  # run the algorithm on your problem
+             solution.set_scores(score, feedback=f"Score: {score:.3f}")
+             return solution
 
-Cite us
---------
+         best = LLaMEA(evaluate, llm, budget=100).run()
 
-If you use LLaMEA in your research, please consider citing the associated paper:
+   .. tab-item:: A variant
 
-.. code-block:: bibtex
+      .. code-block:: python
 
-   @article{van2024llamea,
-      author={Stein, Niki van and Bäck, Thomas},
-      journal={IEEE Transactions on Evolutionary Computation}, 
-      title={LLaMEA: A Large Language Model Evolutionary Algorithm for Automatically Generating Metaheuristics}, 
-      year={2025},
-      volume={29},
-      number={2},
-      pages={331-345},
-      keywords={Benchmark testing;Evolutionary computation;Metaheuristics;Codes;Large language models;Closed box;Heuristic algorithms;Mathematical models;Vectors;Systematics;Automated code generation;evolutionary computation (EC);large language models (LLMs);metaheuristics;optimization},
-      doi={10.1109/TEVC.2024.3497793}
-   }
+         from llamea import LLaMEA_BO
 
-If you only want to cite the LLaMEA-HPO variant, use the following:
+         # (4+16)-ES, crossover 0.6, BO task prompt, 100 candidates
+         best = LLaMEA_BO(evaluate, llm).run()
 
-.. code-block:: bibtex
+   .. tab-item:: In BLADE
 
-   @article{van2024loop,
-      author = {van Stein, Niki and Vermetten, Diederick and B\"{a}ck, Thomas},
-      title = {In-the-loop Hyper-Parameter Optimization for LLM-Based Automated Design of Heuristics},
-      year = {2025},
-      publisher = {Association for Computing Machinery},
-      address = {New York, NY, USA},
-      url = {https://doi.org/10.1145/3731567},
-      doi = {10.1145/3731567},
-      note = {Just Accepted},
-      journal = {ACM Trans. Evol. Learn. Optim.},
-      month = apr,
-   }
+      .. code-block:: bash
+
+         pip install iohblade
+         iohblade init my-exp
+         iohblade run my-exp/experiment.yml   # LLaMEA vs. other methods
+
+At a glance
+-----------
+
+.. raw:: html
+
+   <div class="llamea-stats">
+     <div class="llamea-stat"><b>5</b><span>ready-made variants from our papers</span></div>
+     <div class="llamea-stat"><b>8+</b><span>LLM back-ends, hosted or local</span></div>
+     <div class="llamea-stat"><b>15</b><span>papers on method, analysis and applications</span></div>
+     <div class="llamea-stat"><b>🥈</b><span>Humies 2025 Silver at GECCO</span></div>
+   </div>
+
+.. raw:: html
+
+   <div class="blade-callout">
+   <b>LLaMEA designs algorithms; BLADE benchmarks them.</b>
+   Use LLaMEA directly for your own problem. To compare it (or a variant) with
+   EoH, ReEvo, FunSearch, MCTS-AHD and others on standard problem suites, with
+   logging, plots and a web app, use
+   <a href="https://github.com/XAI-liacs/BLADE">BLADE</a>
+   (<a href="blade.html">how</a>).
+   </div>
+
+Cite LLaMEA
+-----------
+
+If you use LLaMEA in your research, please cite the
+`IEEE TEVC paper <https://doi.org/10.1109/TEVC.2024.3497793>`_ (BibTeX on the
+:doc:`publications` page).
 
 .. toctree::
-   :maxdepth: 2
-   :caption: Contents:
+   :hidden:
+   :caption: Get started
 
    Introduction
    Installation
    Quickstart
    notebooks/simple_example
+
+.. toctree::
+   :hidden:
+   :caption: User guide
+
+   llamea
+   variants
+   crossover
+   llms
+   blade
+
+.. toctree::
+   :hidden:
+   :caption: Examples
+
+   examples
    notebooks/automl_example
+
+.. toctree::
+   :hidden:
+   :caption: Research
+
+   publications
+
+.. toctree::
+   :hidden:
+   :caption: Reference
+
    modules
-
-
-Indices and tables
-==================
-
-* :ref:`genindex`
-* :ref:`modindex`
-* :ref:`search`
+   changelog
