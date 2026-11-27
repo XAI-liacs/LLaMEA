@@ -55,7 +55,9 @@
 - Diff mode: a repeated SEARCH text was dropped instead of applied to the
   next occurrence; only the first fenced block was used; a reply whose SEARCH
   blocks matched nothing silently re-evaluated the unchanged parent (now an
-  error the LLM sees).
+  error the LLM sees); a reply with complete code instead of SEARCH/REPLACE
+  blocks was ignored, which also re-evaluated the parent (the code is now
+  used).
 - Error messages pointed to a line inside numpy/scipy instead of the
   candidate code.
 - `prepare_namespace`: `import numpy.linalg` bound `numpy` to the
@@ -63,7 +65,7 @@
   than `>` were not stripped; `typing`, `functools`, `dataclasses`, `abc`,
   `bisect`, `enum`, `numbers` and `time` are now allowed.
 - `ExperimentLogger.log_solution` crashed for multi-objective fitness and
-  numpy output.
+  numpy output (including numpy values inside a `Fitness`).
 - `feature_guided_mutation` with `multi_objective=True` now fails at
   construction instead of crashing the run.
 - `llamea-lite` could not be imported: `pymoo`, `lizard` and `networkx` are

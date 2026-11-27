@@ -306,3 +306,248 @@ def test_prepare_namespace_dotted_relative_and_versions():
     assert hasattr(ns["numpy"], "linalg")
     assert ns["typing"].__name__ == "typing"
     assert ".x" in issue
+
+
+# ---------------------------------------------------------------- coverage of
+# the remaining new branches (edge cases of the fixes above)
+
+
+def test_prepare_namespace_star_and_submodule_imports():
+    ns, issue = prepare_namespace("from math import *\nfrom xml import dom", ["xml"])
+    assert "sqrt" in ns and issue is None
+    assert ns["dom"].__name__ == "xml.dom"
+
+
+def test_old_pickles_with_serialised_configspace_are_restored():
+    cs_mod = pytest.importorskip("ConfigSpace")
+    cs = cs_mod.ConfigurationSpace({"a": (0.0, 1.0)})
+    sol = Solution(code="x")
+    state = sol.__dict__.copy()
+    state["configspace"] = cs.to_serialized_dict()  # what < 1.6.0 pickled
+    state.pop("operator_id")
+    restored = Solution.__new__(Solution)
+    restored.__setstate__(state)
+    assert isinstance(restored.configspace, cs_mod.ConfigurationSpace)
+    assert restored.operator_id is None
+
+
+def test_operator_equality_with_other_types():
+    op = Operator("a")
+    assert op != None  # noqa: E711
+    assert op != "a"
+    assert op == op
+
+
+def test_custom_code_pattern_and_fallbacks():
+    llm = Dummy_LLM(code_pattern=r"<code>(.*?)</code>")
+    assert llm.extract_algorithm_code("x <code>class A: pass</code> y") == "class A: pass"
+    with pytest.raises(NoCodeException):
+        llm.extract_algorithm_code("no code")
+    # only a non-Python block: use it rather than fail
+    assert Dummy_LLM().extract_algorithm_code("```text\nclass T: pass\n```") == (
+        "class T: pass"
+    )
+
+
+def test_diff_mode_without_markers_uses_the_full_code():
+    llm = ScriptedLLM("```python\nclass B:\n    pass\n```")
+    sol = llm.sample_solution(
+        [{"role": "user", "content": "go"}], base_code="class A:\n    pass", diff_mode=True
+    )
+    assert sol.code == "class B:\n    pass" and sol.name == "B"
+
+
+def test_extract_configspace():
+    pytest.importorskip("ConfigSpace")
+    message = "Space:\n```python\n{'x': (0.0, 1.0)}\n```"
+    cs = Dummy_LLM().extract_configspace(message)
+    assert cs is not None and "x" in list(cs.keys())
+
+
+def _openai_error(cls, status, headers=None):
+    import httpx
+
+    request = httpx.Request("POST", "http://test")
+    response = httpx.Response(status, request=request, headers=headers or {})
+    return cls("error", response=response, body=None)
+
+
+def _fake_response(content):
+    from types import SimpleNamespace
+
+    message = SimpleNamespace(content=content)
+    return SimpleNamespace(choices=[SimpleNamespace(message=message)])
+
+
+def test_openai_retries_transient_errors_only(monkeypatch):
+    openai = pytest.importorskip("openai")
+    from llamea.llm import OpenAI_LLM
+
+    llm = OpenAI_LLM("key", "model", base_url="http://localhost:1/v1")
+    assert llm._client_kwargs["base_url"] == "http://localhost:1/v1"
+    sleeps = []
+    monkeypatch.setattr("llamea.llm.time.sleep", sleeps.append)
+
+    calls = iter(
+        [
+            _openai_error(openai.RateLimitError, 429, {"Retry-After": "1.5"}),
+            _openai_error(openai.RateLimitError, 429, {"Retry-After": "Wed, 1 Jan"}),
+            _fake_response(None),  # refusal: no content
+        ]
+    )
+
+    def create(**kwargs):
+        item = next(calls)
+        if isinstance(item, Exception):
+            raise item
+        return item
+
+    monkeypatch.setattr(llm.client.chat.completions, "create", create)
+    assert llm.query([{"role": "user", "content": "hi"}], default_delay=7) == ""
+    assert sleeps == [1.5, 14]  # Retry-After, then default_delay * attempt
+
+    def bad_request(**kwargs):
+        raise _openai_error(openai.BadRequestError, 400)
+
+    monkeypatch.setattr(llm.client.chat.completions, "create", bad_request)
+    sleeps.clear()
+    with pytest.raises(openai.BadRequestError):
+        llm.query([{"role": "user", "content": "hi"}])
+    assert sleeps == []  # not retried
+
+
+def test_openai_temperature_none_is_omitted(monkeypatch):
+    pytest.importorskip("openai")
+    from llamea.llm import OpenAI_LLM
+
+    llm = OpenAI_LLM("key", "model", temperature=None)
+    seen = {}
+
+    def create(**kwargs):
+        seen.update(kwargs)
+        return _fake_response("ok")
+
+    monkeypatch.setattr(llm.client.chat.completions, "create", create)
+    assert llm.query([{"role": "user", "content": "hi"}]) == "ok"
+    assert "temperature" not in seen
+
+
+def test_gemini_retryable_errors():
+    from llamea.llm import _gemini_retryable
+
+    class E(Exception):
+        def __init__(self, code):
+            self.code = code
+
+    assert _gemini_retryable(E(429)) and _gemini_retryable(E(503))
+    assert _gemini_retryable(ConnectionError())
+    assert not _gemini_retryable(E(400)) and not _gemini_retryable(E(404))
+
+
+def test_log_solution_accepts_multi_objective_fitness(tmp_path, monkeypatch):
+    import json
+
+    import numpy as np
+
+    from llamea.loggers import ExperimentLogger
+
+    monkeypatch.chdir(tmp_path)
+    logger = ExperimentLogger("mo")
+    sol = Solution(code="x")
+    sol.set_scores(Fitness({"a": 1.0, "b": np.float32(2.0)}))
+    logger.log_solution(sol, np.array([1.0, 2.0]))
+    with open(f"{logger.dirname}/solutions.jsonl") as fh:
+        row = json.loads(fh.readline())
+    assert row["fitness"] == {"a": 1.0, "b": 2.0} and row["output"] == [1.0, 2.0]
+
+
+def test_restore_population_from_log_handles_odd_rows(tmp_path):
+    import jsonlines
+
+    rows = [
+        {"code": "", "fitness": 1.0},  # no code: skipped
+        {"code": "class A: pass", "name": "A", "fitness": None},
+        {"code": "class B: pass", "name": "B", "fitness": 2.0, "feedback": "f"},
+    ]
+    with jsonlines.open(tmp_path / "log.jsonl", "w") as writer:
+        writer.write_all(rows)
+    opt = LLaMEA(scalar_f, ScriptedLLM(GOOD), n_parents=2, log=False)
+    opt.get_population_from(str(tmp_path))
+    assert [s.name for s in opt.population] == ["A", "B"]
+    assert opt.population[0].fitness == opt.worst_value
+
+    mo_rows = [{"code": "class C: pass", "name": "C", "fitness": {"a": 1.0}}]
+    with jsonlines.open(tmp_path / "log.jsonl", "w") as writer:
+        writer.write_all(mo_rows)
+    mo = LLaMEA(
+        scalar_f,
+        ScriptedLLM(GOOD),
+        n_parents=1,
+        multi_objective=True,
+        multi_objective_keys=["a"],
+        log=False,
+    )
+    mo.get_population_from(str(tmp_path))
+    assert isinstance(mo.population[0].fitness, Fitness)
+
+
+def test_clearing_off_interval_restores_raw_fitness():
+    opt = LLaMEA(
+        scalar_f,
+        ScriptedLLM(GOOD),
+        niching="clearing",
+        niche_radius=1.0,
+        clearing_interval=2,
+        log=False,
+    )
+    best, worse = make(10.0), make(5.0)
+    opt.generation = 2
+    opt.apply_niching([best, worse])
+    assert worse.fitness == opt.worst_value
+    opt.generation = 3  # no clearing this generation
+    opt.apply_niching([best, worse])
+    assert worse.fitness == 5.0
+
+
+def test_operator_weight_edge_cases():
+    ops = [Operator("a"), Operator("b")]
+    opt = LLaMEA(scalar_f, ScriptedLLM(GOOD), n_parents=1, operators=ops, log=False)
+    a, b = opt.operators
+    a.weight, b.weight = None, float("nan")
+    assert opt._operator_selection_weights() == [1.0, 1.0]
+    a.weight, b.weight = 0.0, 0.0
+    assert opt._operator_selection_weights() == [1.0, 1.0]
+    assert opt._run_parallel([]) == []
+
+    class Boom(DefaultWeightUpdater):
+        def update(self, id, reward):
+            raise RuntimeError("boom")
+
+    opt.operator_weight_updater = Boom([a.id, b.id])
+    parent = make(1.0)
+    opt.population = [parent]
+    unknown_op = make(2.0)
+    unknown_op.operator_id = "not-an-operator"
+    orphan = make(2.0)
+    orphan.operator_id, orphan.parent_ids = a.id, ["missing"]
+    failing = make(2.0)
+    failing.operator_id, failing.parent_ids = a.id, [parent.id]
+    opt._update_operator_weights([unknown_op, orphan, failing])  # must not raise
+
+
+def test_same_treats_nans_as_equal():
+    from llamea.llamea import _same
+
+    assert _same(float("nan"), float("nan"))
+    assert not _same(float("nan"), 1.0)
+    assert _same(1.0, 1.0)
+
+
+def test_blade_hint_is_not_shown_inside_blade(capsys, monkeypatch):
+    import llamea.llamea as core
+
+    monkeypatch.setattr(core, "_BLADE_HINT_SHOWN", False)
+    monkeypatch.delenv("LLAMEA_NO_BLADE_HINT", raising=False)
+    FakeProblem = type("Problem", (), {"__module__": "iohblade.problem"})
+    core._show_blade_hint(FakeProblem())
+    assert capsys.readouterr().out == ""

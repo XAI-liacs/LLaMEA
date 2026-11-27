@@ -30,7 +30,7 @@ def convert_to_serializable(data):
     if isinstance(data, np.ndarray):
         return data.tolist()
     if isinstance(data, Fitness):
-        return data.to_dict()
+        return convert_to_serializable(data.to_dict())
     else:
         return data
 

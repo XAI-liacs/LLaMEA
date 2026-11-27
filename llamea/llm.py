@@ -168,7 +168,7 @@ class LLM(ABC):
         if self.log:
             self.logger.log_conversation(self.model, message)
 
-        if diff_mode and isinstance(base_code, str):
+        if diff_mode and isinstance(base_code, str) and self._has_diff_blocks(message):
             # LLMs often put every SEARCH/REPLACE block in its own fence.
             code = self._extract_diff_blocks(message)
             dfm = DiffModeManager(base_code, code)
@@ -181,6 +181,8 @@ class LLM(ABC):
                     "the lines to replace verbatim into each SEARCH block."
                 )
         else:
+            # Also in diff mode when the LLM answered with complete code: use
+            # it, instead of returning the unchanged parent.
             code = self.extract_algorithm_code(message)
 
         name = self.extract_algorithm_name(code)
@@ -288,6 +290,13 @@ class LLM(ABC):
             if lang in self._CODE_LANGS:
                 return body
         return blocks[0][1]
+
+    def _has_diff_blocks(self, message: str) -> bool:
+        """True if any fenced block holds SEARCH/REPLACE markers."""
+        return any(
+            "SEARCH" in body and "REPLACE" in body
+            for _, body in self._fenced_blocks(message)
+        )
 
     def _extract_diff_blocks(self, message: str) -> str:
         """Join all fenced blocks with SEARCH/REPLACE markers (diff mode).
