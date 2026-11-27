@@ -160,3 +160,33 @@ def test_llamea_fitness_is_unhashable_but_equal_by_value():
     with pytest.raises(TypeError):
         hash(Fitness({"a": 1.0}))
     assert Fitness({"a": 1.0}) == Fitness({"a": 1.0})
+
+
+class MinimalFitness:
+    """Only the methods is_multi_objective_fitness requires: no indexing."""
+
+    def __init__(self, value):
+        self._values = dict(value)
+
+    def keys(self):
+        return self._values.keys()
+
+    def to_vector(self):
+        return [self._values[k] for k in sorted(self._values)]
+
+    def to_dict(self):
+        return dict(self._values)
+
+
+def test_minimal_fitness_without_indexing_is_enough():
+    s = Solution(code="x")
+    s.set_scores(MinimalFitness({"b": 2.0, "a": 1.0}))
+    assert is_multi_objective_fitness(s.fitness)
+    assert s.get_fitness_vector() == [1.0, 2.0]  # sorted by key
+    archive = ParetoArchive(minimisation=False)
+    archive.add_solutions([s])
+    assert [x.id for x in archive.get_best()] == [s.id]
+    failed = Solution(code="y")
+    failed.set_scores(MinimalFitness({"a": float("-inf"), "b": 0.0}))
+    archive.add_solutions([failed])
+    assert [x.id for x in archive.get_best()] == [s.id]

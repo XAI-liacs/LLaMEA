@@ -156,10 +156,10 @@ class Solution:
 
     def get_fitness_vector(self) -> list[float]:
         if is_multi_objective_fitness(self.fitness):
-            vector = []
-            for key in sorted(self.fitness.keys()):
-                vector.append(self.fitness[key])
-            return vector
+            # Only the methods is_multi_objective_fitness requires (to_dict),
+            # in sorted-key order as llamea.Fitness.to_vector.
+            values = self.fitness.to_dict()
+            return [values[key] for key in sorted(values)]
         else:
             return [self.fitness]
 

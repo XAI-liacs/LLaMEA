@@ -31,10 +31,9 @@ class ParetoArchive:
         if not is_multi_objective_fitness(solution.fitness):
             return False
 
-        for key in solution.fitness.keys():
-            if np.isnan(solution.fitness[key]):
-                return False
-            if np.isinf(solution.fitness[key]):
+        # Only the methods is_multi_objective_fitness requires (to_dict).
+        for value in solution.fitness.to_dict().values():
+            if np.isnan(value) or np.isinf(value):
                 return False
         return True
 
