@@ -21,4 +21,12 @@ from .utils import (
     discrete_power_law_distribution,
     prepare_namespace,
 )
+from .variants import (
+    VARIANTS,
+    LLaMEA_BO,
+    LLaMEA_HPO,
+    LLaMEA_MO,
+    LLaMEA_SAGE,
+    get_variant,
+)
 from .weight_updaters import DefaultWeightUpdater, DiscountedUCBState

@@ -233,7 +233,7 @@ if __name__ == "__main__":
             task_prompt=task_prompt,
             example_prompt=example_prompt,
             output_format_prompt=format_prompt,
-            mutation_prompts=feedback_prompts,
+            operators=feedback_prompts,
             experiment_name=experiment_name,
             elitism=True,
             HPO=True,
