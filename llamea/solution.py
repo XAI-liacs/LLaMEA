@@ -6,7 +6,7 @@ from typing import Optional
 
 import numpy as np
 
-from llamea.multi_objective_fitness import Fitness
+from llamea.multi_objective_fitness import Fitness, is_multi_objective_fitness
 
 
 class Solution:
@@ -155,11 +155,11 @@ class Solution:
                 self.error += f"On line {line_no}: {code_line}.\n"
 
     def get_fitness_vector(self) -> list[float]:
-        if isinstance(self.fitness, Fitness):
-            vector = []
-            for key in sorted(self.fitness.keys()):
-                vector.append(self.fitness[key])
-            return vector
+        if is_multi_objective_fitness(self.fitness):
+            # Only the methods is_multi_objective_fitness requires (to_dict),
+            # in sorted-key order as llamea.Fitness.to_vector.
+            values = self.fitness.to_dict()
+            return [values[key] for key in sorted(values)]
         else:
             return [self.fitness]
 

@@ -1,7 +1,7 @@
 cff-version: 1.2.0
 message: "If you use LLaMEA, please cite:"
 title: "LLaMEA: Large Language Model Evolutionary Algorithm"
-version: "1.6.0"
+version: "1.6.1"
 doi: 10.1109/TEVC.2024.3497793
 authors:
   - family-names: van Stein

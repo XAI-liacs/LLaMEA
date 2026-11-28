@@ -1,5 +1,19 @@
 # Changelog
 
+## 1.6.1 (unreleased)
+
+### Fixed
+- **Multi-objective mode accepts an evaluator's own fitness class** (#169).
+  It only accepted `llamea.Fitness` and replaced any other fitness, such as
+  BLADE's `iohblade.fitness.Fitness`, by the worst value on every objective,
+  so `LLaMEA_MO` and `multi_objective=True` produced nothing inside BLADE.
+  Any object with `keys()`, `to_vector()` and `to_dict()` now counts
+  (`llamea.multi_objective_fitness.is_multi_objective_fitness`). LLaMEA
+  learns the evaluator's class and creates its worst-value placeholders
+  (failed generations) in that class, converting earlier ones, so all
+  fitness values in a run compare with each other. `llamea.Fitness`
+  comparisons also accept such objects.
+
 ## 1.6.0 (2026-11-27)
 
 ### Added

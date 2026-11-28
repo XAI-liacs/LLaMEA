@@ -1,6 +1,6 @@
 import numpy as np
 
-from llamea.multi_objective_fitness import Fitness
+from llamea.multi_objective_fitness import is_multi_objective_fitness
 from llamea.solution import Solution
 
 
@@ -28,13 +28,12 @@ class ParetoArchive:
         ## Returns:
         `consider: bool`: Returns True, if solution is valid to be considered for pareto-front update, else returns False.
         """
-        if not isinstance(solution.fitness, Fitness):
+        if not is_multi_objective_fitness(solution.fitness):
             return False
 
-        for key in solution.fitness.keys():
-            if np.isnan(solution.fitness[key]):
-                return False
-            if np.isinf(solution.fitness[key]):
+        # Only the methods is_multi_objective_fitness requires (to_dict).
+        for value in solution.fitness.to_dict().values():
+            if np.isnan(value) or np.isinf(value):
                 return False
         return True
 
